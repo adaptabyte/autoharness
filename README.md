@@ -27,6 +27,9 @@ synthesized harness as it is built.
 
 ```bash
 python -m webui.server --port 8765   # then open http://localhost:8765
+# From another device on your Tailscale network, bind all interfaces:
+#   python -m webui.server --host 0.0.0.0 --port 8765
+#   -> http://<machine>.<tailnet>.ts.net:8765
 ```
 
 - **Smart tier**: Meta model API base URL + API key + model (e.g. a Muse
