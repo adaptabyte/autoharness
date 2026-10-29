@@ -1,0 +1,9 @@
+.venv/
+models/
+logs/
+game_kb.json
+data/kbs/*.json
+__pycache__/
+.pytest_cache/
+*.pyc
+.env
