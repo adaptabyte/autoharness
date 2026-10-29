@@ -171,14 +171,21 @@ def test_endpoint(cfg: dict) -> dict:
         out["models"] = models
         out["models_ms"] = round((time.time() - t0) * 1000)
         model = cfg.get("model") or (models[0] if models else "default")
-        body = json.dumps({"model": model, "max_tokens": 16, "messages": [
+        body = json.dumps({"model": model, "max_tokens": 256, "messages": [
             {"role": "user", "content": "Reply with exactly: OK"}]}).encode()
         t0 = time.time()
         req = urllib.request.Request(base + "/chat/completions", data=body,
                                      headers=headers, method="POST")
         with urllib.request.urlopen(req, timeout=60) as resp:
-            reply = json.loads(resp.read())["choices"][0]["message"]["content"]
-        out.update(ok=True, model=model, reply=reply[:120],
+            data = json.loads(resp.read())
+        # Reasoning models may return content=None (budget spent thinking)
+        # or put text in reasoning_content; both still prove the endpoint.
+        msg = (data.get("choices") or [{}])[0].get("message") or {}
+        reply = msg.get("content") or msg.get("reasoning_content") or ""
+        if not reply and data.get("output_text"):
+            reply = data["output_text"]
+        out.update(ok=True, model=model,
+                   reply=(reply.strip() or "(empty reply — endpoint OK)")[:120],
                    chat_ms=round((time.time() - t0) * 1000))
     except Exception as exc:
         out["error"] = str(exc)[:300]

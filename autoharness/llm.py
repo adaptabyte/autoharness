@@ -46,4 +46,7 @@ class OpenAICompatLLM:
             headers={"Content-Type": "application/json",
                      "Authorization": f"Bearer {self.api_key}"})
         with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-            return json.loads(resp.read())["choices"][0]["message"]["content"]
+            data = json.loads(resp.read())
+        msg = (data.get("choices") or [{}])[0].get("message") or {}
+        # Reasoning models may return content=None; never propagate None.
+        return msg.get("content") or msg.get("reasoning_content") or ""
