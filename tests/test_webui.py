@@ -49,3 +49,29 @@ def test_webui_demo_job_end_to_end():
         assert "webui-test.json" in json.loads(body)["kbs"]
     finally:
         srv.shutdown()
+
+
+def test_frame_url_with_cache_buster():
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{srv.server_address[1]}"
+    try:
+        cfg = {"smart": {"mock": True}, "fast": {"base_url": "", "model": "m"},
+               "game_name": "webui-frame", "target": "demo",
+               "manual_text": "", "steps": 50, "seconds": 1, "kb_path": ""}
+        _, body = _req(base, "/api/jobs/explore", cfg)
+        job_id = json.loads(body)["job_id"]
+        deadline = time.time() + 60
+        png = b""
+        import urllib.error
+        while time.time() < deadline:
+            try:
+                status, png = _req(base, f"/api/jobs/{job_id}/frame.png?t=12345")
+            except urllib.error.HTTPError:
+                time.sleep(0.3); continue
+            if status == 200 and png[:4] == b"\x89PNG":
+                break
+            time.sleep(0.3)
+        assert png[:4] == b"\x89PNG", "frame.png?t= must return a PNG, not JSON"
+    finally:
+        srv.shutdown()

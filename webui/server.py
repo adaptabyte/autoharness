@@ -226,6 +226,7 @@ class Handler(BaseHTTPRequestHandler):
         return json.loads(self.rfile.read(n) or b"{}")
 
     def do_GET(self):
+        self.path = self.path.split("?")[0]  # frame URLs carry ?t= cache-busters
         if self.path in ("/", "/index.html"):
             data = (STATIC / "index.html").read_bytes()
             self.send_response(200)
