@@ -45,4 +45,5 @@ exec .venv/bin/python -m vllm.entrypoints.openai.api_server \
   --max-model-len "${GLIMMER_MAX_LEN:-8192}" \
   --max-num-seqs "${GLIMMER_MAX_SEQS:-64}" \
   --enable-prefix-caching \
+  --reasoning-parser muse_glimmer \
   --port "$PORT"
