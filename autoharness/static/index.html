@@ -192,6 +192,7 @@ setInterval(refresh,2500);
 function statusBadge(a){
   if(a.status==="ready")return h("span",{class:"badge ok"},"Ready");
   if(a.status==="teaching")return h("span",{class:"badge busy"},"Learning");
+  if(a.status==="superseded")return h("span",{class:"badge"},"Replaced");
   return h("span",{class:"badge bad"},a.status==="stopped"?"Stopped":"Failed");
 }
 function appCard(a){

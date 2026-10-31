@@ -30,10 +30,10 @@ def main():
              "", "Proof runs start from a fresh copy with no cloud, and an independent Spark call that never saw the code judges the final screen. "
              "Glimmer-alone runs use only `observe()` and the verbs, with no screenshot, and are judged the same way. Teaching cost includes any later improvement.",
              "", "| App | Status | Cost to teach | Program runs passed | Glimmer-alone runs passed | Typical run | Spark alone, every step |", "|---|---|---|---|---|---|---|"]
-    lines += [row(p) for p in pkgs if p.manifest.get("status") == "ready" or p.manifest.get("gauntlet")]
-    failed = [p for p in pkgs if p.manifest.get("status") != "ready" and not p.manifest.get("gauntlet")]
+    lines += [row(p) for p in pkgs if p.manifest.get("status") == "ready"]
+    failed = [p for p in pkgs if p.manifest.get("status") != "ready"]
     if failed:
-        lines += ["", "## Attempts that did not make it", "", "Kept on purpose, including ones lost to bugs in Autoharness itself.", ""]
+        lines += ["", "## Earlier attempts", "", "Kept on purpose, including ones lost to bugs in Autoharness itself.", ""]
         lines += [f"- **{p.manifest.get('name')}** ({p.id}): ${p.manifest.get('teach_usd', 0):.2f}. {str(p.manifest.get('failure'))[:200]}" for p in failed]
     lines += ["", f"Total spent on the Meta API while building and testing: ${Ledger.read()['spent_usd']:.2f}.", ""]
     (ROOT / "docs" / "RESULTS.md").write_text("\n".join(lines))
