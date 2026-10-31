@@ -173,6 +173,12 @@ def judge_final_screen(cloud: Cloud, goal: str, frame: np.ndarray, summary: str 
         return {"achieved": False, "why": "the judge gave an unreadable answer"}
 
 
+def goal_with_inputs(goal: str, params: dict | None) -> str:
+    """The goal plus this run's inputs, so whoever does or judges the job sees the same request."""
+    shown = {k: v for k, v in (params or {}).items() if k != "_files"}
+    return goal + (f"\nInputs: {json.dumps(shown)}" if shown else "")
+
+
 def app_notes(pkg: Package) -> str:
     p = pkg.path / "teach" / "understanding.md"
     return p.read_text() if p.exists() else ""
@@ -655,7 +661,7 @@ class Teacher:
     def _verify(self) -> tuple[int, list[dict]]:
         """Fresh instance, no cloud, no recovery from the teacher. Then an independent judge."""
         self.emit({"type": "phase", "phase": "verify"})
-        goal = self.pkg.manifest["goal"]
+        goal = goal_with_inputs(self.pkg.manifest["goal"], self.sample_params)
         passed = 0
         rows = []
         for i in range(self.verify_runs):
@@ -691,9 +697,8 @@ class Teacher:
             self.pkg.update(interface_verified=None)
             return runs, []
         self.emit({"type": "phase", "phase": "prove_interface"})
-        goal = self.pkg.manifest["goal"]
-        params = {k: v for k, v in self.sample_params.items() if k != "_files"}
-        request = goal + (f"\nInputs: {json.dumps(params)}" if params else "")
+        goal = goal_with_inputs(self.pkg.manifest["goal"], self.sample_params)
+        request = goal
         passed, rows = 0, []
         for i in range(runs):
             if self.stop.is_set():

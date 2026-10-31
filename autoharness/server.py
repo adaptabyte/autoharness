@@ -25,7 +25,7 @@ from .desktop import Display
 from .local import Glimmer
 from .runtime import Runner
 from .session import Session, operate
-from .teacher import Repairer, Teacher, app_notes, baseline
+from .teacher import Repairer, Teacher, app_notes, baseline, goal_with_inputs
 
 STATIC = Path(__file__).resolve().parent / "static"
 JOBS: dict[str, "Job"] = {}
@@ -177,7 +177,7 @@ def start_race(package_id: str) -> Job:
 
         def spark():
             try:
-                outcome.update(baseline(left, t_spark, pkg.manifest["goal"], job.lane("spark"), job.stop, limit_usd=1.5, notes=app_notes(pkg)))
+                outcome.update(baseline(left, t_spark, goal_with_inputs(pkg.manifest["goal"], spec.get("sample_params")), job.lane("spark"), job.stop, limit_usd=1.5, notes=app_notes(pkg)))
                 pkg.update(baseline=outcome)
                 job.emit({"type": "race_end", **outcome}, "spark")
             except Exception as e:  # noqa: BLE001
@@ -524,27 +524,31 @@ class Handler(BaseHTTPRequestHandler):
         display = job.displays.get(lane)
         if not display:
             return
-        last = None
+        last, sent_at = None, 0.0
         while job.status == "running":
             try:
                 f = display.shot()
             except Exception:  # noqa: BLE001 - the screen went away with the job
                 return
             sig = f[::6, ::6].tobytes()
-            if sig != last:
-                last = sig
-                buf = io.BytesIO()
-                # A small window on a big black screen is hard to see: show the part in use, as the app really is.
-                lit = np.argwhere(f[::4, ::4].max(axis=2) > 0)
-                if len(lit):
-                    (y1, x1), (y2, x2) = lit.min(0) * 4, (lit.max(0) + 1) * 4
-                    if (x2 - x1) * (y2 - y1) < 0.8 * f.shape[0] * f.shape[1]:
-                        f = f[max(0, y1 - 12):y2 + 12, max(0, x1 - 12):x2 + 12]
-                Image.fromarray(f).save(buf, "JPEG", quality=82)
-                data = buf.getvalue()
-                self.wfile.write(b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: " + str(len(data)).encode() + b"\r\n\r\n" + data + b"\r\n")
-                self.wfile.flush()
+            # Browsers show a motion-JPEG frame only once the next one starts, so a still screen must keep sending.
+            if sig != last or time.time() - sent_at > 0.8:
+                last, sent_at = sig, time.time()
+                self._send_frame(f)
             time.sleep(0.06)
+
+    def _send_frame(self, f: np.ndarray) -> None:
+        # A small window on a big black screen is hard to see: show the part in use, as the app really is.
+        lit = np.argwhere(f[::4, ::4].max(axis=2) > 0)
+        if len(lit):
+            (y1, x1), (y2, x2) = lit.min(0) * 4, (lit.max(0) + 1) * 4
+            if (x2 - x1) * (y2 - y1) < 0.8 * f.shape[0] * f.shape[1]:
+                f = f[max(0, y1 - 12):y2 + 12, max(0, x1 - 12):x2 + 12]
+        buf = io.BytesIO()
+        Image.fromarray(f).save(buf, "JPEG", quality=82)
+        data = buf.getvalue()
+        self.wfile.write(b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: " + str(len(data)).encode() + b"\r\n\r\n" + data + b"\r\n")
+        self.wfile.flush()
 
 
 class Server(ThreadingHTTPServer):

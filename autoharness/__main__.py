@@ -59,7 +59,7 @@ def main() -> None:
         print(json.dumps([p.summary() for p in library.all_packages()], indent=1))
         return None
 
-    from .teacher import Repairer, Teacher, app_notes, baseline, verify_only
+    from .teacher import Repairer, Teacher, app_notes, baseline, goal_with_inputs, verify_only
     from .runtime import Runner
     if args.cmd == "teach":
         try:
@@ -99,7 +99,7 @@ def main() -> None:
         elif args.cmd == "verify":
             print(json.dumps(verify_only(pkg, d, tgt, printer, args.runs, spec.get("sample_params")), indent=1))
         elif args.cmd == "baseline":
-            res = baseline(d, tgt, pkg.manifest["goal"], printer, limit_usd=args.limit, notes=app_notes(pkg))
+            res = baseline(d, tgt, goal_with_inputs(pkg.manifest["goal"], spec.get("sample_params")), printer, limit_usd=args.limit, notes=app_notes(pkg))
             pkg.update(baseline=res)
             print(json.dumps(res, indent=1))
     finally:

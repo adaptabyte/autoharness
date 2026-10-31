@@ -102,6 +102,8 @@ class Runner:
         self._frame_sig = None
         self._idle = 0
         self._t_end = 0.0
+        self._last_activity = 0.0
+        self.stall_seconds = 45.0
 
     # -- one launch of the sandboxed child ----------------------------------------------------
 
@@ -109,6 +111,8 @@ class Runner:
         """Carry out one request from the harness. Runs in the parent, which owns the display."""
         d = self.display
         method = m["m"]
+        if method not in ("screen", "ocr", "log", "wait_stable"):
+            self._last_activity = time.time()  # looking is not progress, and a harness can look forever
         if method == "screen":
             f = d.shot()
             tmp = work / "frame.tmp"
@@ -218,10 +222,20 @@ class Runner:
         stderr: list[str] = []
         threading.Thread(target=lambda: stderr.extend(proc.stderr.readlines()[-30:]), daemon=True).start()
         killer_fired = threading.Event()
+        stalled = threading.Event()
+        self._last_activity = time.time()
 
         def watchdog():
             while proc.poll() is None:
-                if self.stop.is_set() or time.time() > self._t_end:
+                if time.time() - self._last_activity > self.stall_seconds and not self.stop.is_set():
+                    # Find out where it is before ending it. That is the evidence a repair needs.
+                    stalled.set()
+                    try:
+                        os.kill(proc.pid, signal.SIGUSR1)
+                        time.sleep(0.5)
+                    except OSError:
+                        pass
+                if stalled.is_set() or self.stop.is_set() or time.time() > self._t_end:
                     killer_fired.set()
                     try:
                         os.killpg(proc.pid, signal.SIGKILL)
@@ -264,6 +278,10 @@ class Runner:
             proc.wait()
         if self.stop.is_set():
             return {"m": "end", "status": "stopped", "reason": "stopped by the user"}
+        if stalled.is_set():
+            time.sleep(0.1)
+            return {"m": "end", "status": "stalled", "reason": f"no action for {self.stall_seconds:.0f} s",
+                    "traceback": "".join(stderr)[-2500:]}
         if killer_fired.is_set():
             return {"m": "end", "status": "stuck", "reason": f"ran out of time ({self.max_seconds:.0f} s)"}
         return {"m": "end", "status": "exception", "reason": "the harness crashed",
@@ -317,7 +335,7 @@ class Runner:
         self._t_end = t0 + self.max_seconds
         import tempfile
         work = work or Path(tempfile.mkdtemp(prefix="autoharness-run-"))
-        recoveries_left, repairs_left = 2, 1
+        recoveries_left, repairs_left, restarts_left = 2, 1, 2
         try:
             while True:
                 if self.stop.is_set():
@@ -338,6 +356,11 @@ class Runner:
                     r.status = "failed"
                     break
                 self.emit({"type": "problem", "text": r.reason})
+                if status == "stalled" and restarts_left:
+                    # Harnesses can restart from any screen, so a stall costs seconds rather than the whole run.
+                    restarts_left -= 1
+                    self.emit({"type": "log", "tier": "code", "text": "It stalled, so it was restarted from the current screen."})
+                    continue
                 if recoveries_left and self._recover_locally(r.reason, r):
                     recoveries_left -= 1
                     r.recoveries += 1

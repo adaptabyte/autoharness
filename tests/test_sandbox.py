@@ -55,3 +55,26 @@ def test_generated_code_cannot_escape(tmp_path):
     for name in ("socket", "unix_socket", "read_home", "read_key", "start_program", "write_usr", "write_tmp",
                  "signal_init", "read_proc"):
         assert result[name] == "blocked", name
+
+
+def test_stalled_harness_is_stopped_and_says_where(tmp_path):
+    """A harness spinning without acting must not eat the whole time limit, and must leave evidence."""
+    from autoharness.runtime import Runner, RunResult
+
+    pkg = tmp_path / "pkg"
+    (pkg / "assets").mkdir(parents=True)
+    (pkg / "harness.py").write_text("def spin_here():\n    while True:\n        pass\n\ndef run(app):\n    spin_here()\n")
+
+    class FakeDisplay:
+        width, height = 8, 8
+
+    class P:
+        path = pkg
+        manifest = {}
+
+    r = Runner(P, FakeDisplay(), max_seconds=30, code_dir=pkg)
+    r.stall_seconds = 1.0
+    r._t_end = __import__("time").time() + 30
+    end = r._launch(tmp_path / "work", RunResult())
+    assert end["status"] == "stalled"
+    assert "spin_here" in end["traceback"]

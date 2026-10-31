@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import ctypes
+import faulthandler
 import json
 import os
 import platform
 import resource
+import signal
 import struct
 import sys
 import traceback
@@ -110,6 +112,8 @@ class _LogWriter:
 
 
 def main() -> None:
+    # If the runtime sees no activity it sends SIGUSR1, and this writes where every thread is to stderr.
+    faulthandler.register(signal.SIGUSR1, file=sys.__stderr__, all_threads=True)
     work, code_dir = Path(sys.argv[1]), Path(sys.argv[2])
     rpc_out = os.fdopen(os.dup(1), "w", buffering=1)
     rpc_in = os.fdopen(os.dup(0), "r", buffering=1)
