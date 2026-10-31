@@ -91,7 +91,8 @@ What has happened so far:
 
 The request: {request}
 
-Decide the single next step. Reply with only JSON, one of:
+Decide the single next step. If the request is met, or no verb can do it, finish and say so honestly. Do not repeat a \
+verb that changed nothing. Reply with only JSON, one of:
 {{"verb": "name", "args": {{...}}}}
 {{"finished": "a short answer for the person"}}"""
 
@@ -108,6 +109,7 @@ def operate(session: Session, request: str, emit: Callable[[dict], None], stop: 
     screenshot = session.measure_screenshot()
     t0 = time.time()
     answer = None
+    seen: dict[str, int] = {}
     for _ in range(max_steps):
         if stop.is_set():
             break
@@ -133,6 +135,12 @@ def operate(session: Session, request: str, emit: Callable[[dict], None], stop: 
         if not verb:
             history.append("You replied with neither a verb nor finished.")
             continue
+        # The same call on the same state, three times over, means it's going nowhere.
+        fingerprint = f"{verb}|{json.dumps(args, sort_keys=True)}|{state_text}"
+        seen[fingerprint] = seen.get(fingerprint, 0) + 1
+        if seen[fingerprint] >= 3:
+            answer = f"I couldn't do that: {verb} isn't changing anything, and none of this app's verbs seems to fit."
+            break
         emit({"type": "op_call", "verb": verb, "args": args})
         try:
             result = session.call(verb, args)
@@ -142,7 +150,6 @@ def operate(session: Session, request: str, emit: Callable[[dict], None], stop: 
             history.append(f"{verb}({json.dumps(args)}) FAILED: {e}")
             emit({"type": "op_result", "verb": verb, "result": str(e)[:600], "ok": False})
     out = {"answer": answer or "It stopped before finishing.", "finished": answer is not None, "steps": steps,
-           "seconds": round(time.time() - t0, 1), "prompt_tokens": total_prompt, "screenshot_tokens": screenshot,
-           "state_tokens": None}
+           "seconds": round(time.time() - t0, 1), "prompt_tokens": total_prompt, "screenshot_tokens": screenshot}
     emit({"type": "op_end", **out})
     return out

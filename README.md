@@ -1,111 +1,112 @@
-# Auto-Harness: one agent that learns to play any game
+# Autoharness
 
-A smart, slow model explores a game and builds a streamlined harness for
-it; a small, fast model then plays in near-realtime using that harness.
-The same three tiers generalize beyond games to any UI/world: explore
-once with intelligence, compile what was learned into cheap machinery,
-then act fast forever.
+**Stop paying a genius to click buttons.**
 
-## The three tiers
+Every app on earth was built for human eyes and hands, and nobody is going to rebuild them all. Today's AI agents
+cope by sending a frontier model a screenshot at nearly every step, which is slow, expensive, and sends everything on
+your screen to the cloud.
 
-| Tier | Model | Job |
-| --- | --- | --- |
-| 1. Explorer | Muse Wonder (multimodal) | Slowly probes the UI/world, reads the manual, records screens, controls, and transitions into a `GameKnowledge` file |
-| 2. Synthesis | (deterministic code) | Compiles knowledge into a `GameSpec`: screen signatures, a transition graph, named macros, a goal detector |
-| 3. Runtime | Muse Glimmer (local, NVFP4) | Per frame: classify state by cheap 32x32 signature (no LLM), BFS the graph toward the goal, execute the next macro. The LLM is consulted only on unknown states |
+Autoharness has the model learn an app once and build the interface it wishes the app had. After that, the app runs
+on your own computer, with no cloud at all.
 
-Key idea: perception and navigation are *compiled away* by synthesis.
-The fast model never perceives from scratch — it decides among a handful
-of named macros, which is what makes a small model reliable at speed.
+> Computer use becomes the compiler, not the runtime. For the models, by the models.
 
+## How it works
 
-## WebUI
+| | Who | What happens | Cost |
+|---|---|---|---|
+| **Explore** | Muse Spark, SAM 3.1 | Uses the app through computer use, with no instructions and no API, and works out how it behaves | Cloud, once |
+| **Compile** | Muse Spark | Writes a program that gives models the app as compact state and typed verbs, tests it on recordings and on the live app | Cloud, once |
+| **Verify** | The program alone, then an independent judge | Must pass on fresh copies with no cloud. A separate model call that never saw the code judges each final screen | Cloud, once |
+| **Run** | Code, then Muse Glimmer | Code does the routine steps. Glimmer, on your machine, makes judgment calls and clears surprises | Local, no cloud |
+| **Repair** | Muse Spark, only if needed | If the app changes and local recovery fails, the teacher is called back once to fix the program | Cloud, rarely, and can be switched off |
 
-A browser console for the whole system — configure both model tiers,
-watch the game live while the agent explores/plays, and read the
-synthesized harness as it is built.
+The output is a plain folder that exports as one shareable `.harness` file:
 
-```bash
-python -m webui.server --port 8765   # then open http://localhost:8765
-# From another device on your Tailscale network, bind all interfaces:
-#   python -m webui.server --host 0.0.0.0 --port 8765
-#   -> http://<machine>.<tailnet>.ts.net:8765
+```python
+from sdk import verb
+
+def observe(app) -> dict:
+    """The app's state as compact JSON: the fewest tokens from which a model could decide what to do."""
+
+@verb
+def reveal_cell(app, row: int, col: int):
+    """One whole operation, with typed arguments. Not a click."""
+
+def run(app):
+    """Reach the goal end to end, on top of the verbs."""
 ```
 
-- **Smart tier**: Meta model API base URL + API key + model (e.g. a Muse
-  Wonder endpoint). The key is held in server memory for the job only —
-  never written to disk.
-- **Fast tier**: your local Glimmer server base URL (default
-  `http://localhost:8001/v1`, model `muse-glimmer`). Use
-  "Test connection" on both tiers before running.
-- **Targets**: the built-in demo game works anywhere. Real games use the
-  X11 backend (Linux, needs `xdotool` + `ffmpeg`): enter the game
-  window's title, explore once with the smart tier, then play.
+No person writes this, and the repo holds no code specific to any app. `tests/test_engine.py` fails the build if the
+engine mentions one. The whole thing is a test of the idea that harnesses should be generated rather than crafted.
 
-### Run it on another computer (where the game is)
+## Three ways to use what it learns
 
-```bash
-git clone https://github.com/adaptabyte/autoharness.git
-cd autoharness
-python3 -m venv .venv && .venv/bin/pip install -e .
-.venv/bin/python -m webui.server --port 8765
-```
+- **Run it.** The whole job, end to end, usually with no model at all.
+- **Ask Glimmer.** In plain words. Glimmer works from `observe()` and the verbs, and never gets a screenshot.
+- **Connect any agent.** Each app is an [MCP](https://modelcontextprotocol.io) server at `http://localhost:4140/mcp/<app>`.
 
-Only `numpy` and `pillow` are required; the WebUI itself uses the Python
-standard library. To also serve Glimmer locally on that machine, see
-"Serving Muse Glimmer NVFP4" below (NVIDIA Blackwell GPU required for
-NVFP4; otherwise point the fast tier at any OpenAI-compatible endpoint).
+## Quick start
 
-## Quick start (no GPU needed)
+Linux with X11 libraries. Glimmer needs a GPU, or an OpenAI-compatible endpoint elsewhere.
 
 ```bash
-uv venv .venv && uv pip install -p .venv/bin/python -e . pytest
-.venv/bin/python -m autoharness.cli demo --manual games/demo_manual.txt --steps 4000
-.venv/bin/python -m pytest tests/ -q
+uv venv .venv-app --python 3.12 && uv pip install -p .venv-app/bin/python -e ".[dev]"
+source .venv-app/bin/activate
+scripts/setup_desktop.sh                     # the virtual screen, sample apps and a browser; sudo is optional
+echo "MODEL_API_KEY=..." > .env              # from dev.meta.ai; a key stored by Muse Code also works
+python -m autoharness serve                  # http://127.0.0.1:4140
 ```
 
-The demo explores the built-in game, synthesizes a harness, and wins a
-fresh run of the game with zero LLM calls in the runtime loop.
-
-## Playing a real game
-
-1. Explore (smart tier): point `--smart-url` at a Wonder endpoint and use
-   `X11Env` (ffmpeg x11grab + xdotool) against the game window; pass the
-   manual with `--manual manual.txt`. Output: `game_kb.json`.
-2. Synthesize + play (fast tier): serve Glimmer (below), then
-   `autoharness play --kb game_kb.json --fast-url http://localhost:8001/v1`.
-
-## Serving Muse Glimmer NVFP4 on this machine
-
-Weights: `nvidia/Muse-Glimmer-30B-NVFP4` (24.7 GB, ModelOpt mixed
-FP4/FP8) download to `models/Muse-Glimmer-30B-NVFP4` via
-`logs/download_glimmer.log` (already running; re-run with
-`huggingface_hub.snapshot_download` if needed).
-
-Hardware fit: 24.7 GB does not fit one 16 GB RTX 5060 Ti, so the server
-tensor-parallels across four Blackwell (sm_120) cards (~6.6 GB weights
-each + KV cache), where NVFP4 runs on native FP4 tensor cores. vLLM
-0.32+ supports `MuseGlimmerForConditionalGeneration` natively.
+Serve Glimmer with any of these, and point `GLIMMER_URL` at it if it isn't on `127.0.0.1:8001`:
 
 ```bash
-uv pip install -p .venv/bin/python "vllm>=0.11"
-bash serve/serve_glimmer.sh          # picks the 2 freest Blackwell GPUs
-.venv/bin/python serve/check_glimmer.py
+bash serve/serve_glimmer.sh                                                  # vLLM, NVFP4, four 16 GB GPUs
+llama serve -hf meta-models/Muse-Glimmer-30B-GGUF \
+  --hf-file Muse-Glimmer-30B-KQuant-17GB-Q4_K_M.gguf -a muse-glimmer \
+  -ngl 99 -c 131072 --port 8001                                              # llama.cpp, about 19 GB of VRAM
 ```
 
-The launcher refuses to start if the chosen cards lack ~10 GB free each
-(it will not disturb other workloads). Free the RTX 5060 Ti cards first
-if it refuses. Then play with the fast tier wired to it:
+Scripted use: `python -m autoharness teach <target> "<goal>"`, `run <id>`, `baseline <id>`, `list`.
+`python scripts/gauntlet.py` teaches every app in `targets/` from nothing and writes one table of results.
 
-```bash
-.venv/bin/python -m autoharness.cli play --fast-url http://localhost:8001/v1 --fast-model muse-glimmer
-```
+## Safety
 
-## Layout
+The program that runs was written by a model, so it is treated as hostile. `tests/test_sandbox.py` attacks it from the inside.
 
-- [autoharness/explorer.py](autoharness/explorer.py) — Tier 1 explorer
-- [autoharness/synth.py](autoharness/synth.py) — Tier 2 synthesis
-- [autoharness/runtime.py](autoharness/runtime.py) — Tier 3 fast runtime
-- [autoharness/env.py](autoharness/env.py) — headless + X11 game backends
-- [games/demo_game.py](games/demo_game.py) — built-in test game
-- [serve/serve_glimmer.sh](serve/serve_glimmer.sh) — optimized vLLM launch
+- **Sandboxed by the kernel.** Landlock and seccomp, applied before generated code is imported. No network, no other
+  files, no starting programs, no signalling other processes. If the lockdown fails, the code doesn't run.
+- **No secrets, no display.** It runs with an empty environment and never holds the API key. It can only ask its parent
+  process to act, over a pipe.
+- **A person approves the irreversible.** Harnesses are told to call `app.confirm()` before anything like submit, send
+  or delete. This relies on the harness doing so: review the code before trusting it with anything that matters.
+- **Spending has a hard stop.** Every Meta API call goes through one module that keeps a ledger on disk: $4 per lesson,
+  $25 overall, both configurable.
+- **Local-only mode.** The one module that can reach the Meta API refuses every call during such a run.
+- **The app binds to localhost.** On any other address it requires a generated token.
+
+Learning sends screenshots to Meta's cloud, so **teach on synthetic data**. Nothing here has had clinical, legal or
+compliance review, and it isn't intended for real patient data as it stands.
+
+## What it can't do
+
+It works for software that waits for you: games with turns, forms, records systems, and desktop tools. It isn't for
+twitch games, since a harness reacts in tenths of a second at best. CAPTCHAs and anti-bot systems will stop it, and
+you shouldn't automate software whose terms forbid it. Linux and X11 only so far. Teaching can fail, and when it does,
+the app says so rather than shipping something unproven.
+
+Results are in [docs/RESULTS.md](docs/RESULTS.md): the measured numbers, including the failures.
+
+## Built during the hackathon
+
+Everything in this repository was written during the Meta Global AI Developer Hackathon (Oct 27 to Nov 4, 2026), as the
+commit history shows. It started from a small prototype written with Muse Code on Oct 28, and the rebuild was written
+with Claude Code, directed by the author. Harnesses themselves are written by Muse Spark at runtime.
+
+Things found by testing that differ from the docs at the time: `muse-wonder-1.0` rejected the computer tool, so Spark
+does the learning. Computer-use conversations accept images only in their first request, so compiling is a separate
+conversation. Stored responses can expire mid-chain, so the teacher can rebuild a conversation from disk.
+
+## License
+
+Apache-2.0.

@@ -16,7 +16,7 @@ from autoharness import config, library, targets  # noqa: E402
 from autoharness.cloud import Ledger  # noqa: E402
 from autoharness.desktop import Display  # noqa: E402
 from autoharness.runtime import Runner  # noqa: E402
-from autoharness.teacher import Teacher, baseline, judge_final_screen  # noqa: E402
+from autoharness.teacher import Teacher, app_notes, baseline, judge_final_screen  # noqa: E402
 from autoharness.cloud import Cloud  # noqa: E402
 
 
@@ -67,7 +67,7 @@ def main():
                 for i in range(args.runs):
                     t.reset()
                     r = Runner(pkg, d, None, spec.get("sample_params")).execute(local_only=True)
-                    verdict = judge_final_screen(judge, m["goal"], d.shot(), r.summary) if r.status == "done" else {"achieved": False, "why": r.reason}
+                    verdict = judge_final_screen(judge, m["goal"], d.shot(), r.summary, app_notes(pkg)) if r.status == "done" else {"achieved": False, "why": r.reason}
                     ok = r.status == "done" and verdict["achieved"]
                     rec = r.record("run")
                     rec.update(status="done" if ok else "failed", judge=verdict)
@@ -78,7 +78,7 @@ def main():
                 row.update(runs=len(results), passed=sum(x[0] for x in results), median_seconds=times[len(times) // 2] if times else None,
                            glimmer_calls=sum(x[3] for x in results), actions=sum(x[2] for x in results), judge_usd=round(judge.meter.usd, 4))
                 if args.baseline:
-                    b = baseline(d, t, m["goal"], limit_usd=2.0)
+                    b = baseline(d, t, m["goal"], limit_usd=2.0, notes=app_notes(pkg))
                     pkg.update(baseline=b)
                     row["baseline"] = b
                     print(name, "baseline", {k: b[k] for k in ("achieved", "seconds", "usd", "turns")}, flush=True)

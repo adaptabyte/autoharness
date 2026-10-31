@@ -24,7 +24,7 @@ from .desktop import Display
 from .local import Glimmer
 from .runtime import Runner
 from .session import Session, operate
-from .teacher import Repairer, Teacher, baseline, judge_final_screen
+from .teacher import Repairer, Teacher, app_notes, baseline
 
 STATIC = Path(__file__).resolve().parent / "static"
 JOBS: dict[str, "Job"] = {}
@@ -176,7 +176,7 @@ def start_race(package_id: str) -> Job:
 
         def spark():
             try:
-                outcome.update(baseline(left, t_spark, pkg.manifest["goal"], job.lane("spark"), job.stop, limit_usd=1.5))
+                outcome.update(baseline(left, t_spark, pkg.manifest["goal"], job.lane("spark"), job.stop, limit_usd=1.5, notes=app_notes(pkg)))
                 pkg.update(baseline=outcome)
                 job.emit({"type": "race_end", **outcome}, "spark")
             except Exception as e:  # noqa: BLE001

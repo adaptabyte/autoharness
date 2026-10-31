@@ -80,7 +80,9 @@ def run(app):
     \"\"\"Reach the goal end to end, built on the verbs.\"\"\"
 
 Design it as the interface you would want if you could never see a screen again. Choose names, arguments and state \
-shapes so that a small model can use them correctly from their descriptions alone. Verbs should return a short result \
+shapes so that a small model can use them correctly from their descriptions alone. Offer the app's whole useful surface, \
+from the small steps (open this, set that, act on this item) to the big ones, so a model can do things other than the \
+one goal. Verbs should return a short result \
 and raise via app.fail when they cannot do what they say. Each verb starts as a separate process, so it must find what \
 it needs from the screen or from app.state each time.
 
@@ -146,19 +148,46 @@ COMPILE_TOOLS = [
 REPAIR_TOOLS = [t for t in COMPILE_TOOLS if t["name"] not in ("trial", "try_interface", "act")]
 
 
-def judge_final_screen(cloud: Cloud, goal: str, frame: np.ndarray, summary: str = "") -> dict:
-    """An independent check. This call has never seen the harness or the teaching session."""
+def judge_final_screen(cloud: Cloud, goal: str, frame: np.ndarray, summary: str = "", app_notes: str = "") -> dict:
+    """An independent check. This call has never seen the harness or the teaching session.
+
+    app_notes is what the teacher wrote about how the app shows state, before any code existed. Without it a judge
+    misreads apps it has never seen: a solved game with no victory banner, say, looks unfinished.
+    """
+    notes = f"How this app shows its state, from someone who explored it:\n{app_notes[:5000]}\n\n" if app_notes else ""
     out = cloud.respond(
-        model=config.TEACHER_MODEL, reasoning={"effort": "low"}, input=[{"role": "user", "content": [
-            {"type": "input_text", "text": f"A program claims it achieved this goal in an app:\n\n{goal}\n\nIts claim: {summary or 'none'}\n\n"
-             "Judge from this final screenshot alone. Be strict: if the screen does not show the goal was reached, say no. "
-             'Reply with only JSON: {"achieved": true or false, "why": "one short sentence"}'},
+        model=config.TEACHER_MODEL, reasoning={"effort": "high"}, input=[{"role": "user", "content": [
+            {"type": "input_text", "text": f"A program claims it achieved this goal in an app:\n\n{goal}\n\nIts claim: {summary or 'none'}\n\n{notes}"
+             "Judge from this final screenshot alone. Look closely at the actual state on screen and do not take the claim on trust. "
+             'If the screen does not show the goal was reached, say no. Reply with only JSON: {"achieved": true or false, "why": "one short sentence"}'},
             {"type": "input_image", "image_url": image_url(frame)}]}])
     try:
         verdict = extract_json(response_text(out))
         return {"achieved": bool(verdict.get("achieved")), "why": str(verdict.get("why", ""))[:300]}
     except ValueError:
         return {"achieved": False, "why": "the judge gave an unreadable answer"}
+
+
+def app_notes(pkg: Package) -> str:
+    p = pkg.path / "teach" / "understanding.md"
+    return p.read_text() if p.exists() else ""
+
+
+def verify_only(pkg: Package, display: Display, target: Target, emit: Emit | None = None, runs: int = 5, sample_params: dict | None = None,
+                stop: threading.Event | None = None) -> dict:
+    """Re-run proof runs on an existing program, with no teaching. Does not change the program."""
+    teacher = Teacher(pkg, display, target, emit, stop, limit_usd=1.0, verify_runs=runs, sample_params=sample_params)
+    teacher.frame_n = len(list(teacher.frames_dir.glob("*.png")))
+    passed, _rows = teacher._verify()
+    needed = max(1, int(np.ceil(runs * 0.8)))
+    status = "ready" if passed >= needed else "failed"
+    fields = {"status": status, "verified": f"{passed}/{runs}"}
+    if status == "ready":
+        fields["failure"] = None
+    else:
+        fields["failure"] = f"passed only {passed} of {runs} verification runs"
+    pkg.update(**fields)
+    return {"passed": passed, "runs": runs, "status": status, "usd": round(teacher.meter.usd, 4)}
 
 
 class Teacher:
@@ -203,14 +232,62 @@ class Teacher:
         return np.asarray(Image.open(self.frames_dir / f"{n:05d}.png").convert("RGB"))
 
     def _turn(self, items: list, tools: list, instructions: str) -> dict:
-        body = dict(model=config.TEACHER_MODEL, tools=tools, input=items, instructions=instructions,
-                    reasoning={"effort": "medium" if any(t.get("type") == "computer" for t in tools) else self.effort}, truncation="disabled")
-        if self.prev_id:
-            body["previous_response_id"] = self.prev_id
-        out = self.cloud.respond(**body)
+        def send(chain_id, payload):
+            body = dict(model=config.TEACHER_MODEL, tools=tools, input=payload, instructions=instructions,
+                        reasoning={"effort": "medium" if any(t.get("type") == "computer" for t in tools) else self.effort},
+                        truncation="disabled", store=True)
+            if chain_id:
+                body["previous_response_id"] = chain_id
+            return self.cloud.respond(**body)
+
+        recoverable = ("referenced response not found", "invalid parameters", "No tool output found")
+        try:
+            out = send(self.prev_id, items)
+        except CloudError as e:
+            if not any(x in str(e) for x in recoverable) or not self.prev_id:
+                raise
+            self._dump_request(items, e)
+            # Meta's API can lose a stored response or refuse a long conversation. Retry, then rebuild from what is on disk.
+            time.sleep(5)
+            try:
+                out = send(self.prev_id, items)
+            except CloudError as e2:
+                if not any(x in str(e2) for x in recoverable):
+                    raise
+                self.emit({"type": "log", "tier": "cloud", "text": "Meta's API lost the conversation, so it was rebuilt from saved work."})
+                out = send(None, self._rebuilt_items(items))
         self.prev_id = out["id"]
         self._cost()
         return out
+
+    def _dump_request(self, items: list, error: Exception) -> None:
+        """Keep the shape of a refused request, without images, so the cause can be found afterwards."""
+        def strip(v):
+            if isinstance(v, dict):
+                return {k: ("<image>" if k == "image_url" else strip(x)) for k, x in v.items()}
+            if isinstance(v, list):
+                return [strip(x) for x in v]
+            return v
+        with (self.pkg.path / "teach" / "refused.jsonl").open("a") as f:
+            f.write(json.dumps({"error": str(error), "items": strip(items)}, default=str)[:20000] + "\n")
+
+    def _rebuilt_items(self, items: list) -> list:
+        """A fresh start for a lost conversation: the saved understanding and code, plus the unanswered tool results."""
+        m = self.pkg.manifest
+        results = [str(i.get("output"))[:4000] for i in items if i.get("type") == "function_call_output"]
+        content = [{"type": "input_text", "text":
+                    f"Your conversation history was lost, but all your work is saved.\nApp: {self.target.name}\nGoal: {m.get('goal')}\n"
+                    f"What you learned:\n{self.understanding}\nNotes: {json.dumps(self.notes)}\n"
+                    f"Saved templates: {[f.name for f in self.pkg.assets.glob('*.png')]}\nLatest frame number: {self.frame_n}\n"
+                    f"Current harness.py (version {m.get('version', 0)}):\n```python\n{self.pkg.code}\n```\n"
+                    f"The results of your last tool calls: {json.dumps(results)}\nCarry on from here."}]
+        for i in items:
+            if i.get("role") == "user":
+                content.extend(c for c in i.get("content", []))
+        # A first request may carry an image, even in a computer-use conversation.
+        content.append({"type": "input_text", "text": "The screen right now:"})
+        content.append({"type": "input_image", "image_url": image_url(self.display.shot())})
+        return [{"role": "user", "content": content}]
 
     def _do_actions(self, actions: list[dict]) -> None:
         d = self.display
@@ -509,6 +586,7 @@ class Teacher:
                 next_items.append({"role": "user", "content": [{"type": "input_text", "text":
                                    "Note: the app closed or crashed after your last action, so it was restarted fresh. What you see now is a new instance."}]})
             if finished:
+                self.pending_items = next_items
                 return
             if not next_items:
                 next_items = [{"role": "user", "content": [{"type": "input_text", "text": "Keep going with your tools. Call "
@@ -540,7 +618,9 @@ class Teacher:
         self.emit({"type": "phase", "phase": "compile"})
         rules = COMPILE_RULES.format(sdk=sdk_reference())
         if extra_message:
-            items = [{"role": "user", "content": [{"type": "input_text", "text": extra_message + f"\nThe latest frame number is {self.frame_n}."}]}]
+            items = list(getattr(self, "pending_items", []))
+            self.pending_items = []
+            items.append({"role": "user", "content": [{"type": "input_text", "text": extra_message + f"\nThe latest frame number is {self.frame_n}."}]})
             self._loop(items, COMPILE_TOOLS, rules, "compile", self.max_compile_turns)
             return
         self.prev_id = None
@@ -576,7 +656,7 @@ class Teacher:
             n = self._record(frame)
             verdict = {"achieved": False, "why": r.reason}
             if r.status == "done":
-                verdict = judge_final_screen(self.cloud, goal, frame, r.summary)
+                verdict = judge_final_screen(self.cloud, goal, frame, r.summary, app_notes(self.pkg))
                 self._cost()
             ok = r.status == "done" and verdict["achieved"]
             passed += ok
@@ -594,7 +674,13 @@ class Teacher:
         pkg = self.pkg
         try:
             self._explore()
-            self._compile()
+            try:
+                self._compile()
+            except TimeoutError as e:
+                # Out of turns isn't failure if the program works. Verification decides, not the turn counter.
+                if not self.code_written:
+                    raise
+                self.emit({"type": "log", "tier": "cloud", "text": f"{e}. Testing the latest program as it stands."})
             needed = max(1, int(np.ceil(self.verify_runs * 0.8)))
             for round_n in range(3):
                 passed, rows = self._verify()
@@ -606,8 +692,11 @@ class Teacher:
                 self.passes_in_a_row = 0
                 self.emit({"type": "phase", "phase": "compile"})
                 report = json.dumps([{k: v for k, v in row.items()} for row in rows if row["status"] != "done"], default=str)[:8000]
-                self._compile(f"Verification on fresh copies passed {passed} of {self.verify_runs}, and {needed} are needed. "
-                              f"Failures: {report}\nView the listed frames if you need to, fix the cause, and pass two trials again.")
+                try:
+                    self._compile(f"Verification on fresh copies passed {passed} of {self.verify_runs}, and {needed} are needed. "
+                                  f"Failures: {report}\nView the listed frames if you need to, fix the cause, and pass two trials again.")
+                except TimeoutError as e:
+                    self.emit({"type": "log", "tier": "cloud", "text": f"{e}. Testing the latest program as it stands."})
             else:
                 passed = 0
             if pkg.manifest.get("status") != "failed":
@@ -677,7 +766,7 @@ Tools: view_frame, experiment, segment, save_template, write_harness, finish."""
 
 
 def baseline(display: Display, target: Target, goal: str, emit: Emit | None = None, stop: threading.Event | None = None,
-             limit_usd: float = 2.0, max_turns: int = 150, effort: str = "low") -> dict:
+             limit_usd: float = 2.0, max_turns: int = 150, effort: str = "low", notes: str = "") -> dict:
     """The comparison: Spark doing the job itself through computer use, every step, the way agents work today."""
     emit = emit or (lambda e: None)
     stop = stop or threading.Event()
@@ -723,6 +812,6 @@ def baseline(display: Display, target: Target, goal: str, emit: Emit | None = No
                           [{"id": c.get("id"), "code": c.get("code"), "message": c.get("message")} for c in call.get("pending_safety_checks") or []],
                           "output": {"type": "computer_screenshot", "image_url": image_url(shot)}})
     seconds = time.time() - t0
-    verdict = judge_final_screen(cloud, goal, display.shot()) if status == "finished" else {"achieved": False, "why": status}
+    verdict = judge_final_screen(cloud, goal, display.shot(), app_notes=notes) if status == "finished" else {"achieved": False, "why": status}
     return {"achieved": verdict["achieved"], "why": verdict["why"], "status": status, "seconds": round(seconds, 1), "turns": turns,
             "actions": actions, **{k: v for k, v in meter.snapshot().items() if k in ("usd", "bytes_sent", "input_tokens", "output_tokens")}, "at": time.time()}

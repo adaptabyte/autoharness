@@ -41,6 +41,9 @@ def main() -> None:
     b = sub.add_parser("baseline", help="measure Spark doing the job itself, every step")
     b.add_argument("id")
     b.add_argument("--limit", type=float, default=2.0)
+    v = sub.add_parser("verify", help="run proof runs again on a program, without teaching")
+    v.add_argument("id")
+    v.add_argument("--runs", type=int, default=5)
     sub.add_parser("list", help="list taught apps")
     args = ap.parse_args()
 
@@ -51,7 +54,7 @@ def main() -> None:
         print(json.dumps([p.summary() for p in library.all_packages()], indent=1))
         return None
 
-    from .teacher import Repairer, Teacher, baseline
+    from .teacher import Repairer, Teacher, app_notes, baseline, verify_only
     from .runtime import Runner
     if args.cmd == "teach":
         try:
@@ -85,8 +88,10 @@ def main() -> None:
                 res = runner.execute(repair=Repairer(pkg, d, tgt, printer), local_only=args.local_only)
                 pkg.add_run(res.record("run"))
                 print(json.dumps(res.record("run"), indent=0))
+        elif args.cmd == "verify":
+            print(json.dumps(verify_only(pkg, d, tgt, printer, args.runs, spec.get("sample_params")), indent=1))
         elif args.cmd == "baseline":
-            res = baseline(d, tgt, pkg.manifest["goal"], printer, limit_usd=args.limit)
+            res = baseline(d, tgt, pkg.manifest["goal"], printer, limit_usd=args.limit, notes=app_notes(pkg))
             pkg.update(baseline=res)
             print(json.dumps(res, indent=1))
     finally:

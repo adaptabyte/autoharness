@@ -37,7 +37,8 @@ def ocr(frame: np.ndarray) -> list[list]:
     with _ocr_lock:
         if _ocr_engine is None:
             from rapidocr_onnxruntime import RapidOCR
-            _ocr_engine = RapidOCR()
+            # Two threads: OCR must not starve the app it is reading, or anything else on this machine.
+            _ocr_engine = RapidOCR(intra_op_num_threads=2, inter_op_num_threads=1)
         # Small UI text reads far better at double size.
         scale = 2 if frame.shape[0] < 400 and frame.shape[1] < 1000 else 1
         img = np.asarray(Image.fromarray(frame).resize((frame.shape[1] * scale, frame.shape[0] * scale))) if scale > 1 else frame
