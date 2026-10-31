@@ -7,6 +7,7 @@ the cloud" is a fact the code can report, not a promise.
 from __future__ import annotations
 
 import base64
+import fcntl
 import io
 import json
 import re
@@ -51,6 +52,9 @@ class Ledger:
     def add(usd: float, tokens_in: int, tokens_out: int, bytes_sent: int) -> dict:
         with _lock:
             config.ensure_dirs()
+            # A file lock as well: separate processes can be spending at once, and none may lose the others' records.
+            lock_file = open(config.LEDGER.with_suffix(".lock"), "w")
+            fcntl.flock(lock_file, fcntl.LOCK_EX)
             d = Ledger.read()
             d["spent_usd"] = round(d["spent_usd"] + usd, 6)
             d["calls"] += 1
@@ -60,6 +64,7 @@ class Ledger:
             tmp = config.LEDGER.with_suffix(".tmp")
             tmp.write_text(json.dumps(d))
             tmp.replace(config.LEDGER)
+            lock_file.close()
             return d
 
     @staticmethod

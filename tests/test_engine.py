@@ -107,3 +107,19 @@ def test_failed_change_rolls_back_to_the_proven_version(monkeypatch, tmp_path):
     assert pkg.restore_proven()
     assert pkg.code == "good = 1\n"
     assert pkg.manifest["interface"] == {"verbs": ["a"]}
+
+
+def test_ledger_keeps_every_record_across_processes(monkeypatch, tmp_path):
+    """A hard budget has to count every cent, even with several lessons running at once."""
+    import multiprocessing as mp
+    monkeypatch.setattr(cloud.config, "LEDGER", tmp_path / "ledger.json")
+    monkeypatch.setattr(cloud.config, "HOME", tmp_path)
+    monkeypatch.setattr(cloud.config, "LIBRARY", tmp_path / "l")
+    monkeypatch.setattr(cloud.config, "RUNS", tmp_path / "r")
+    ctx = mp.get_context("fork")
+    procs = [ctx.Process(target=lambda: [cloud.Ledger.add(0.01, 1, 1, 1) for _ in range(50)]) for _ in range(4)]
+    for p in procs:
+        p.start()
+    for p in procs:
+        p.join()
+    assert cloud.Ledger.read()["calls"] == 200
