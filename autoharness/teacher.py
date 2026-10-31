@@ -873,7 +873,7 @@ Change as little as you can, using edit_harness. Tools: view_frame, experiment, 
 
 
 def baseline(display: Display, target: Target, goal: str, emit: Emit | None = None, stop: threading.Event | None = None,
-             limit_usd: float = 2.0, max_turns: int = 150, effort: str = "low", notes: str = "") -> dict:
+             limit_usd: float = 2.0, max_turns: int = 150, effort: str = "medium", notes: str = "") -> dict:
     """The comparison: Spark doing the job itself through computer use, every step, the way agents work today."""
     emit = emit or (lambda e: None)
     stop = stop or threading.Event()
@@ -919,6 +919,8 @@ def baseline(display: Display, target: Target, goal: str, emit: Emit | None = No
                           [{"id": c.get("id"), "code": c.get("code"), "message": c.get("message")} for c in call.get("pending_safety_checks") or []],
                           "output": {"type": "computer_screenshot", "image_url": image_url(shot)}})
     seconds = time.time() - t0
+    if stop.is_set() and status == "ran out of turns":
+        status = "still going when the time limit hit"
     verdict = judge_final_screen(cloud, goal, display.shot(), app_notes=notes) if status == "finished" else {"achieved": False, "why": status}
     return {"achieved": verdict["achieved"], "why": verdict["why"], "status": status, "seconds": round(seconds, 1), "turns": turns,
             "actions": actions, **{k: v for k, v in meter.snapshot().items() if k in ("usd", "bytes_sent", "input_tokens", "output_tokens")}, "at": time.time()}

@@ -36,6 +36,7 @@ export CUDA_DEVICE_ORDER=PCI_BUS_ID
 export CUDA_VISIBLE_DEVICES
 # Nothing here should reach out: this is the model that runs with the internet unplugged.
 # GPU workers talk over loopback, so unplugging the network cannot take them down.
+export GLOO_SOCKET_IFNAME=lo NCCL_SOCKET_IFNAME=lo MASTER_ADDR=127.0.0.1
 export VLLM_HOST_IP=127.0.0.1 VLLM_NO_USAGE_STATS=1 DO_NOT_TRACK=1 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_HUB_DISABLE_TELEMETRY=1
 echo "Serving $MODEL on GPUs $CUDA_VISIBLE_DEVICES (TP=4), port $PORT"
 

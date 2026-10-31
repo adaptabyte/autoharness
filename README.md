@@ -18,6 +18,7 @@ on your own computer, with no cloud at all.
 | **Explore** | Muse Spark, SAM 3.1 | Uses the app through computer use, with no instructions and no API, and works out how it behaves | Cloud, once |
 | **Compile** | Muse Spark | Writes a program that gives models the app as compact state and typed verbs, tests it on recordings and on the live app | Cloud, once |
 | **Verify** | The program alone, then an independent judge | Must pass on fresh copies with no cloud. A separate model call that never saw the code judges each final screen | Cloud, once |
+| **Prove the interface** | Glimmer alone, then the judge | Glimmer must reach the goal using only the state and verbs, with no screenshot, and the judge checks the real screen | Local, plus the judge |
 | **Run** | Code, then Muse Glimmer | Code does the routine steps. Glimmer, on your machine, makes judgment calls and clears surprises | Local, no cloud |
 | **Repair** | Muse Spark, only if needed | If the app changes and local recovery fails, the teacher is called back once to fix the program | Cloud, rarely, and can be switched off |
 
@@ -84,6 +85,10 @@ The program that runs was written by a model, so it is treated as hostile. `test
   $25 overall, both configurable.
 - **Local-only mode.** The one module that can reach the Meta API refuses every call during such a run.
 - **The app binds to localhost.** On any other address it requires a generated token.
+- **"Local" was measured, not assumed.** Watching the process's real sockets showed the OCR library's runtime (ONNX
+  Runtime) connecting to Microsoft's telemetry service on its own, even with its off switch used. So OCR now runs in a
+  process that gives up the ability to open sockets before that library loads, and a test holds it to that. vLLM's
+  usage stats are off, and its GPU workers talk over loopback, so unplugging the network can't take the model down.
 
 Learning sends screenshots to Meta's cloud, so **teach on synthetic data**. Nothing here has had clinical, legal or
 compliance review, and it isn't intended for real patient data as it stands.
@@ -105,7 +110,8 @@ with Claude Code, directed by the author. Harnesses themselves are written by Mu
 
 Things found by testing that differ from the docs at the time: `muse-wonder-1.0` rejected the computer tool, so Spark
 does the learning. Computer-use conversations accept images only in their first request, so compiling is a separate
-conversation. Stored responses can expire mid-chain, so the teacher can rebuild a conversation from disk.
+conversation. Stored responses can expire mid-chain, so the teacher can rebuild a conversation from disk. Spark can
+believe the computer tool uses a 0 to 1000 grid. It uses pixels, as the docs say, so the prompts now say so outright.
 
 ## License
 

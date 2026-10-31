@@ -173,11 +173,18 @@ def start_race(package_id: str) -> Job:
         job.displays.update(spark=left, harness=right)
         t_spark, t_harness = targets.Target(spec, left), targets.Target(spec, right)
         spark_done = threading.Event()
+        spark_stop = threading.Event()
+        threading.Thread(target=lambda: (job.stop.wait(), spark_stop.set()), daemon=True).start()
         outcome: dict = {}
 
         def spark():
             try:
-                outcome.update(baseline(left, t_spark, goal_with_inputs(pkg.manifest["goal"], spec.get("sample_params")), job.lane("spark"), job.stop, limit_usd=1.5, notes=app_notes(pkg)))
+                # Fifteen minutes is plenty to make the point, and stops a slow baseline burning the budget.
+                timer = threading.Timer(900, spark_stop.set)
+                timer.daemon = True
+                timer.start()
+                outcome.update(baseline(left, t_spark, goal_with_inputs(pkg.manifest["goal"], spec.get("sample_params")), job.lane("spark"), spark_stop, limit_usd=1.0, notes=app_notes(pkg)))
+                timer.cancel()
                 pkg.update(baseline=outcome)
                 job.emit({"type": "race_end", **outcome}, "spark")
             except Exception as e:  # noqa: BLE001
@@ -191,7 +198,7 @@ def start_race(package_id: str) -> Job:
             while not spark_done.is_set() and not job.stop.is_set():
                 n += 1
                 t_harness.reset()
-                r = Runner(pkg, right, job.lane("harness"), spec.get("sample_params"), stop=job.stop).execute(local_only=True)
+                r = Runner(pkg, right, job.lane("harness"), spec.get("sample_params"), stop=job.stop, max_seconds=180).execute(local_only=True)
                 wins += r.status == "done"
                 pkg.add_run(r.record("run"))
                 job.emit({"type": "race_lap", "lap": n, "wins": wins, "seconds": r.seconds, "status": r.status,
