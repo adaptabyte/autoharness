@@ -11,6 +11,7 @@ import json
 import os
 import signal
 import subprocess
+import sys
 import threading
 import time
 import traceback
@@ -22,35 +23,63 @@ import numpy as np
 from PIL import Image
 
 from . import sandbox
-from .desktop import Display
+from .desktop import Display, die_with_parent
 from .library import Package
 from .local import Glimmer, LocalModelError
 
 Emit = Callable[[dict], None]
-_ocr_engine = None
 _ocr_lock = threading.Lock()
+_ocr_proc: subprocess.Popen | None = None
+_ocr_dir: Path | None = None
+
+
+def _ocr_worker() -> subprocess.Popen:
+    """The locked-down OCR process (see ocr_worker.py). Refuses to use it if the lockdown failed."""
+    global _ocr_proc, _ocr_dir
+    if _ocr_proc is not None and _ocr_proc.poll() is None:
+        return _ocr_proc
+    import tempfile
+    _ocr_dir = Path(tempfile.mkdtemp(prefix="autoharness-ocr-"))
+    here = Path(__file__).resolve().parent
+    env = {"PATH": "/usr/bin", "HOME": "/nonexistent", "OMP_NUM_THREADS": "2", "OPENBLAS_NUM_THREADS": "2",
+           "PYTHONPATH": os.pathsep.join(p for p in sys.path if p.endswith("site-packages"))}
+    _ocr_proc = subprocess.Popen([sys.executable, str(here / "ocr_worker.py"), str(_ocr_dir)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                 stderr=subprocess.DEVNULL, env=env, text=True, bufsize=1, start_new_session=True, preexec_fn=die_with_parent)
+    hello = json.loads(_ocr_proc.stdout.readline() or "{}")
+    if not hello.get("locked"):
+        _ocr_proc.kill()
+        _ocr_proc = None
+        raise OSError("OCR was not started because this system could not lock it down")
+    return _ocr_proc
 
 
 def ocr(frame: np.ndarray) -> list[list]:
     """Local OCR. Returns [x1, y1, x2, y2, text, score] rows, with text in reading order."""
-    global _ocr_engine
     with _ocr_lock:
-        if _ocr_engine is None:
-            from rapidocr_onnxruntime import RapidOCR
-            # Two threads: OCR must not starve the app it is reading, or anything else on this machine.
-            _ocr_engine = RapidOCR(intra_op_num_threads=2, inter_op_num_threads=1)
+        worker = _ocr_worker()
         # Small UI text reads far better at double size.
         scale = 2 if frame.shape[0] < 400 and frame.shape[1] < 1000 else 1
         img = np.asarray(Image.fromarray(frame).resize((frame.shape[1] * scale, frame.shape[0] * scale))) if scale > 1 else frame
-        result, _ = _ocr_engine(img[:, :, ::-1])
-    rows = []
-    for box, text, score in result or []:
-        xs = [p[0] for p in box]
-        ys = [p[1] for p in box]
-        rows.append([int(min(xs) / scale), int(min(ys) / scale), int(max(xs) / scale), int(max(ys) / scale),
-                     text, float(score)])
+        tmp = _ocr_dir / "frame.tmp"
+        img.tofile(tmp)
+        tmp.replace(_ocr_dir / "frame.bin")
+        worker.stdin.write(json.dumps({"shape": list(img.shape[:2])}) + "\n")
+        worker.stdin.flush()
+        reply = json.loads(worker.stdout.readline() or "{}")
+    if "rows" not in reply:
+        raise OSError("the OCR process stopped")
+    rows = [[int(r[0] / scale), int(r[1] / scale), int(r[2] / scale), int(r[3] / scale), r[4], r[5]] for r in reply["rows"]]
     rows.sort(key=lambda r: (r[1] // 12, r[0]))
     return rows
+
+
+def ocr_can_open_sockets() -> bool:
+    """For the test suite: asks the OCR process to try to open a socket."""
+    with _ocr_lock:
+        worker = _ocr_worker()
+        worker.stdin.write('{"probe": true}\n')
+        worker.stdin.flush()
+        return json.loads(worker.stdout.readline())["socket"] == "ALLOWED"
 
 
 @dataclass

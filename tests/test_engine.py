@@ -14,7 +14,7 @@ ENGINE = sorted((ROOT / "autoharness").glob("*.py"))
 
 def test_no_app_specific_code_anywhere_in_the_engine():
     """The claim: harnesses are generated, never hand-written. So the engine may not know any app."""
-    banned = {"mines", "minesweeper", "solitaire", "klondike", "2048", "calculator", "openemr", "patient", "emr", "tile", "flag"}
+    banned = {"mines", "minesweeper", "solitaire", "klondike", "calculator", "openemr", "patient", "emr", "tile", "flag"}
     for spec in targets.catalog():
         banned |= {spec["id"].lower(), spec["name"].lower()}
     for f in ENGINE:

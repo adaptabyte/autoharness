@@ -78,3 +78,12 @@ def test_stalled_harness_is_stopped_and_says_where(tmp_path):
     end = r._launch(tmp_path / "work", RunResult())
     assert end["status"] == "stalled"
     assert "spin_here" in end["traceback"]
+
+
+def test_ocr_process_cannot_reach_the_network():
+    """OCR's runtime ships with telemetry, so the promise rests on the kernel, not on a setting."""
+    import numpy as np
+
+    from autoharness import runtime
+    assert runtime.ocr_can_open_sockets() is False
+    runtime.ocr(np.full((120, 300, 3), 255, dtype=np.uint8))  # and it still works

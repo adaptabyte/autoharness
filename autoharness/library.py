@@ -101,9 +101,11 @@ class Package:
         m = self.manifest
         runs = self.runs()
         real = [r for r in runs if r.get("kind") not in ("trial", "interface")]
-        verified = [r for r in runs if r.get("kind") in ("verify", "run")]
-        ok = sum(1 for r in verified if r.get("status") == "done")
-        times = sorted(r.get("seconds", 0) for r in verified if r.get("status") == "done")
+        # Only runs an independent judge looked at count as proof. A run's own claim of success doesn't.
+        judged = [r for r in runs if r.get("kind") == "verify"]
+        ok = sum(1 for r in judged if r.get("status") == "done")
+        finished = [r for r in runs if r.get("kind") in ("verify", "run") and r.get("status") == "done"]
+        times = sorted(r.get("seconds", 0) for r in finished)
         code = sum(r.get("actions", 0) for r in real)
         glimmer = sum(r.get("glimmer_calls", 0) for r in real)
         repair_calls = sum(r.get("cloud_calls", 0) for r in real)
@@ -112,7 +114,7 @@ class Package:
             "status": m.get("status", "new"), "version": m.get("version", 0), "inputs": m.get("inputs", []),
             "teach_usd": m.get("teach_usd", 0.0), "teach_seconds": m.get("teach_seconds", 0), "created": m.get("created"),
             "repair_usd": round(sum(r.get("cloud_usd", 0) for r in real), 4), "runs": len(real), "successes": ok,
-            "attempted": len(verified), "median_seconds": times[len(times) // 2] if times else None,
+            "attempted": len(judged), "median_seconds": times[len(times) // 2] if times else None,
             "tier_code": code, "tier_glimmer": glimmer, "tier_cloud": repair_calls,
             "baseline": m.get("baseline"), "lines": self.code.count("\n"), "verified": m.get("verified"), "interface_verified": m.get("interface_verified"),
         }

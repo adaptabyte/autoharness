@@ -34,6 +34,9 @@ done
 CUDA_VISIBLE_DEVICES="$(printf '%s\n' "${GPUS[@]}" | cut -d, -f1 | paste -sd, -)"
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
 export CUDA_VISIBLE_DEVICES
+# Nothing here should reach out: this is the model that runs with the internet unplugged.
+# GPU workers talk over loopback, so unplugging the network cannot take them down.
+export VLLM_HOST_IP=127.0.0.1 VLLM_NO_USAGE_STATS=1 DO_NOT_TRACK=1 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_HUB_DISABLE_TELEMETRY=1
 echo "Serving $MODEL on GPUs $CUDA_VISIBLE_DEVICES (TP=4), port $PORT"
 
 exec .venv/bin/python -m vllm.entrypoints.openai.api_server \
@@ -42,8 +45,8 @@ exec .venv/bin/python -m vllm.entrypoints.openai.api_server \
   --tensor-parallel-size 4 \
   --dtype auto \
   --gpu-memory-utilization 0.92 \
-  --max-model-len "${GLIMMER_MAX_LEN:-8192}" \
-  --max-num-seqs "${GLIMMER_MAX_SEQS:-64}" \
+  --max-model-len "${GLIMMER_MAX_LEN:-32768}" \
+  --max-num-seqs "${GLIMMER_MAX_SEQS:-8}" \
   --enable-prefix-caching \
   --reasoning-parser muse_glimmer \
   --port "$PORT"
