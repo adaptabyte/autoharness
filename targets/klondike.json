@@ -1,0 +1,1 @@
+{"name": "Solitaire", "kind": "web", "url": "https://alex-berson.github.io/klondike/", "blurb": "An open-source Klondike, in a real browser", "start_timeout": 40, "suggested_goal": "Play Klondike solitaire and win. A game can be unwinnable: if there are no useful moves left, start a new game and try again."}

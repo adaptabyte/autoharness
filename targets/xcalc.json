@@ -1,0 +1,1 @@
+{"name": "xcalc", "kind": "desktop", "command": ["xcalc"], "blurb": "A 1980s X11 calculator with no accessibility layer at all", "suggested_goal": "Work out the expression given in the inputs using the calculator's own buttons, and report the answer shown on screen.", "sample_params": {"expression": "12 * 7 + 5"}}

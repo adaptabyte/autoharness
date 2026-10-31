@@ -1,0 +1,1 @@
+{"name": "Calculator", "kind": "desktop", "command": ["gnome-calculator"], "blurb": "GNOME's native desktop calculator", "suggested_goal": "Work out the expression given in the inputs using the calculator's own buttons, and report the answer shown on screen.", "sample_params": {"expression": "(17 + 25) * 3"}}

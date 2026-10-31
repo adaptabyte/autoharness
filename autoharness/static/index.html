@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Autoharness</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2334d399'/%3E%3Cpath d='M9 22l7-13 7 13' stroke='%2306130d' stroke-width='3.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#0c0e11;--panel:#14171c;--panel-2:#1b1f26;--line:#262b33;
+  --text:#eef0f3;--muted:#99a1ad;--faint:#6c7480;
+  --paid:#fbbf24;--paid-soft:rgba(251,191,36,.12);
+  --free:#34d399;--free-soft:rgba(52,211,153,.12);
+  --glimmer:#a78bfa;--glimmer-soft:rgba(167,139,250,.14);
+  --bad:#f87171;--bad-soft:rgba(248,113,113,.12);
+  --radius:14px;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+a{color:inherit}
+button,input,textarea{font:inherit;color:inherit}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 0;flex-wrap:wrap}
+.logo{font-weight:700;letter-spacing:-.01em;text-decoration:none;display:flex;align-items:center;gap:10px}
+.logo i{width:24px;height:24px;border-radius:7px;background:var(--free);display:grid;place-items:center}
+.logo svg{width:14px;height:14px}
+.pills{display:flex;gap:8px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border-radius:99px;background:var(--panel);border:1px solid var(--line);font-size:13px;color:var(--muted);white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--faint)}
+.dot.on{background:var(--free)}.dot.off{background:var(--bad)}.dot.warn{background:var(--paid)}
+
+h1{font-size:clamp(38px,6.4vw,68px);line-height:1.04;letter-spacing:-.035em;margin:44px 0 16px;font-weight:750;max-width:14em}
+.lede{font-size:clamp(18px,2.2vw,22px);color:var(--muted);max-width:40em;margin:0 0 36px}
+.lede b{color:var(--text);font-weight:600}
+
+.how{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin-bottom:44px}
+.how>div{background:var(--panel);padding:20px 22px}
+.how .n{font-size:13px;color:var(--faint);margin-bottom:6px}
+.how h3{margin:0 0 4px;font-size:18px;font-weight:650;letter-spacing:-.01em}
+.how p{margin:0;color:var(--muted);font-size:14.5px}
+.how .tag{display:inline-block;margin-top:10px;font-size:13px;font-weight:600;padding:2px 9px;border-radius:6px}
+.tag.paid{color:var(--paid);background:var(--paid-soft)}
+.tag.free{color:var(--free);background:var(--free-soft)}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px}
+h2{font-size:22px;letter-spacing:-.015em;margin:0 0 14px;font-weight:680}
+label{display:block;font-size:14px;color:var(--muted);margin:0 0 6px}
+input[type=text],textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px 13px;outline:0}
+input[type=text]:focus,textarea:focus{border-color:var(--free)}
+textarea{resize:vertical;min-height:74px}
+.field{margin-bottom:14px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{background:var(--panel-2);border:1px solid var(--line);border-radius:99px;padding:4px 11px;font-size:13px;color:var(--muted);cursor:pointer}
+.chip:hover,.chip.sel{color:var(--text);border-color:var(--faint)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 18px;border-radius:10px;border:1px solid var(--line);background:var(--panel-2);cursor:pointer;font-weight:600;text-decoration:none;white-space:nowrap}
+.btn:hover{border-color:var(--faint)}
+.btn.primary{background:var(--free);color:#06130d;border-color:var(--free)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.danger{color:var(--bad)}
+.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.spread{justify-content:space-between}
+.hint{font-size:13.5px;color:var(--faint)}
+.error{color:var(--bad);font-size:14px;margin-top:10px}
+
+section{margin-bottom:48px}
+.lib{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.app{display:flex;flex-direction:column;gap:12px;text-decoration:none;transition:border-color .15s}
+.app:hover{border-color:var(--faint)}
+.app h3{margin:0;font-size:18px;font-weight:650}
+.app .goal{color:var(--muted);font-size:14px;margin:2px 0 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.nums{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.num small{display:block;color:var(--faint);font-size:12.5px}
+.num b{font-size:21px;font-weight:680;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.paid{color:var(--paid)}.free{color:var(--free)}.gl{color:var(--glimmer)}
+.badge{font-size:12.5px;padding:2px 8px;border-radius:6px;background:var(--panel-2);color:var(--muted);white-space:nowrap}
+.badge.ok{color:var(--free);background:var(--free-soft)}.badge.bad{color:var(--bad);background:var(--bad-soft)}.badge.busy{color:var(--paid);background:var(--paid-soft)}
+.empty{color:var(--muted);padding:28px;text-align:center;border:1px dashed var(--line);border-radius:var(--radius)}
+
+.title{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin:14px 0 18px}
+.title h1{font-size:clamp(26px,3.6vw,38px);margin:0;letter-spacing:-.025em}
+.title p{margin:4px 0 0;color:var(--muted);max-width:52em}
+.stage{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+.screen{position:relative;background:#000;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;aspect-ratio:16/10}
+.screen img{width:100%;height:100%;display:block;object-fit:contain}
+.screen .tagline{position:absolute;left:10px;top:10px;font-size:12.5px;padding:3px 9px;border-radius:7px;background:rgba(12,14,17,.8);backdrop-filter:blur(6px);display:flex;gap:7px;align-items:center}
+.side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.meter{padding:18px 20px}
+.meter small{color:var(--muted);font-size:13.5px;display:block}
+.meter .big{font-size:50px;line-height:1.1;font-weight:720;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.meter .sub{font-size:13.5px;color:var(--faint);margin-top:2px}
+.steps{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.step{flex:1;min-width:130px;padding:9px 13px;background:var(--panel);border:1px solid var(--line);border-radius:10px;color:var(--faint);font-size:14px;display:flex;gap:8px;align-items:center}
+.step.now{color:var(--text);border-color:var(--paid);background:var(--paid-soft)}
+.step.past{color:var(--free)}
+.ladder{padding:8px}
+.tier{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:9px;transition:background .2s}
+.tier .ico{width:10px;height:10px;border-radius:50%;flex:none;background:var(--faint)}
+.tier b{font-weight:620;font-size:15px}
+.tier small{display:block;color:var(--faint);font-size:12.5px;line-height:1.3}
+.tier .ct{margin-left:auto;font-size:18px;font-weight:680;font-variant-numeric:tabular-nums}
+.tier.code .ico{background:var(--free)}.tier.glimmer .ico{background:var(--glimmer)}.tier.cloud .ico{background:var(--paid)}
+.tier.code.on{background:var(--free-soft)}.tier.glimmer.on{background:var(--glimmer-soft)}.tier.cloud.on{background:var(--paid-soft)}
+.feed{max-height:330px;overflow:auto;padding:6px 14px;font-size:14px;overscroll-behavior:contain}
+.feed div{padding:7px 0;border-bottom:1px solid var(--line);color:var(--muted);overflow-wrap:anywhere}
+.feed div:last-child{border-bottom:0}
+.feed .spark{color:var(--text)}.feed .pass{color:var(--free)}.feed .fail{color:var(--bad)}.feed .gl{color:var(--glimmer)}.feed .paidline{color:var(--paid)}
+.result{margin-bottom:14px;padding:18px 22px;border-radius:var(--radius);border:1px solid var(--free);background:var(--free-soft)}
+.result.bad{border-color:var(--bad);background:var(--bad-soft)}
+.result h3{margin:0 0 4px;font-size:20px}
+.result p{margin:0 0 12px;color:var(--muted)}
+.race{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.lane .head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+.lane h3{margin:0;font-size:18px}
+.scoreline{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.scoreline .card{padding:14px 16px}
+.scoreline .big{font-size:38px;font-weight:720;letter-spacing:-.03em;line-height:1.1;font-variant-numeric:tabular-nums}
+.scoreline small{color:var(--muted);font-size:13px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin-bottom:16px}
+.stats>div{background:var(--panel);padding:16px 18px}
+.stats small{display:block;color:var(--muted);font-size:13px}
+.stats b{font-size:27px;font-weight:700;letter-spacing:-.025em;font-variant-numeric:tabular-nums}
+.stats em{display:block;font-style:normal;color:var(--faint);font-size:12.5px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:18px 0 14px;overflow-x:auto}
+.tabs button{background:none;border:0;padding:9px 13px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+.tabs button.on{color:var(--text);border-color:var(--free)}
+pre.code{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:14px;overflow:auto;max-height:560px;font:12.5px/1.55 var(--mono);margin:0;white-space:pre}
+.prose{white-space:pre-wrap;color:var(--muted);font-size:15px;max-width:58em;overflow-wrap:anywhere}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{font-weight:500;text-align:left;color:var(--faint);padding:6px 10px 6px 0}
+td{padding:7px 10px 7px 0;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
+.toggle{display:inline-flex;gap:8px;align-items:center;cursor:pointer;font-size:14.5px;color:var(--muted)}
+.seen{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:14px;align-items:start}
+.seen h3{margin:0 0 8px;font-size:15px;font-weight:620;color:var(--muted)}
+.state{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;font:12.5px/1.5 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;max-height:200px;overflow:auto;margin:0}
+.verb{padding:7px 0;border-top:1px solid var(--line);font-size:14px}
+.verb:first-child{border-top:0}
+.verb code{font:13px var(--mono);color:var(--free)}
+.verb span{display:block;color:var(--faint);font-size:13px}
+.ask{display:flex;gap:8px;margin-top:12px}
+.ask input{flex:1}
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.vs .card{padding:12px 14px}
+.vs b{display:block;font-size:26px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.15}
+.vs small{color:var(--muted);font-size:12.5px}
+@media (max-width:900px){.seen{grid-template-columns:1fr}}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:grid;place-items:center;padding:16px;z-index:10}
+.modal .card{max-width:480px;width:100%}
+footer{padding:24px 0 40px;color:var(--faint);font-size:13.5px}
+@media (max-width:900px){
+  .wrap{padding:0 16px}
+  .stage{grid-template-columns:1fr}
+  .how{grid-template-columns:1fr}
+  .race{grid-template-columns:1fr}
+  .stats{grid-template-columns:1fr 1fr}
+  .meter .big{font-size:42px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="logo" href="#/"><i><svg viewBox="0 0 32 32"><path d="M7 25l9-18 9 18" stroke="#06130d" stroke-width="4.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></i>Autoharness</a>
+    <div class="pills" id="pills"></div>
+  </header>
+  <main id="view"></main>
+  <footer>For the models, by the models. Learns with Muse Spark and SAM 3.1. Runs on Muse Glimmer, on your machine.</footer>
+</div>
+<div id="modal"></div>
+<script>
+"use strict";
+const $=(s,r=document)=>r.querySelector(s);
+const h=(tag,attrs={},...kids)=>{const e=document.createElement(tag);for(const[k,v]of Object.entries(attrs)){if(k==="class")e.className=v;else if(k.startsWith("on"))e.addEventListener(k.slice(2),v);else if(v!==null&&v!==undefined&&v!==false)e.setAttribute(k,v===true?"":v)}for(const c of kids.flat()){if(c===null||c===undefined||c===false)continue;e.append(c.nodeType?c:document.createTextNode(c))}return e};
+const fill=(el,...kids)=>el.replaceChildren(...kids.flat().filter(x=>x!==null&&x!==undefined&&x!==false));
+const usd=(v,d)=>{v=+v||0;if(d===undefined)d=v>=10?2:v>=0.1?2:v===0?2:3;return"$"+v.toFixed(d)};
+const secs=v=>{if(v===null||v===undefined)return"—";v=+v;if(v<10)return v.toFixed(1)+" s";if(v<90)return Math.round(v)+" s";if(v<3600)return Math.round(v/60)+" min";return(v/3600).toFixed(1)+" h"};
+const bytes=v=>{v=+v||0;if(v<1024)return v+" bytes";if(v<1048576)return(v/1024).toFixed(0)+" KB";return(v/1048576).toFixed(1)+" MB"};
+const api=async(path,body)=>{const r=await fetch(path,body===undefined?{}:{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw new Error(d.error||"Request failed");return d};
+let S={library:[],catalog:[],jobs:[]};let cleanup=null;
+
+function renderPills(){
+  const net=S.internet;const pills=$("#pills");pills.replaceChildren(
+    h("span",{class:"pill"},h("i",{class:"dot "+(net===null||net===undefined?"":net?"on":"off")}),net===false?"Internet off":"Internet on"),
+    h("span",{class:"pill",title:"Muse Glimmer, the local model"},h("i",{class:"dot "+(S.glimmer?"on":"warn")}),S.glimmer?"Glimmer ready":"Glimmer offline"),
+    h("span",{class:"pill",title:"Total spent on the Meta API through this install"},usd(S.spent_usd,2)+" of "+usd(S.budget_usd,0)));
+}
+async function refresh(){try{S=await api("/api/state");renderPills()}catch(e){}return S}
+setInterval(refresh,2500);
+
+/* ---------- home ---------- */
+function statusBadge(a){
+  if(a.status==="ready")return h("span",{class:"badge ok"},"Ready");
+  if(a.status==="teaching")return h("span",{class:"badge busy"},"Learning");
+  return h("span",{class:"badge bad"},a.status==="stopped"?"Stopped":"Failed");
+}
+function appCard(a){
+  const cost=a.runs?a.repair_usd/a.runs:null;
+  return h("a",{class:"card app",href:"#/app/"+a.id},
+    h("div",{class:"row spread"},h("h3",{},a.name),statusBadge(a)),
+    h("p",{class:"goal"},a.goal),
+    a.status!=="ready"?h("div",{class:"hint"},a.status==="teaching"?"Spark is learning this now.":`Spent ${usd(a.teach_usd)} before stopping.`):
+    h("div",{class:"nums"},
+      h("div",{class:"num"},h("small",{},"Taught once for"),h("b",{class:"paid"},usd(a.teach_usd))),
+      h("div",{class:"num"},h("small",{},"Each run after that"),h("b",{class:"free"},cost===null?"—":usd(cost,2))),
+      h("div",{class:"num"},h("small",{},"Typical run"),h("b",{},secs(a.median_seconds))),
+      h("div",{class:"num"},h("small",{},"Succeeded"),h("b",{},a.attempted?a.successes+" of "+a.attempted:"—"))));
+}
+function viewHome(){
+  const v=$("#view");
+  const targetIn=h("input",{type:"text",id:"tg",placeholder:"A website, a program, or pick one below",autocomplete:"off"});
+  const goalIn=h("textarea",{id:"gl",placeholder:"Win a game. Add a patient from this referral. Export last month's invoices."});
+  const err=h("div",{class:"error"});
+  const chips=h("div",{class:"chips"},S.catalog.map(c=>h("span",{class:"chip",onclick:()=>{targetIn.value=c.id;targetIn.dataset.name=c.name;goalIn.value=c.suggested_goal||"";[...chips.children].forEach(x=>x.classList.remove("sel"));event.target.classList.add("sel")}},c.name)));
+  const go=h("button",{class:"btn primary",onclick:async()=>{err.textContent="";go.disabled=true;try{const j=await api("/api/teach",{target:targetIn.value,goal:goalIn.value});location.hash="#/job/"+j.id}catch(e){err.textContent=e.message;go.disabled=false}}},"Teach it");
+  const running=S.jobs.filter(j=>j.status==="running");
+  fill(v,
+    h("h1",{},"Stop paying a genius to click buttons."),
+    h("p",{class:"lede"},"Every app on earth was built for human eyes and hands, and today's agents pay a frontier model to squint at screenshots of them. Autoharness has the model ",h("b",{},"learn an app once and build the interface it wishes the app had."),"  After that the app runs on your computer, for free, with your data on your machine."),
+    h("div",{class:"how"},
+      h("div",{},h("div",{class:"n"},"First, once"),h("h3",{},"Spark learns the app"),h("p",{},"No instructions and no API. It uses the app the way a person would, and works out how it behaves."),h("span",{class:"tag paid"},"Cloud, pennies to dollars")),
+      h("div",{},h("div",{class:"n"},"Still once"),h("h3",{},"It builds its own interface"),h("p",{},"Spark writes a program that gives any model the app as plain state and typed actions, tests it on fresh copies, and has to prove it works."),h("span",{class:"tag paid"},"Cloud, included above")),
+      h("div",{},h("div",{class:"n"},"Every time after"),h("h3",{},"Your computer does the work"),h("p",{},"Code does the routine steps. Glimmer, a small local model, makes the calls, without ever seeing a screen. Pull the internet cable and it keeps going."),h("span",{class:"tag free"},"Local, $0.00 per run"))),
+    running.length?h("section",{},h("h2",{},"Happening now"),h("div",{class:"lib"},running.map(j=>h("a",{class:"card app",href:"#/job/"+j.id},h("div",{class:"row spread"},h("h3",{},j.title),h("span",{class:"badge busy"},"Live")))))):null,
+    h("section",{},h("h2",{},"Teach it something new"),h("div",{class:"card"},
+      h("div",{class:"field"},h("label",{for:"tg"},"What should it learn?"),targetIn,chips),
+      h("div",{class:"field"},h("label",{for:"gl"},"What should it do?"),goalIn),
+      h("div",{class:"row spread"},h("span",{class:"hint"},"Spark is paid by the token. It stops at $4 no matter what."),go),err)),
+    h("section",{},h("div",{class:"row spread"},h("h2",{},"What it already knows"),
+      h("label",{class:"btn",style:"margin:0;color:var(--text);font-size:14px;padding:6px 12px"},"Import a .harness file",h("input",{type:"file",accept:".harness",hidden:true,onchange:async e=>{const f=e.target.files[0];if(!f)return;const r=await fetch("/api/import",{method:"POST",body:f});const d=await r.json();if(d.id)location.hash="#/app/"+d.id}}))),
+      S.library.length?h("div",{class:"lib"},S.library.map(appCard)):h("div",{class:"empty"},"Nothing yet. Teach it its first app above.")));
+}
+
+/* ---------- shared live bits ---------- */
+function liveScreen(job,lane,label,tone){
+  const img=h("img",{src:`/api/jobs/${job}/live/${lane}`,alt:"Live view of the app"});
+  return h("div",{class:"screen"},img,label?h("div",{class:"tagline"},h("i",{class:"dot "+tone}),label):null);
+}
+function feedLine(e){
+  const s=(t,c)=>h("div",{class:c||""},t);
+  const names={segment:"Asking SAM 3.1 to locate things",view_frame:"Inspecting a screenshot closely",experiment:"Testing some vision code on a recording",save_template:"Saving a picture to recognize later",write_harness:"Writing the program",trial:"Testing the program"};
+  switch(e.type){
+    case"say":return s(e.text,"spark");
+    case"note":return s("Learned: "+e.text);
+    case"understanding":return s("Understands the app now.","pass");
+    case"segment":return s(`SAM 3.1 found ${e.count} × "${e.phrase}"`);
+    case"tool":return names[e.name]&&e.name!=="segment"&&e.name!=="write_harness"&&e.name!=="trial"?s(names[e.name]):null;
+    case"template":return s(`Saved a picture of "${e.name}"`);
+    case"code":return s(`Wrote version ${e.version} of the program, ${e.lines} lines`);
+    case"trial_start":return s("Testing it on a fresh copy of the app…");
+    case"trial_end":return e.status==="done"?s(`Test passed in ${secs(e.seconds)}, ${e.actions} actions`,"pass"):s(`Test failed: ${e.reason||e.status}`,"fail");
+    case"verify_start":return s(`Proof run ${e.n} of ${e.of}. No cloud help allowed.`);
+    case"verify_end":return s(`Proof run ${e.n}: ${e.ok?"passed":"failed"} in ${secs(e.seconds)}. Judge: ${e.why||"—"}`,e.ok?"pass":"fail");
+    case"log":return e.tier==="person"?s(e.text,"pass"):s(e.text);
+    case"ask":return s("Glimmer, asked: "+e.text,"gl");
+    case"answer":return s(`Glimmer answered in ${e.seconds} s: ${e.text}`,"gl");
+    case"problem":return s("Hit a problem: "+e.text,"fail");
+    case"escalate":return s(e.text,"paidline");
+    case"repaired":return s(`Repaired for ${usd(e.usd)}. ${e.text}`,"paidline");
+    case"needs_help":return s("Needs a person: "+e.text,"fail");
+    case"error":return s(e.text,"fail");
+    case"safety":return null;
+    default:return null;
+  }
+}
+function pushFeed(feed,line){if(!line)return;const stick=feed.scrollTop+feed.clientHeight>=feed.scrollHeight-40;feed.append(line);if(stick)feed.scrollTop=feed.scrollHeight}
+function follow(jobId,onEvent){
+  const es=new EventSource(`/api/jobs/${jobId}/events`);
+  es.onmessage=m=>{const e=JSON.parse(m.data);onEvent(e);if(e.type==="end")es.close()};
+  return()=>es.close();
+}
+function confirmModal(job,message){
+  const root=$("#modal");
+  const answer=async ok=>{root.replaceChildren();await api(`/api/jobs/${job}/confirm`,{ok})};
+  root.replaceChildren(h("div",{class:"modal"},h("div",{class:"card"},h("h2",{},"Your approval, please"),h("p",{style:"color:var(--muted)"},message),h("div",{class:"row"},h("button",{class:"btn primary",onclick:()=>answer(true)},"Approve"),h("button",{class:"btn",onclick:()=>answer(false)},"Decline")))));
+}
+
+/* ---------- teaching ---------- */
+function viewTeach(job){
+  const v=$("#view");
+  const steps={explore:h("div",{class:"step"},"1. Exploring the app"),compile:h("div",{class:"step"},"2. Writing the program"),verify:h("div",{class:"step"},"3. Proving it works")};
+  const big=h("div",{class:"big paid"},"$0.00");const sub=h("div",{class:"sub"},"0 calls to Muse Spark");
+  const feed=h("div",{class:"feed"});
+  const code=h("pre",{class:"code",style:"max-height:380px"},"The program appears here as Spark writes it.");
+  const result=h("div",{});
+  const stopBtn=h("button",{class:"btn danger",onclick:()=>api(`/api/jobs/${job.id}/stop`,{})},"Stop");
+  v.replaceChildren(
+    h("div",{class:"title"},h("div",{},h("h1",{},job.title),h("p",{},"Spark is using the app and writing the program that replaces it. This is the only part that costs money.")),stopBtn),
+    result,
+    h("div",{class:"steps"},Object.values(steps)),
+    h("div",{class:"stage"},
+      h("div",{},liveScreen(job.id,"main","Live","on"),h("div",{class:"tabs",style:"margin-top:14px"},h("button",{class:"on"},"The program so far")),code),
+      h("div",{class:"side"},h("div",{class:"card meter"},h("small",{},"Teaching cost so far"),big,sub),h("div",{class:"card",style:"padding:0"},feed))));
+  let order=["explore","compile","verify"];
+  const setPhase=p=>{const i=order.indexOf(p);order.forEach((k,j)=>{steps[k].className="step"+(j<i?" past":j===i?" now":"")})};
+  cleanup=follow(job.id,e=>{
+    if(e.type==="phase")setPhase(e.phase);
+    if(e.type==="cost"){big.textContent=usd(e.usd,2);sub.textContent=`${e.calls} calls to Meta's API`}
+    if(e.type==="code"){code.textContent=e.code}
+    if(e.type==="confirm")confirmModal(job.id,e.message);
+    pushFeed(feed,feedLine(e));
+    if(e.type==="taught"){
+      const ok=e.status==="ready";
+      Object.values(steps).forEach(x=>x.className="step past");
+      result.replaceChildren(h("div",{class:"result"+(ok?"":" bad")},
+        h("h3",{},ok?`It knows this app now. That cost ${usd(e.teach_usd)}, once.`:"It couldn't learn this one."),
+        h("p",{},ok?`Passed ${e.verified} proof runs on fresh copies with no cloud help. Every run from now on is local.`:(e.failure||"Teaching stopped.")+` Spent ${usd(e.teach_usd)}.`),
+        h("a",{class:"btn primary",href:"#/app/"+job.package},ok?"See what it learned":"See details")));
+      window.scrollTo({top:0,behavior:"smooth"});
+    }
+    if(e.type==="end")stopBtn.remove();
+  });
+}
+
+/* ---------- running ---------- */
+function viewRun(job){
+  const v=$("#view");
+  const tiers={code:h("div",{class:"tier code"},h("i",{class:"ico"}),h("div",{},h("b",{},"Code"),h("small",{},"The program itself. Instant.")),h("span",{class:"ct"},"0")),
+    glimmer:h("div",{class:"tier glimmer"},h("i",{class:"ico"}),h("div",{},h("b",{},"Glimmer"),h("small",{},"Your local model, for judgment calls.")),h("span",{class:"ct"},"0")),
+    cloud:h("div",{class:"tier cloud"},h("i",{class:"ico"}),h("div",{},h("b",{},"Spark"),h("small",{},"Called back only if it breaks.")),h("span",{class:"ct"},"0"))};
+  const big=h("div",{class:"big free"},"$0.00");const sent=h("div",{class:"sub"},"0 bytes sent to the cloud");
+  const feed=h("div",{class:"feed"});const result=h("div",{});
+  const stopBtn=h("button",{class:"btn danger",onclick:()=>api(`/api/jobs/${job.id}/stop`,{})},"Stop");
+  v.replaceChildren(
+    h("div",{class:"title"},h("div",{},h("h1",{},job.title),h("p",{},"No frontier model is watching this. Only your computer is.")),stopBtn),
+    result,
+    h("div",{class:"stage"},liveScreen(job.id,"main","Live, local","on"),
+      h("div",{class:"side"},h("div",{class:"card meter"},h("small",{},"Cloud cost of this run"),big,sent),h("div",{class:"card ladder"},Object.values(tiers)),h("div",{class:"card",style:"padding:0"},feed))));
+  let lit;const light=t=>{Object.values(tiers).forEach(x=>x.classList.remove("on"));if(tiers[t])tiers[t].classList.add("on");clearTimeout(lit);lit=setTimeout(()=>tiers[t]&&tiers[t].classList.remove("on"),t==="glimmer"?8000:600)};
+  const count={code:0,glimmer:0,cloud:0};let cost=0;let cloudBytes=0;
+  cleanup=follow(job.id,e=>{
+    if(e.type==="action"&&e.tier==="code"){count.code++;tiers.code.querySelector(".ct").textContent=count.code;light("code")}
+    if(e.type==="ask"){light("glimmer")}
+    if(e.type==="answer"){count.glimmer++;tiers.glimmer.querySelector(".ct").textContent=count.glimmer;light("code")}
+    if(e.type==="escalate"){light("cloud");big.className="big paid"}
+    if(e.type==="cost"){count.cloud=e.calls;tiers.cloud.querySelector(".ct").textContent=e.calls;big.textContent=usd(e.usd,2);big.className="big paid";sent.textContent=bytes(e.bytes_sent)+" sent to the cloud"}
+    if(e.type==="confirm")confirmModal(job.id,e.message);
+    pushFeed(feed,feedLine(e));
+    if(e.type==="run_end"){
+      const ok=e.status==="done";
+      big.textContent=usd(e.cloud_usd,2);if(!e.cloud_usd)big.className="big free";
+      result.replaceChildren(h("div",{class:"result"+(ok?"":" bad")},
+        h("h3",{},ok?`Done in ${secs(e.seconds)}, for ${usd(e.cloud_usd,2)}.`:"It needs a hand."),
+        h("p",{},ok?`${e.summary||""} ${e.actions} actions by code, ${e.glimmer_calls} judgment calls by Glimmer, ${e.cloud_calls} calls to the cloud${e.repairs?` (it repaired itself ${e.repairs} time${e.repairs>1?"s":""})`:""}.`:e.reason||"The run stopped."),
+        h("a",{class:"btn",href:"#/app/"+job.package},"Back to the app")));
+    }
+    if(e.type==="end")stopBtn.remove();
+  });
+}
+
+/* ---------- race ---------- */
+function viewRace(job){
+  const v=$("#view");
+  const sCost=h("div",{class:"big paid"},"$0.00"),sNote=h("small",{},"Spark is on its first attempt");
+  const hCost=h("div",{class:"big free"},"$0.00"),hNote=h("small",{},"No finishes yet");
+  const sTime=h("span",{class:"hint"},""),hTime=h("span",{class:"hint"},"");
+  const result=h("div",{});
+  const stopBtn=h("button",{class:"btn danger",onclick:()=>api(`/api/jobs/${job.id}/stop`,{})},"Stop");
+  v.replaceChildren(
+    h("div",{class:"title"},h("div",{},h("h1",{},"Same app. Same goal."),h("p",{},"Left: Muse Spark looks at every screen itself, how agents work today. Right: the program it wrote, running here.")),stopBtn),
+    result,
+    h("div",{class:"race"},
+      h("div",{class:"lane"},h("div",{class:"head"},h("h3",{class:"paid"},"Spark, every step"),sTime),liveScreen(job.id,"spark","Cloud","warn"),h("div",{class:"scoreline"},h("div",{class:"card"},h("small",{},"Cloud cost"),sCost),h("div",{class:"card"},h("small",{},"Status"),h("div",{style:"margin-top:6px"},sNote)))),
+      h("div",{class:"lane"},h("div",{class:"head"},h("h3",{class:"free"},"Your harness"),hTime),liveScreen(job.id,"harness","Local","on"),h("div",{class:"scoreline"},h("div",{class:"card"},h("small",{},"Cloud cost"),hCost),h("div",{class:"card"},h("small",{},"Finished"),h("div",{class:"big",id:"wins"},"0"),hNote)))));
+  let sparkDone=false;let last={};
+  const t0=Date.now();const tick=setInterval(()=>{if(!sparkDone)sTime.textContent=secs((Date.now()-t0)/1000);},1000);
+  const stop=follow(job.id,e=>{
+    if(e.lane==="spark"&&e.type==="cost"){sCost.textContent=usd(e.usd,2);sNote.textContent=`${e.calls} screens sent to the cloud`}
+    if(e.type==="race_lap"){last=e;$("#wins").textContent=e.wins;hNote.textContent=`of ${e.lap} tries, about ${secs(e.elapsed/Math.max(1,e.lap))} each`;hTime.textContent=secs(e.elapsed)}
+    if(e.type==="race_end"){
+      sparkDone=true;clearInterval(tick);sTime.textContent=secs(e.seconds);
+      sCost.textContent=usd(e.usd,2);sNote.textContent=e.achieved?"Finished once":"Did not finish: "+(e.why||"");
+      const times=last.wins?last.wins:0;
+      result.replaceChildren(h("div",{class:"result"},
+        h("h3",{},`In the time Spark took ${e.achieved?"to finish once":"and failed"}, the harness finished ${times} time${times===1?"":"s"}.`),
+        h("p",{},`Spark: ${usd(e.usd,2)} and ${secs(e.seconds)} for one attempt. Harness: ${usd(0,2)}.`),
+        h("a",{class:"btn",href:"#/app/"+job.package},"Back to the app")));
+    }
+    if(e.type==="end")stopBtn.remove();
+  });
+  cleanup=()=>{clearInterval(tick);stop()};
+}
+
+/* ---------- talking to an app through its model interface ---------- */
+function verbList(iface){
+  return (iface&&iface.verbs||[]).map(v=>{const p=v.parameters&&v.parameters.properties||{};const sig=Object.entries(p).map(([k,t])=>k+": "+t.type).join(", ");return h("div",{class:"verb"},h("code",{},`${v.name}(${sig})`),h("span",{},v.description))});
+}
+function viewSession(job){
+  const v=$("#view");
+  const state=h("pre",{class:"state"},"Reading…");
+  const verbs=h("div",{});
+  const pixels=h("b",{class:"paid"},"—"),statek=h("b",{class:"free"},"—");
+  const feed=h("div",{class:"feed",style:"max-height:240px"});
+  const input=h("input",{type:"text",placeholder:"Ask for something in plain words",autocomplete:"off"});
+  const err=h("div",{class:"error"});
+  const send=async()=>{err.textContent="";const request=input.value.trim();if(!request)return;input.value="";pushFeed(feed,h("div",{class:"spark"},"You: "+request));try{await api(`/api/jobs/${job.id}/ask`,{request})}catch(e){err.textContent=e.message}};
+  input.addEventListener("keydown",e=>{if(e.key==="Enter")send()});
+  const stopBtn=h("button",{class:"btn danger",onclick:()=>api(`/api/jobs/${job.id}/stop`,{})},"Close the app");
+  v.replaceChildren(
+    h("div",{class:"title"},h("div",{},h("h1",{},"Two interfaces. Same app."),h("p",{},"You see the app built for people. Glimmer sees only what's on the right: the interface Spark designed for models. It never gets a screenshot.")),stopBtn),
+    h("div",{class:"seen"},
+      h("div",{},h("h3",{},"What you see"),liveScreen(job.id,"main","Built for people","warn")),
+      h("div",{},h("h3",{},"What the model sees"),
+        h("div",{class:"vs"},h("div",{class:"card"},h("small",{},"A screenshot costs Glimmer"),pixels,h("small",{},"tokens, every look")),h("div",{class:"card"},h("small",{},"This state costs it"),statek,h("small",{},"tokens, about"))),
+        state,h("div",{class:"card",style:"margin-top:12px;padding:6px 14px;max-height:230px;overflow:auto"},verbs))),
+    h("div",{class:"card",style:"margin-top:14px"},h("div",{class:"ask",style:"margin-top:0"},input,h("button",{class:"btn primary",onclick:send},"Ask Glimmer")),err,
+      h("p",{class:"hint",style:"margin:10px 0 0"},`Any other agent can use this too. MCP address: ${location.origin}/mcp/${job.package}`)),
+    h("div",{class:"card",style:"margin-top:14px;padding:0"},feed));
+  cleanup=follow(job.id,e=>{
+    if(e.type==="session_ready"){verbs.replaceChildren(...verbList({verbs:e.tools}))}
+    if(e.type==="op_state"){state.textContent=e.state;statek.textContent=Math.max(1,Math.round(e.state.length/4)).toLocaleString()}
+    if(e.type==="op_tokens"&&e.screenshot_tokens){pixels.textContent=e.screenshot_tokens.toLocaleString()}
+    if(e.type==="op_call")pushFeed(feed,h("div",{class:"gl"},`${e.source?e.source+" called":"Glimmer called"} ${e.verb}(${Object.entries(e.args||{}).map(([k,x])=>k+"="+JSON.stringify(x)).join(", ")})`));
+    if(e.type==="op_result")pushFeed(feed,h("div",{class:e.ok?"":"fail"},(e.ok?"→ ":"Failed: ")+e.result));
+    if(e.type==="op_end")pushFeed(feed,h("div",{class:e.finished?"pass":"fail"},`${e.answer} (${e.steps} steps, ${secs(e.seconds)}, no cloud)`));
+    if(e.type==="confirm")confirmModal(job.id,e.message);
+    if(e.type==="problem"||e.type==="error")pushFeed(feed,feedLine(e));
+    if(e.type==="end"){stopBtn.remove();location.hash="#/app/"+job.package}
+  });
+}
+
+/* ---------- one app ---------- */
+async function viewApp(id){
+  const v=$("#view");const a=await api("/api/package/"+id);
+  const err=h("div",{class:"error"});
+  const params={};const files={};
+  const form=(a.inputs||[]).map(inp=>{
+    if(inp.type==="file")return h("div",{class:"field"},h("label",{},inp.label),h("input",{type:"file",onchange:async e=>{const f=e.target.files[0];if(!f)return;const r=await fetch("/api/upload?name="+encodeURIComponent(f.name),{method:"POST",body:f});const d=await r.json();files[inp.name]=d.path;params[inp.name]=inp.name}}));
+    return h("div",{class:"field"},h("label",{},inp.label),h("input",{type:"text",oninput:e=>params[inp.name]=e.target.value}));
+  });
+  const localOnly=h("input",{type:"checkbox"});
+  const start=async(path,body)=>{err.textContent="";try{const j=await api(path,body);location.hash="#/job/"+j.id}catch(e){err.textContent=e.message}};
+  const runBody=()=>({id,local_only:localOnly.checked,params:Object.keys(params).length?{...params,_files:files}:null});
+  const b=a.baseline;
+  const perRun=a.runs?a.repair_usd/a.runs:null;
+  const breakEven=b&&b.usd>0?Math.ceil(a.teach_usd/b.usd):null;
+  const ready=a.status==="ready";
+  const tab={};
+  const panes={
+    how:()=>h("div",{},a.how?h("p",{style:"font-size:17px;margin-top:0"},a.how):null,a.failure?h("p",{class:"error"},a.failure):null,a.understanding?h("div",{},h("h2",{style:"font-size:17px"},"What Spark worked out"),h("div",{class:"prose"},a.understanding)):null),
+    model:()=>a.interface?h("div",{},h("p",{style:"margin-top:0;color:var(--muted);max-width:52em"},"Spark designed this interface for models. No person wrote it. Instead of reading screenshots, a model reads the app's state and calls these."),h("div",{class:"card",style:"padding:6px 16px;margin-bottom:12px"},verbList(a.interface)),h("p",{class:"hint"},`Connect any MCP client: ${location.origin}/mcp/${id}`)):h("p",{class:"hint"},"This one has no model interface yet."),
+    code:()=>h("div",{},h("p",{class:"hint",style:"margin-top:0"},`Version ${a.version}. ${a.lines} lines. It runs sandboxed: no network, no access to your files, keys or other programs.`),h("pre",{class:"code"},a.code||"(not written yet)")),
+    runs:()=>a.runs_list.length?h("table",{},h("thead",{},h("tr",{},["When","Kind","Result","Time","Code actions","Glimmer","Cloud"].map(x=>h("th",{},x)))),h("tbody",{},[...a.runs_list].reverse().map(r=>h("tr",{},h("td",{},new Date(r.at*1000).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})),h("td",{},r.kind==="verify"?"Proof":r.kind==="trial"?"Test":"Run"),h("td",{class:r.status==="done"?"free":""},r.status==="done"?"Done":r.status),h("td",{},secs(r.seconds)),h("td",{},r.actions),h("td",{},r.glimmer_calls),h("td",{},usd(r.cloud_usd,2)))))):h("p",{class:"hint"},"No runs yet."),
+  };
+  const paneEl=h("div",{});
+  const tabs=h("div",{class:"tabs"},[["how","How it works"],["model","What the model sees"],["code","The program"],["runs","History"]].map(([k,l])=>{const t=h("button",{onclick:()=>{Object.values(tab).forEach(x=>x.classList.remove("on"));t.classList.add("on");paneEl.replaceChildren(panes[k]())}},l);tab[k]=t;return t}));
+  tab.how.classList.add("on");paneEl.append(panes.how());
+  fill(v,
+    h("div",{class:"title"},h("div",{},h("h1",{},a.name),h("p",{},a.goal)),h("div",{},statusBadge(a))),
+    h("div",{class:"stats"},
+      h("div",{},h("small",{},"Cost to teach, once"),h("b",{class:"paid"},usd(a.teach_usd)),h("em",{},secs(a.teach_seconds)+" of Spark's time")),
+      h("div",{},h("small",{},"Cost per run now"),h("b",{class:"free"},perRun===null?"—":usd(perRun,2)),h("em",{},b?`Spark alone: ${usd(b.usd)} a run`:"Race it to compare")),
+      h("div",{},h("small",{},"Typical run"),h("b",{},secs(a.median_seconds)),h("em",{},b?`Spark alone: ${secs(b.seconds)}`:"—")),
+      h("div",{},h("small",{},"Succeeded"),h("b",{},a.attempted?`${a.successes} of ${a.attempted}`:"—"),h("em",{},breakEven?`Pays for itself in ${breakEven} run${breakEven===1?"":"s"}`:"Independently judged"))),
+    ready?h("div",{class:"card"},form,h("div",{class:"row spread"},
+      h("div",{class:"row"},h("button",{class:"btn primary",onclick:()=>start("/api/run",runBody())},"Run it"),a.interface?h("button",{class:"btn",onclick:()=>start("/api/session",{id})},"Ask Glimmer to use it"):null,h("button",{class:"btn",onclick:()=>start("/api/race",{id})},"Race against Spark")),
+      h("label",{class:"toggle",style:"margin:0"},localOnly,"Never use the cloud, even to repair")),err):null,
+    tabs,paneEl,
+    h("div",{class:"row",style:"margin-top:26px"},ready?h("a",{class:"btn",href:`/api/package/${id}/export`},"Share as a file"):null,h("button",{class:"btn danger",onclick:async()=>{if(confirm(`Delete ${a.name}?`)){await api("/api/delete",{id});location.hash="#/"}}},"Delete")));
+}
+
+/* ---------- routing ---------- */
+async function route(){
+  if(cleanup){cleanup();cleanup=null}
+  $("#modal").replaceChildren();
+  const p=location.hash.replace(/^#\/?/,"").split("/");
+  await refresh();
+  try{
+    if(p[0]==="job"){const job=S.jobs.find(j=>j.id===p[1]);if(!job){location.hash="#/";return}
+      window.scrollTo(0,0);
+      if(job.kind==="teach")viewTeach(job);else if(job.kind==="race")viewRace(job);else if(job.kind==="session")viewSession(job);else viewRun(job);return}
+    if(p[0]==="app"){await viewApp(p[1]);window.scrollTo(0,0);return}
+    viewHome();
+  }catch(e){$("#view").replaceChildren(h("div",{class:"empty"},e.message))}
+}
+window.addEventListener("hashchange",route);route();
+</script>
+</body>
+</html>

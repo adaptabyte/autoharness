@@ -4,23 +4,21 @@ build-backend = "hatchling.build"
 
 [project]
 name = "autoharness"
-version = "0.1.0"
-description = "Auto-harness: a smart model explores any game, then synthesizes a fast per-game harness for a small realtime model."
+version = "2.0.0"
+description = "A frontier model learns any app once and builds the interface it wishes the app had. A local model runs it from then on."
+readme = "README.md"
 requires-python = ">=3.11"
-dependencies = [
-    "numpy>=1.26",
-    "pillow>=10.0",
-]
+license = {text = "Apache-2.0"}
+dependencies = ["numpy>=1.26", "pillow>=10", "opencv-python-headless>=4.9", "mss>=9", "python-xlib>=0.33", "rapidocr-onnxruntime>=1.3"]
 
 [project.optional-dependencies]
-serve = ["vllm>=0.9", "huggingface-hub>=0.24"]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8", "playwright>=1.45"]
 
 [project.scripts]
-autoharness = "autoharness.cli:main"
+autoharness = "autoharness.__main__:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["autoharness", "games", "webui"]
+packages = ["autoharness"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

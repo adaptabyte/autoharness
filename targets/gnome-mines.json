@@ -1,0 +1,2 @@
+{"name": "Minesweeper", "kind": "desktop", "command": ["gnome-mines"], "blurb": "GNOME's native desktop game",
+ "suggested_goal": "Win a game of Minesweeper on the 8 x 8 board. Hitting a mine loses that game, so start a new one and keep playing until a game is won."}

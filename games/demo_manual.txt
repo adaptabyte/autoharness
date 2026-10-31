@@ -1,5 +1,0 @@
-DEMO QUEST manual
-
-Controls: press Enter to start. Move with W A S D or arrow keys.
-
-Goal: move the blue square onto the green goal to win.

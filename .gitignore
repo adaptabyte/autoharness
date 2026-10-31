@@ -1,9 +1,11 @@
 .venv/
+.venv-app/
 models/
 logs/
-game_kb.json
-data/kbs/*.json
+data/
 __pycache__/
 .pytest_cache/
 *.pyc
 .env
+*.egg-info/
+.autoharness/
