@@ -92,3 +92,18 @@ def test_mcp_tool_shape():
     s.pkg = P
     names = [t["name"] for t in s.tools()]
     assert names == ["observe", "x", "run_goal"]
+
+
+def test_failed_change_rolls_back_to_the_proven_version(monkeypatch, tmp_path):
+    monkeypatch.setattr(library.config, "LIBRARY", tmp_path / "lib")
+    monkeypatch.setattr(library.config, "HOME", tmp_path)
+    monkeypatch.setattr(library.config, "RUNS", tmp_path / "runs")
+    pkg = library.create("App", "goal", {})
+    pkg.write_code("good = 1\n")
+    pkg.update(interface={"verbs": ["a"]})
+    pkg.mark_proven()
+    pkg.write_code("broken = 1\n")
+    pkg.update(interface={"verbs": []})
+    assert pkg.restore_proven()
+    assert pkg.code == "good = 1\n"
+    assert pkg.manifest["interface"] == {"verbs": ["a"]}

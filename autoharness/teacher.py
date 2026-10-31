@@ -112,7 +112,7 @@ the goal using only observe() and the verbs, and a judge will check the real scr
 - Log what it is doing in plain words with app.log, sparingly. A person reads this.
 - There is no network, no display access and no filesystem outside its own folder. Don't try.
 
-Your tools: view_frame, experiment (run code against a recorded frame to develop perception before risking the \
+Your tools: view_frame, edit_harness (small exact changes: use this for every fix once a first version exists), experiment (run code against a recorded frame to develop perception before risking the \
 live app), segment, save_template, write_harness, trial (runs run(app) on a fresh copy of the app and tells you \
 what happened), try_interface (calls observe or one verb on the live app), and look and act for checking the live app \
 by hand. Develop perception on recorded frames first, then trial. When a trial fails, find out why from the evidence \
@@ -137,6 +137,8 @@ COMPILE_TOOLS = [
      "parameters": {"type": "object", "properties": {"name": {"type": "string"}, "frame": {"type": "integer"}, "x1": {"type": "integer"}, "y1": {"type": "integer"}, "x2": {"type": "integer"}, "y2": {"type": "integer"}}, "required": ["name", "frame", "x1", "y1", "x2", "y2"]}},
     {"type": "function", "name": "write_harness", "description": "Save the whole of harness.py. inputs lists what the user supplies each run.",
      "parameters": {"type": "object", "properties": {"code": {"type": "string"}, "inputs": {"type": "array", "items": {"type": "object", "properties": {"name": {"type": "string"}, "label": {"type": "string"}, "type": {"type": "string", "enum": ["text", "file"]}}, "required": ["name", "label", "type"]}}}, "required": ["code"]}},
+    {"type": "function", "name": "edit_harness", "description": "Change harness.py by exact search and replace. Prefer this to write_harness: rewriting a large file introduces new bugs. old must appear exactly once.",
+     "parameters": {"type": "object", "properties": {"old": {"type": "string"}, "new": {"type": "string"}}, "required": ["old", "new"]}},
     {"type": "function", "name": "trial", "description": "Run the harness on a fresh copy of the app, with no recovery help. Returns what happened and the final screen.",
      "parameters": {"type": "object", "properties": {"seconds": {"type": "integer", "description": "time limit, default 90, up to 300. Keep it short while debugging."}, "params": {"type": "object"}}}},
     {"type": "function", "name": "look", "description": "See the live app as it is right now. The screenshot is recorded as a new frame.",
@@ -190,6 +192,8 @@ def verify_only(pkg: Package, display: Display, target: Target, emit: Emit | Non
     else:
         fields["failure"] = f"passed only {passed} of {runs} verification runs"
     pkg.update(**fields)
+    if status == "ready":
+        pkg.mark_proven()
     return {"passed": passed, "runs": runs, "status": status, "usd": round(teacher.meter.usd, 4)}
 
 
@@ -381,6 +385,12 @@ class Teacher:
             return self._experiment(args["code"], self._frame(args["frame"]))
         if name == "write_harness":
             return self._write_harness(args["code"], args.get("inputs")), []
+        if name == "edit_harness":
+            code = self.pkg.code
+            count = code.count(args["old"])
+            if count != 1:
+                return f"not changed: that text appears {count} times, and it must appear exactly once", []
+            return self._write_harness(code.replace(args["old"], args["new"]), None), []
         if name == "trial":
             return self._trial(int(args.get("seconds", 90)), args.get("params"))
         if name == "try_interface":
@@ -726,6 +736,7 @@ class Teacher:
                 iface_passed, iface_rows = self._prove_interface()
                 if iface_passed >= 1:
                     pkg.update(status="ready", verified=f"{passed}/{self.verify_runs}", how=self.finished_summary or pkg.manifest.get("how", ""), notes=self.notes, failure=None)
+                    pkg.mark_proven()
                     return
                 message = ("run(app) works, but the model interface does not. Muse Glimmer, a small model that never sees the screen, was asked to reach the goal "
                            "using only observe() and the verbs, and failed. If observe() said something the screen did not show, that is the bug to fix: observe() must "
@@ -770,6 +781,10 @@ class Teacher:
         except Exception as e:  # noqa: BLE001
             pkg.update(status="failed", failure=f"{type(e).__name__}: {e}")
             self.emit({"type": "error", "text": traceback.format_exc()[-1500:]})
+        if pkg.manifest.get("status") != "ready" and pkg.restore_proven():
+            # A failed improvement must never replace a program that works.
+            self.emit({"type": "log", "tier": "cloud", "text": f"The changes didn't pass, so the last proven version is back in place. ({pkg.manifest.get('failure')})"})
+            pkg.update(status="ready", improvement_failed=pkg.manifest.get("failure"), failure=None)
         pkg.update(teach_usd=round(before + self.meter.usd, 4), teach_seconds=(pkg.manifest.get("teach_seconds") or 0) + round(time.time() - self._t0))
         self._cost()
         self.emit({"type": "taught", **{k: pkg.manifest.get(k) for k in ("status", "failure", "verified", "teach_usd", "teach_seconds")}})
@@ -849,7 +864,7 @@ cv2 and the standard library:
 
 It also offers observe(app) and @verb functions (from sdk import verb), the interface other models use: keep those working. Keep what works. \
 Make it deterministic, keep it restartable from any screen, verify after each action, and call app.fail when it truly cannot continue. \
-Tools: view_frame, experiment, segment, save_template, write_harness, finish."""
+Change as little as you can, using edit_harness. Tools: view_frame, experiment, segment, save_template, edit_harness, write_harness, finish."""
 
 
 def baseline(display: Display, target: Target, goal: str, emit: Emit | None = None, stop: threading.Event | None = None,

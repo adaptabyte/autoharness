@@ -62,6 +62,19 @@ class Package:
         self.update(version=n + 1)
         return n + 1
 
+    def mark_proven(self) -> None:
+        """This version passed its proof runs. Later failed changes roll back to it."""
+        shutil.copy(self.path / "harness.py", self.path / "proven.py")
+        self.update(proven_version=self.manifest.get("version"), proven_interface=self.manifest.get("interface"))
+
+    def restore_proven(self) -> bool:
+        proven = self.path / "proven.py"
+        if not proven.exists():
+            return False
+        self.write_code(proven.read_text())
+        self.update(interface=self.manifest.get("proven_interface"))
+        return True
+
     @property
     def assets(self) -> Path:
         d = self.path / "assets"

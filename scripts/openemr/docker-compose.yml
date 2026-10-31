@@ -1,0 +1,28 @@
+# OpenEMR, a real open-source medical records system, running only on this machine with made-up data.
+# Start:  sudo docker compose -f ~/muse/scripts/openemr/docker-compose.yml up -d    (the first start takes several minutes)
+# Stop:   sudo docker compose -f ~/muse/scripts/openemr/docker-compose.yml down -v  (-v also erases its data)
+services:
+  mysql:
+    image: mariadb:11.8
+    restart: unless-stopped
+    command: ["mariadbd", "--character-set-server=utf8mb4"]
+    volumes: ["openemr-db:/var/lib/mysql"]
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+  openemr:
+    image: openemr/openemr:8.0.0
+    restart: unless-stopped
+    ports: ["127.0.0.1:8300:80"]
+    volumes: ["openemr-sites:/var/www/localhost/htdocs/openemr/sites", "openemr-log:/var/log"]
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_ROOT_PASS: root
+      MYSQL_USER: openemr
+      MYSQL_PASS: openemr
+      OE_USER: admin
+      OE_PASS: pass
+    depends_on: [mysql]
+volumes:
+  openemr-db:
+  openemr-sites:
+  openemr-log:
