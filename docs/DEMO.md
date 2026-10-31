@@ -20,11 +20,11 @@ Yours to use, as long as your own recording shows the same. Re-measure anything 
 - Minesweeper, taught from nothing: **$1.56, 45 minutes**, 5 of 5 judged proof runs, 2 of 2 Glimmer-alone runs.
 - Harness against Spark on Minesweeper: typically **about 45 s at $0.00** against **277 s at $0.28** when Spark won. Spark
   is inconsistent: at medium effort another race gave no win in 14 minutes for $0.56, and at low effort none in 10 minutes.
-  The harness isn't perfect either: 1 of 21 race laps hung until the old 10-minute limit (laps are now capped at 3 minutes).
+  The harness isn't perfect either: 2 of 22 race laps hung until their time limit (laps are now capped at 3 minutes). Race laps report their own success; only proof runs are judged.
 - That pays back the lesson in about 6 runs. **Don't race Calculator**: Spark does that in 17 s for $0.018, which takes 59 runs to pay back.
 - One screenshot costs Glimmer **1,321 tokens**. Calculator's state costs about **22**.
 - Self-repair on Calculator: a dark theme broke it, Spark found "the = key changed from orange to blue" and fixed it for **$0.11** in the same run.
-- A clip of a real race, cropped from the app, is in `clips/` if you want to work from it.
+- Recorded races are in `clips/`. `race-mines-full.webm` is the fair medium-effort race. `race-mines.webm` has Spark at low effort, so don't use it as a comparison.
 
 ## The cut
 
