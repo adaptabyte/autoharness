@@ -161,7 +161,7 @@ def judge_final_screen(cloud: Cloud, goal: str, frame: np.ndarray, summary: str 
     """
     notes = f"How this app shows its state, from someone who explored it:\n{app_notes[:5000]}\n\n" if app_notes else ""
     out = cloud.respond(
-        model=config.TEACHER_MODEL, reasoning={"effort": "high"}, input=[{"role": "user", "content": [
+        model=config.SPARK_MODEL, reasoning={"effort": "high"}, input=[{"role": "user", "content": [
             {"type": "input_text", "text": f"A program claims it achieved this goal in an app:\n\n{goal}\n\nIts claim: {summary or 'none'}\n\n{notes}"
              "Judge from this final screenshot alone. Look closely at the actual state on screen and do not take the claim on trust. "
              'If the screen does not show the goal was reached, say no. Reply with only JSON: {"achieved": true or false, "why": "one short sentence"}'},
@@ -246,8 +246,9 @@ class Teacher:
 
     def _turn(self, items: list, tools: list, instructions: str) -> dict:
         def send(chain_id, payload):
-            body = dict(model=config.TEACHER_MODEL, tools=tools, input=payload, instructions=instructions,
-                        reasoning={"effort": "medium" if any(t.get("type") == "computer" for t in tools) else self.effort},
+            computer = any(t.get("type") == "computer" for t in tools)
+            body = dict(model=config.SPARK_MODEL if computer else config.TEACHER_MODEL, tools=tools, input=payload,
+                        instructions=instructions, reasoning={"effort": "medium" if computer else self.effort},
                         truncation="disabled", store=True)
             if chain_id:
                 body["previous_response_id"] = chain_id
@@ -890,7 +891,7 @@ def baseline(display: Display, target: Target, goal: str, emit: Emit | None = No
     chains = 1
     instructions = "Use the computer tool to reach the goal. Stop when it is reached."
     while turns < max_turns and not stop.is_set():
-        body = dict(model=config.TEACHER_MODEL, tools=[{"type": "computer"}], input=items, reasoning={"effort": effort},
+        body = dict(model=config.SPARK_MODEL, tools=[{"type": "computer"}], input=items, reasoning={"effort": effort},
                     instructions=instructions)
         if prev:
             body["previous_response_id"] = prev

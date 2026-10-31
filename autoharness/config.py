@@ -14,7 +14,10 @@ REPO = Path(__file__).resolve().parent.parent
 SYS_ROOT = Path(os.environ.get("AUTOHARNESS_SYS", Path.home() / ".local/autoharness-sys/root")).expanduser()
 
 API_BASE = os.environ.get("MODEL_API_BASE", "https://api.meta.ai/v1")
-TEACHER_MODEL = os.environ.get("AUTOHARNESS_TEACHER", "muse-spark-1.3")
+# Wonder is Meta's strongest model, but its API rejects the native computer tool. So Spark drives the app and looks at
+# screens, and Wonder writes and repairs the program. Spark also judges, so the author never marks its own work.
+SPARK_MODEL = os.environ.get("AUTOHARNESS_SPARK", "muse-spark-1.3")
+TEACHER_MODEL = os.environ.get("AUTOHARNESS_TEACHER", "muse-wonder-1.0")
 SAM_MODEL = "sam-3.1"
 GLIMMER_URL = os.environ.get("GLIMMER_URL", "http://127.0.0.1:8001/v1")
 GLIMMER_MODEL = os.environ.get("GLIMMER_MODEL", "muse-glimmer")

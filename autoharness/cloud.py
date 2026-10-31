@@ -146,11 +146,11 @@ class Cloud:
         out = self._post("/responses", body)
         if out.get("error"):
             raise CloudError(str(out["error"])[:500])
-        model = body.get("model", config.TEACHER_MODEL)
+        model = body["model"]
         u = out.get("usage") or {}
         tin, tout = int(u.get("input_tokens", 0)), int(u.get("output_tokens", 0))
         cached = int((u.get("input_tokens_details") or {}).get("cached_tokens", 0))
-        p = config.PRICES.get(model) or config.PRICES[config.TEACHER_MODEL]
+        p = config.PRICES[model]
         usd = ((tin - cached) * p.input + cached * p.cached + tout * p.output) / 1e6
         self.meter.usd += usd
         self.meter.calls += 1

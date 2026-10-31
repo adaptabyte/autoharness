@@ -28,6 +28,7 @@ def main() -> None:
     s = sub.add_parser("serve", help="start the web app")
     s.add_argument("--host", default="127.0.0.1")
     s.add_argument("--port", type=int, default=4140)
+    s.add_argument("--tailscale", action="store_true", help="also listen on this machine's Tailscale address, with a token")
     t = sub.add_parser("teach", help="teach an app")
     t.add_argument("target", help="a catalog id, URL or command")
     t.add_argument("goal", nargs="?", help="what it should do")
@@ -54,7 +55,7 @@ def main() -> None:
 
     if args.cmd == "serve":
         from .server import serve
-        return serve(args.host, args.port)
+        return serve(args.host, args.port, args.tailscale)
     if args.cmd == "list":
         print(json.dumps([p.summary() for p in library.all_packages()], indent=1))
         return None

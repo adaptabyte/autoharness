@@ -6,6 +6,7 @@ import json
 import os
 import re
 import secrets
+import subprocess
 import shutil
 import socket
 import tempfile
@@ -337,7 +338,8 @@ class Handler(BaseHTTPRequestHandler):
         return json.loads(raw or b"{}")
 
     def _authorized(self, query: dict) -> bool:
-        if TOKEN is None:
+        # Loopback is this machine's own user. Any other listener needs the token.
+        if TOKEN is None or self.server.server_address[0] == "127.0.0.1":
             return True
         cookie = self.headers.get("Cookie", "")
         return (query.get("token", [""])[0] == TOKEN or f"autoharness={TOKEN}" in cookie
@@ -563,14 +565,41 @@ class Server(ThreadingHTTPServer):
     allow_reuse_address = True
 
 
-def serve(host: str = "127.0.0.1", port: int = 4140) -> None:
+def _saved_token() -> str:
+    """One token per machine, so a link keeps working after a restart. Readable by this user only."""
+    if os.environ.get("AUTOHARNESS_TOKEN"):
+        return os.environ["AUTOHARNESS_TOKEN"]
+    path = config.HOME / "token"
+    if path.exists():
+        return path.read_text().strip()
+    token = secrets.token_urlsafe(16)
+    path.touch(mode=0o600)
+    path.write_text(token)
+    return token
+
+
+def _tailscale_address() -> str:
+    out = subprocess.run(["tailscale", "ip", "-4"], capture_output=True, text=True, timeout=10)
+    address = out.stdout.strip().splitlines()[0] if out.returncode == 0 and out.stdout.strip() else ""
+    if not address:
+        raise SystemExit("--tailscale was given, but this machine has no Tailscale address")
+    return address
+
+
+def serve(host: str = "127.0.0.1", port: int = 4140, tailscale: bool = False) -> None:
     global TOKEN
     config.ensure_dirs()
-    url = f"http://{host}:{port}"
-    if host not in ("127.0.0.1", "localhost"):
+    hosts = [host]
+    if tailscale:
+        hosts.append(_tailscale_address())
+    if any(h not in ("127.0.0.1", "localhost") for h in hosts):
         # This app controls a desktop and can spend money, so it is never open to a network by accident.
-        TOKEN = os.environ.get("AUTOHARNESS_TOKEN") or secrets.token_urlsafe(16)
-        url += f"/?token={TOKEN}"
+        TOKEN = _saved_token()
     threading.Thread(target=_background_status, daemon=True).start()
-    print(f"Autoharness {__version__} is running at {url}", flush=True)
-    Server((host, port), Handler).serve_forever()
+    servers = [Server((h, port), Handler) for h in hosts]
+    for h in hosts:
+        suffix = "" if h in ("127.0.0.1", "localhost") else f"/?token={TOKEN}"
+        print(f"Autoharness {__version__} is running at http://{h}:{port}{suffix}", flush=True)
+    for extra in servers[1:]:
+        threading.Thread(target=extra.serve_forever, daemon=True).start()
+    servers[0].serve_forever()
