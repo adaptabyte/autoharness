@@ -2,7 +2,7 @@
 
     1. code     the harness itself, in the sandbox. No model, no network.
     2. Glimmer  the local model, when the harness asks a question, or to clear an unexpected screen.
-    3. Spark    the teacher, once, to repair the harness. Skipped entirely in local-only mode.
+    3. Wonder   the teacher, once, to repair the harness. Skipped entirely in local-only mode.
     4. a person when nothing else worked, or before anything the harness marks as irreversible.
 """
 from __future__ import annotations
@@ -365,6 +365,7 @@ class Runner:
         import tempfile
         work = work or Path(tempfile.mkdtemp(prefix="autoharness-run-"))
         recoveries_left, repairs_left, restarts_left = 2, 1, 2
+        repair_tried = False
         try:
             while True:
                 if self.stop.is_set():
@@ -397,6 +398,7 @@ class Runner:
                     continue
                 if repair and not local_only and repairs_left:
                     repairs_left -= 1
+                    repair_tried = True
                     self.emit({"type": "escalate", "tier": "cloud", "text": "Calling the teacher back to repair the harness."})
                     outcome = repair(self.display.shot(), r.reason, r.traceback, r.log[-30:])
                     r.cloud_usd += outcome.get("usd", 0)
@@ -412,5 +414,8 @@ class Runner:
                 break
         except Exception as e:  # noqa: BLE001 - a run must always end with a result the UI can show
             r.status, r.reason, r.traceback = "failed", f"{type(e).__name__}: {e}", traceback.format_exc()[-2000:]
+        if repair_tried and r.status != "done" and self.pkg.restore_proven():
+            # A repair only counts once it has finished the job. Otherwise the next run gets the proven code back.
+            self.emit({"type": "log", "tier": "code", "text": "The repair didn't work, so the last proven version was restored."})
         r.seconds = round(time.time() - t0, 2)
         return r

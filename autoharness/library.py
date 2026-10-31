@@ -111,7 +111,7 @@ class Package:
         repair_calls = sum(r.get("cloud_calls", 0) for r in real)
         return {
             "id": self.id, "name": m.get("name", self.id), "goal": m.get("goal", ""), "target": m.get("target", {}),
-            "status": m.get("status", "new"), "version": m.get("version", 0), "inputs": m.get("inputs", []),
+            "status": m.get("status", "new"), "teacher": m.get("teacher", "Spark"), "version": m.get("version", 0), "inputs": m.get("inputs", []),
             "teach_usd": m.get("teach_usd", 0.0), "teach_seconds": m.get("teach_seconds", 0), "created": m.get("created"),
             "repair_usd": round(sum(r.get("cloud_usd", 0) for r in real), 4), "runs": len(real), "successes": ok,
             "attempted": len(judged), "median_seconds": times[len(times) // 2] if times else None,

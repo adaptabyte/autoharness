@@ -109,6 +109,32 @@ def test_failed_change_rolls_back_to_the_proven_version(monkeypatch, tmp_path):
     assert pkg.manifest["interface"] == {"verbs": ["a"]}
 
 
+def test_failed_repair_never_replaces_the_proven_program(monkeypatch, tmp_path):
+    """A repair that doesn't finish the job must not be what the next run gets."""
+    from autoharness.runtime import Runner
+    monkeypatch.setattr(library.config, "LIBRARY", tmp_path / "lib")
+    monkeypatch.setattr(library.config, "HOME", tmp_path)
+    monkeypatch.setattr(library.config, "RUNS", tmp_path / "runs")
+    pkg = library.create("App", "goal", {})
+    pkg.write_code("good = 1\n")
+    pkg.mark_proven()
+
+    class Screen:
+        def shot(self):
+            return None
+
+    def repair(*_):
+        pkg.write_code("worse = 1\n")
+        return {"fixed": True, "usd": 0.5, "summary": "It claims this is fixed."}
+
+    runner = Runner(pkg, Screen(), glimmer=object())
+    monkeypatch.setattr(runner, "_launch", lambda *_: {"status": "failed", "reason": "still broken"})
+    monkeypatch.setattr(runner, "_recover_locally", lambda *_: False)
+    result = runner.execute(repair=repair, work=tmp_path)
+    assert result.status == "needs_help" and result.repairs == 1
+    assert pkg.code == "good = 1\n"
+
+
 def test_ledger_keeps_every_record_across_processes(monkeypatch, tmp_path):
     """A hard budget has to count every cent, even with several lessons running at once."""
     import multiprocessing as mp

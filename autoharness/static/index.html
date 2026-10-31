@@ -165,7 +165,7 @@ footer{padding:24px 0 40px;color:var(--faint);font-size:13.5px}
     <div class="pills" id="pills"></div>
   </header>
   <main id="view"></main>
-  <footer>For the models, by the models. Learns with Muse Spark and SAM 3.1. Runs on Muse Glimmer, on your machine.</footer>
+  <footer>For the models, by the models. Learns with Muse Spark, Muse Wonder and SAM 3.1. Runs on Muse Glimmer, on your machine.</footer>
 </div>
 <div id="modal"></div>
 <script>
@@ -220,13 +220,13 @@ function viewHome(){
     h("p",{class:"lede"},"Every app on earth was built for human eyes and hands, and today's agents pay a frontier model to squint at screenshots of them. Autoharness has the model ",h("b",{},"learn an app once and build the interface it wishes the app had."),"  After that the app runs on your computer, for free, with your data on your machine."),
     h("div",{class:"how"},
       h("div",{},h("div",{class:"n"},"First, once"),h("h3",{},"Spark learns the app"),h("p",{},"No instructions and no API. It uses the app the way a person would, and works out how it behaves."),h("span",{class:"tag paid"},"Cloud, pennies to dollars")),
-      h("div",{},h("div",{class:"n"},"Still once"),h("h3",{},"It builds its own interface"),h("p",{},"Spark writes a program that gives any model the app as plain state and typed actions, tests it on fresh copies, and has to prove it works."),h("span",{class:"tag paid"},"Cloud, included above")),
+      h("div",{},h("div",{class:"n"},"Still once"),h("h3",{},"It builds its own interface"),h("p",{},"Wonder writes a program that gives any model the app as plain state and typed actions, tests it on fresh copies, and has to prove it works."),h("span",{class:"tag paid"},"Cloud, included above")),
       h("div",{},h("div",{class:"n"},"Every time after"),h("h3",{},"Your computer does the work"),h("p",{},"Code does the routine steps. Glimmer, a small local model, makes the calls, without ever seeing a screen. Pull the internet cable and it keeps going."),h("span",{class:"tag free"},"Local, $0.00 per run"))),
     running.length?h("section",{},h("h2",{},"Happening now"),h("div",{class:"lib"},running.map(j=>h("a",{class:"card app",href:"#/job/"+j.id},h("div",{class:"row spread"},h("h3",{},j.title),h("span",{class:"badge busy"},"Live")))))):null,
     h("section",{},h("h2",{},"Teach it something new"),h("div",{class:"card"},
       h("div",{class:"field"},h("label",{for:"tg"},"What should it learn?"),targetIn,chips),
       h("div",{class:"field"},h("label",{for:"gl"},"What should it do?"),goalIn),
-      h("div",{class:"row spread"},h("span",{class:"hint"},"Spark is paid by the token. It stops at $4 no matter what."),go),err)),
+      h("div",{class:"row spread"},h("span",{class:"hint"},"Spark and Wonder are paid by the token. It stops at $4 no matter what."),go),err)),
     h("section",{},h("div",{class:"row spread"},h("h2",{},"What it already knows"),
       h("label",{class:"btn",style:"margin:0;color:var(--text);font-size:14px;padding:6px 12px"},"Import a .harness file",h("input",{type:"file",accept:".harness",hidden:true,onchange:async e=>{const f=e.target.files[0];if(!f)return;const r=await fetch("/api/import",{method:"POST",body:f});const d=await r.json();if(d.id)location.hash="#/app/"+d.id}}))),
       (()=>{const good=S.library.filter(a=>a.status==="ready"||a.status==="teaching");const rest=S.library.filter(a=>a.status!=="ready"&&a.status!=="teaching");
@@ -285,13 +285,13 @@ function confirmModal(job,message){
 function viewTeach(job){
   const v=$("#view");
   const steps={explore:h("div",{class:"step"},"1. Exploring the app"),compile:h("div",{class:"step"},"2. Writing the program"),verify:h("div",{class:"step"},"3. Proving the program"),prove_interface:h("div",{class:"step"},"4. Proving the interface")};
-  const big=h("div",{class:"big paid"},"$0.00");const sub=h("div",{class:"sub"},"0 calls to Muse Spark");
+  const big=h("div",{class:"big paid"},"$0.00");const sub=h("div",{class:"sub"},"0 calls to the cloud");
   const feed=h("div",{class:"feed"});
-  const code=h("pre",{class:"code",style:"max-height:380px"},"The program appears here as Spark writes it.");
+  const code=h("pre",{class:"code",style:"max-height:380px"},"The program appears here as Wonder writes it.");
   const result=h("div",{});
   const stopBtn=h("button",{class:"btn danger",onclick:()=>api(`/api/jobs/${job.id}/stop`,{})},"Stop");
   v.replaceChildren(
-    h("div",{class:"title"},h("div",{},h("h1",{},job.title),h("p",{},"Spark is using the app and writing the program that replaces it. This is the only part that costs money.")),stopBtn),
+    h("div",{class:"title"},h("div",{},h("h1",{},job.title),h("p",{},"Spark is using the app, and Wonder is writing the program that replaces it. This is the only part that costs money.")),stopBtn),
     result,
     h("div",{class:"steps"},Object.values(steps)),
     h("div",{class:"stage"},
@@ -323,7 +323,7 @@ function viewRun(job){
   const v=$("#view");
   const tiers={code:h("div",{class:"tier code"},h("i",{class:"ico"}),h("div",{},h("b",{},"Code"),h("small",{},"The program itself. Instant.")),h("span",{class:"ct"},"0")),
     glimmer:h("div",{class:"tier glimmer"},h("i",{class:"ico"}),h("div",{},h("b",{},"Glimmer"),h("small",{},"Your local model, for judgment calls.")),h("span",{class:"ct"},"0")),
-    cloud:h("div",{class:"tier cloud"},h("i",{class:"ico"}),h("div",{},h("b",{},"Spark"),h("small",{},"Called back only if it breaks.")),h("span",{class:"ct"},"0"))};
+    cloud:h("div",{class:"tier cloud"},h("i",{class:"ico"}),h("div",{},h("b",{},"Wonder"),h("small",{},"Called back only if it breaks.")),h("span",{class:"ct"},"0"))};
   const big=h("div",{class:"big free"},"$0.00");const sent=h("div",{class:"sub"},"0 bytes sent to the cloud");
   const feed=h("div",{class:"feed"});const result=h("div",{});
   const stopBtn=h("button",{class:"btn danger",onclick:()=>api(`/api/jobs/${job.id}/stop`,{})},"Stop");
@@ -445,7 +445,7 @@ async function viewApp(id){
   const tab={};
   const panes={
     how:()=>h("div",{},a.how?h("p",{style:"font-size:17px;margin-top:0"},a.how):null,a.failure?h("p",{class:"error"},a.failure):null,a.understanding?h("div",{},h("h2",{style:"font-size:17px"},"What Spark worked out"),h("div",{class:"prose"},a.understanding)):null),
-    model:()=>a.interface?h("div",{},h("p",{style:"margin-top:0;color:var(--muted);max-width:52em"},"Spark designed this interface for models. No person wrote it. Instead of reading screenshots, a model reads the app's state and calls these."),h("div",{class:"card",style:"padding:6px 16px;margin-bottom:12px"},verbList(a.interface)),h("p",{class:"hint"},`Connect any MCP client: ${location.origin}/mcp/${id}`)):h("p",{class:"hint"},"This one has no model interface yet."),
+    model:()=>a.interface?h("div",{},h("p",{style:"margin-top:0;color:var(--muted);max-width:52em"},(a.teacher||"Spark")+" designed this interface for models. No person wrote it. Instead of reading screenshots, a model reads the app's state and calls these."),h("div",{class:"card",style:"padding:6px 16px;margin-bottom:12px"},verbList(a.interface)),h("p",{class:"hint"},`Connect any MCP client: ${location.origin}/mcp/${id}`)):h("p",{class:"hint"},"This one has no model interface yet."),
     code:()=>h("div",{},h("p",{class:"hint",style:"margin-top:0"},`Version ${a.version}. ${a.lines} lines. It runs sandboxed: no network, no access to your files, keys or other programs.`),h("pre",{class:"code"},a.code||"(not written yet)")),
     runs:()=>a.runs_list.length?h("table",{},h("thead",{},h("tr",{},["When","Kind","Result","Time","Code actions","Glimmer","Cloud"].map(x=>h("th",{},x)))),h("tbody",{},[...a.runs_list].reverse().map(r=>h("tr",{},h("td",{},new Date(r.at*1000).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})),h("td",{},r.kind==="verify"?"Proof":r.kind==="trial"?"Test":"Run"),h("td",{class:r.status==="done"?"free":""},r.status==="done"?"Done":r.status),h("td",{},secs(r.seconds)),h("td",{},r.actions),h("td",{},r.glimmer_calls),h("td",{},usd(r.cloud_usd,2)))))):h("p",{class:"hint"},"No runs yet."),
   };
@@ -455,7 +455,7 @@ async function viewApp(id){
   fill(v,
     h("div",{class:"title"},h("div",{},h("h1",{},a.name),h("p",{},a.goal)),h("div",{},statusBadge(a))),
     h("div",{class:"stats"},
-      h("div",{},h("small",{},"Cost to teach, once"),h("b",{class:"paid"},usd(a.teach_usd)),h("em",{},secs(a.teach_seconds)+" of Spark's time")),
+      h("div",{},h("small",{},"Cost to teach, once"),h("b",{class:"paid"},usd(a.teach_usd)),h("em",{},secs(a.teach_seconds)+" of teaching")),
       h("div",{},h("small",{},"Cost per run now"),h("b",{class:"free"},perRun===null?"—":usd(perRun,2)),h("em",{},b?`Spark alone: ${usd(b.usd)} a run`:"Race it to compare")),
       h("div",{},h("small",{},"Typical run"),h("b",{},secs(a.median_seconds)),h("em",{},b?`Spark alone: ${secs(b.seconds)}`:"—")),
       h("div",{},h("small",{},"Passed, independently judged"),h("b",{},a.attempted?`${a.successes} of ${a.attempted}`:"—"),h("em",{},a.interface_verified?`Glimmer alone: ${a.interface_verified.replace("/"," of ")}`:breakEven?`Pays for itself in ${breakEven} run${breakEven===1?"":"s"}`:"Independently judged"))),

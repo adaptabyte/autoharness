@@ -1,9 +1,9 @@
-"""The teacher: Muse Spark learns an app by using it, then writes the program that replaces it.
+"""The teacher: Muse Spark learns an app by using it, then Muse Wonder writes the program that replaces it.
 
     Explore   Spark drives the live app through computer use and works out how it behaves.
-    Compile   Spark writes harness.py and tests it on recorded frames and on the live app.
-    Verify    The harness runs alone on fresh instances, with no cloud. A separate Spark call that
-              never saw the code judges each final screen. Failures go back to the teacher.
+    Compile   Wonder writes harness.py and tests it on recorded frames and on the live app.
+    Verify    The harness runs alone on fresh instances, with no cloud. Spark, which never saw the
+              code, judges each final screen. Failures go back to the teacher.
 
 The teacher can only finish after trials pass, and only verified results reach the user.
 """
@@ -799,6 +799,7 @@ class Teacher:
     def teach(self) -> dict:
         """The whole lesson. Always leaves the package in a state the UI can explain."""
         pkg = self.pkg
+        pkg.update(teacher="Wonder" if "wonder" in config.TEACHER_MODEL else "Spark")
         try:
             self._explore()
             try:

@@ -6,7 +6,7 @@ Every app on earth was built for human eyes and hands, and nobody is going to re
 cope by sending a frontier model a screenshot at nearly every step, which is slow, expensive, and sends everything on
 your screen to the cloud.
 
-Autoharness has the model learn an app once and build the interface it wishes the app had. After that, the app runs
+Autoharness has Meta's models learn an app once and build the interface they wish the app had. After that, the app runs
 on your own computer, with no cloud at all.
 
 > Computer use becomes the compiler, not the runtime. For the models, by the models.
@@ -16,11 +16,11 @@ on your own computer, with no cloud at all.
 | | Who | What happens | Cost |
 |---|---|---|---|
 | **Explore** | Muse Spark, SAM 3.1 | Uses the app through computer use, with no instructions and no API, and works out how it behaves | Cloud, once |
-| **Compile** | Muse Spark | Writes a program that gives models the app as compact state and typed verbs, tests it on recordings and on the live app | Cloud, once |
-| **Verify** | The program alone, then an independent judge | Must pass on fresh copies with no cloud. A separate model call that never saw the code judges each final screen | Cloud, once |
+| **Compile** | Muse Wonder | Writes a program that gives models the app as compact state and typed verbs, tests it on recordings and on the live app | Cloud, once |
+| **Verify** | The program alone, then an independent judge | Must pass on fresh copies with no cloud. Muse Spark, a different model that never saw the code, judges each final screen | Cloud, once |
 | **Prove the interface** | Glimmer alone, then the judge | Glimmer must reach the goal using only the state and verbs, with no screenshot, and the judge checks the real screen | Local, plus the judge |
 | **Run** | Code, then Muse Glimmer | Code does the routine steps. Glimmer, on your machine, makes judgment calls and clears surprises | Local, no cloud |
-| **Repair** | Muse Spark, only if needed | If the app changes and local recovery fails, the teacher is called back once to fix the program | Cloud, rarely, and can be switched off |
+| **Repair** | Muse Wonder, only if needed | If the app changes and local recovery fails, the teacher is called back once to fix the program | Cloud, rarely, and can be switched off |
 
 The output is a plain folder that exports as one shareable `.harness` file:
 
@@ -80,7 +80,12 @@ The program that runs was written by a model, so it is treated as hostile. `test
 - **No secrets, no display.** It runs with an empty environment and never holds the API key. It can only ask its parent
   process to act, over a pipe.
 - **A person approves the irreversible.** Harnesses are told to call `app.confirm()` before anything like submit, send
-  or delete. This relies on the harness doing so: review the code before trusting it with anything that matters.
+  or delete. Nothing enforces this yet: the OpenEMR harness creates a patient without asking. Review the code before trusting
+  it with anything that matters.
+- **A failed repair can't replace proven code.** A repair only stays if it finishes the job. Otherwise the last proven
+  version comes back, and a test holds it to that.
+- **Treat what you teach it as public to the program.** Logins in a goal can end up inside the generated code, so teach
+  with test accounts only.
 - **Spending has a hard stop.** Every Meta API call goes through one module that keeps a ledger on disk: $4 per lesson,
   $25 overall, both configurable.
 - **Local-only mode.** The one module that can reach the Meta API refuses every call during such a run.
@@ -106,10 +111,11 @@ Results are in [docs/RESULTS.md](docs/RESULTS.md): the measured numbers, includi
 
 Everything in this repository was written during the Meta Global AI Developer Hackathon (Oct 27 to Nov 4, 2026), as the
 commit history shows. It started from a small prototype written with Muse Code on Oct 28, and the rebuild was written
-with Claude Code, directed by the author. Harnesses themselves are written by Muse Spark at runtime.
+with Claude Code, directed by the author. Harnesses themselves are written by Meta's models at runtime.
 
-Things found by testing that differ from the docs at the time: `muse-wonder-1.0` rejected the computer tool, so Spark
-does the learning. Computer-use conversations accept images only in their first request, so compiling is a separate
+Things found by testing that differ from the docs at the time: `muse-wonder-1.0` rejects the native computer tool, though it accepts
+screenshots and function tools, so Spark explores and judges while Wonder writes and repairs the code. Minesweeper and Calculator were taught
+before this split, with Spark doing all of it. Computer-use conversations accept images only in their first request, so compiling is a separate
 conversation. They were also refused after exactly 29 turns, twice (the docs give that limit for stateless replay), so
 exploring is capped below that and the comparison baseline starts a new conversation when it happens. Stored responses
 can expire mid-chain, so the teacher can rebuild a conversation from disk. Spark can
