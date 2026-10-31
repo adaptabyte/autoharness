@@ -377,8 +377,8 @@ function viewRace(job){
       sCost.textContent=usd(e.usd,2);sNote.textContent=e.achieved?"Finished once":"Did not finish: "+(e.why||"");
       const times=last.wins?last.wins:0;
       result.replaceChildren(h("div",{class:"result"},
-        h("h3",{},`In the time Spark took ${e.achieved?"to finish once":"and failed"}, the harness finished ${times} time${times===1?"":"s"}.`),
-        h("p",{},`Spark: ${usd(e.usd,2)} and ${secs(e.seconds)} for one attempt. Harness: ${usd(0,2)}.`),
+        h("h3",{},e.achieved?`While Spark finished once, the harness finished ${times} time${times===1?"":"s"}.`:`In ${secs(e.seconds)}, the harness finished ${times} time${times===1?"":"s"}. Spark didn't finish once.`),
+        h("p",{},`Spark: ${usd(e.usd,2)} in the cloud, ${e.turns} screens sent. Harness: ${usd(0,2)}, nothing sent.`),
         h("a",{class:"btn",href:"#/app/"+job.package},"Back to the app")));
     }
     if(e.type==="end")stopBtn.remove();

@@ -110,7 +110,9 @@ with Claude Code, directed by the author. Harnesses themselves are written by Mu
 
 Things found by testing that differ from the docs at the time: `muse-wonder-1.0` rejected the computer tool, so Spark
 does the learning. Computer-use conversations accept images only in their first request, so compiling is a separate
-conversation. Stored responses can expire mid-chain, so the teacher can rebuild a conversation from disk. Spark can
+conversation. They were also refused after about 30 turns (the docs give a 29-pair limit for stateless replay), so
+exploring is capped below that and the comparison baseline starts a new conversation when it happens. Stored responses
+can expire mid-chain, so the teacher can rebuild a conversation from disk. Spark can
 believe the computer tool uses a 0 to 1000 grid. It uses pixels, as the docs say, so the prompts now say so outright.
 
 ## License

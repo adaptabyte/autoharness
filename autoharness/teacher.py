@@ -205,7 +205,7 @@ def verify_only(pkg: Package, display: Display, target: Target, emit: Emit | Non
 
 class Teacher:
     def __init__(self, pkg: Package, display: Display, target: Target, emit: Emit | None = None,
-                 stop: threading.Event | None = None, limit_usd: float = 4.0, max_explore_turns: int = 40,
+                 stop: threading.Event | None = None, limit_usd: float = 4.0, max_explore_turns: int = 28,
                  max_compile_turns: int = 90, verify_runs: int = 5, sample_params: dict | None = None,
                  glimmer: Glimmer | None = None, effort: str = "high", approve=None):
         self.pkg, self.display, self.target = pkg, display, target
@@ -887,9 +887,11 @@ def baseline(display: Display, target: Target, goal: str, emit: Emit | None = No
     items = [{"role": "user", "content": [{"type": "input_text", "text": f"Goal: {goal}\nScreen size: {display.width}x{display.height}."},
                                           {"type": "input_image", "image_url": image_url(frame)}]}]
     status = "ran out of turns"
+    chains = 1
+    instructions = "Use the computer tool to reach the goal. Stop when it is reached."
     while turns < max_turns and not stop.is_set():
         body = dict(model=config.TEACHER_MODEL, tools=[{"type": "computer"}], input=items, reasoning={"effort": effort},
-                    instructions="Use the computer tool to reach the goal. Stop when it is reached.")
+                    instructions=instructions)
         if prev:
             body["previous_response_id"] = prev
         try:
@@ -897,6 +899,20 @@ def baseline(display: Display, target: Target, goal: str, emit: Emit | None = No
         except BudgetExceeded as e:
             status = str(e)
             break
+        except CloudError as e:
+            # A computer-use conversation stops being accepted after about 30 turns. A real agent would
+            # start another and carry on, so this one does too, as fairly as it can.
+            if "invalid parameters" not in str(e) or not prev:
+                status = str(e)[:200]
+                break
+            chains += 1
+            prev = None
+            emit({"type": "log", "tier": "cloud", "text": "Spark hit the limit of one computer-use conversation and started another."})
+            items = [{"role": "user", "content": [
+                {"type": "input_text", "text": f"Goal: {goal}\nScreen size: {display.width}x{display.height}. You were already working on this, and "
+                 "the earlier conversation had to end. Carry on from the screen as it is now."},
+                {"type": "input_image", "image_url": image_url(display.shot())}]}]
+            continue
         prev = out["id"]
         turns += 1
         emit({"type": "cost", **meter.snapshot()})
@@ -923,4 +939,4 @@ def baseline(display: Display, target: Target, goal: str, emit: Emit | None = No
         status = "still going when the time limit hit"
     verdict = judge_final_screen(cloud, goal, display.shot(), app_notes=notes) if status == "finished" else {"achieved": False, "why": status}
     return {"achieved": verdict["achieved"], "why": verdict["why"], "status": status, "seconds": round(seconds, 1), "turns": turns,
-            "actions": actions, **{k: v for k, v in meter.snapshot().items() if k in ("usd", "bytes_sent", "input_tokens", "output_tokens")}, "at": time.time()}
+            "actions": actions, "conversations": chains, "effort": effort, **{k: v for k, v in meter.snapshot().items() if k in ("usd", "bytes_sent", "input_tokens", "output_tokens")}, "at": time.time()}
