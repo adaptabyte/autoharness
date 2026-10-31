@@ -54,6 +54,8 @@ Phase 1: EXPLORE. Use the computer tool. Learn how this app really behaves:
 - which things are the same every time, and which change from run to run
 - try to reach the goal at least once. Deliberately look at what failure looks like too.
 Use segment(phrase) if you need exact pixel positions of things you can see, such as "grid cell" or "button".
+All coordinates, in every tool, are screenshot pixels with (0, 0) at the top left. There is no 0-1000 grid. If a click \
+seems to miss, look at the pixels again rather than inventing a conversion.
 Be economical: you have about {max_turns} turns. Do not narrate at length.
 Call finish_explore when you understand the app well enough to write the program."""
 
@@ -83,6 +85,11 @@ and raise via app.fail when they cannot do what they say. Each verb starts as a 
 it needs from the screen or from app.state each time.
 
 What makes a good harness:
+- Coordinates everywhere are screenshot pixels with (0, 0) at the top left, the same numbers you see in frames and \
+segment boxes. There is no 0-1000 grid and no conversion of any kind.
+- Fast. A person should be impressed by how quickly it finishes. Numpy and templates take milliseconds, app.read_text \
+about half a second, so never OCR in a per-item loop: read the whole region once or save templates. Do not wait \
+longer than needed: app.wait_stable returns as soon as the screen settles.
 - Deterministic first. Read state from pixels with templates (save_template, then app.find), color and geometry \
 with numpy/cv2, and app.read_text (local OCR, runs on this machine). Work out the logic in code: real rules, real \
 solvers, real search.
@@ -102,8 +109,8 @@ app.fail(reason): that is what triggers recovery, so do not swallow errors or lo
 
 Your tools: view_frame, experiment (run code against a recorded frame to develop perception before risking the \
 live app), segment, save_template, write_harness, trial (runs run(app) on a fresh copy of the app and tells you \
-what happened), try_interface (calls observe or one verb on the live app) and the computer tool for looking at the \
-live app. Develop perception on recorded frames first, then trial. When a trial fails, find out why from the evidence \
+what happened), try_interface (calls observe or one verb on the live app), and look and act for checking the live app \
+by hand. Develop perception on recorded frames first, then trial. When a trial fails, find out why from the evidence \
 and fix the cause. Don't guess, and do not weaken the goal.
 Call finish only when your latest code has passed two trials in a row."""
 
@@ -112,8 +119,8 @@ EXPLORE_TOOLS = [
      "parameters": {"type": "object", "properties": {"fact": {"type": "string"}}, "required": ["fact"]}},
     {"type": "function", "name": "segment", "description": "Find every instance of a noun phrase in a frame using SAM 3.1. Returns exact pixel boxes. frame defaults to the latest.",
      "parameters": {"type": "object", "properties": {"phrase": {"type": "string"}, "frame": {"type": "integer"}}, "required": ["phrase"]}},
-    {"type": "function", "name": "finish_explore", "description": "End exploration. Summarize how the app works: screens, controls, how state, success and failure appear, and what varies.",
-     "parameters": {"type": "object", "properties": {"understanding": {"type": "string"}}, "required": ["understanding"]}},
+    {"type": "function", "name": "finish_explore", "description": "End exploration. You will lose this conversation and keep only what you write here, so be complete: screens, controls with exact positions, how state, success and failure appear, what varies from run to run, and what surprised you. key_frames lists the recorded frames worth looking at again.",
+     "parameters": {"type": "object", "properties": {"understanding": {"type": "string"}, "key_frames": {"type": "array", "items": {"type": "object", "properties": {"frame": {"type": "integer"}, "shows": {"type": "string"}}, "required": ["frame", "shows"]}}}, "required": ["understanding", "key_frames"]}},
 ]
 COMPILE_TOOLS = [
     EXPLORE_TOOLS[0], EXPLORE_TOOLS[1],
@@ -126,13 +133,17 @@ COMPILE_TOOLS = [
     {"type": "function", "name": "write_harness", "description": "Save the whole of harness.py. inputs lists what the user supplies each run.",
      "parameters": {"type": "object", "properties": {"code": {"type": "string"}, "inputs": {"type": "array", "items": {"type": "object", "properties": {"name": {"type": "string"}, "label": {"type": "string"}, "type": {"type": "string", "enum": ["text", "file"]}}, "required": ["name", "label", "type"]}}}, "required": ["code"]}},
     {"type": "function", "name": "trial", "description": "Run the harness on a fresh copy of the app, with no recovery help. Returns what happened and the final screen.",
-     "parameters": {"type": "object", "properties": {"seconds": {"type": "integer", "description": "time limit, default 120, up to 300"}, "params": {"type": "object"}}}},
+     "parameters": {"type": "object", "properties": {"seconds": {"type": "integer", "description": "time limit, default 90, up to 300. Keep it short while debugging."}, "params": {"type": "object"}}}},
+    {"type": "function", "name": "look", "description": "See the live app as it is right now. The screenshot is recorded as a new frame.",
+     "parameters": {"type": "object", "properties": {}}},
+    {"type": "function", "name": "act", "description": "Do one thing to the live app by hand and see the result, to check how something behaves. kind is click, right_click, double_click, drag, key, type or restart (a fresh copy of the app).",
+     "parameters": {"type": "object", "properties": {"kind": {"type": "string", "enum": ["click", "right_click", "double_click", "drag", "key", "type", "restart"]}, "x": {"type": "integer"}, "y": {"type": "integer"}, "x2": {"type": "integer"}, "y2": {"type": "integer"}, "text": {"type": "string", "description": "the text for type, or a key such as Return or ctrl+a for key"}}, "required": ["kind"]}},
     {"type": "function", "name": "try_interface", "description": "Call observe (name='observe') or one verb on the live app, as it is on screen now. Returns its result and the screen after.",
      "parameters": {"type": "object", "properties": {"name": {"type": "string"}, "args": {"type": "object"}}, "required": ["name"]}},
     {"type": "function", "name": "finish", "description": "Teaching is complete. Only accepted once the latest code has passed two trials in a row.",
      "parameters": {"type": "object", "properties": {"summary": {"type": "string", "description": "One or two plain sentences on how the harness works."}}, "required": ["summary"]}},
 ]
-REPAIR_TOOLS = [t for t in COMPILE_TOOLS if t["name"] not in ("trial", "try_interface")]
+REPAIR_TOOLS = [t for t in COMPILE_TOOLS if t["name"] not in ("trial", "try_interface", "act")]
 
 
 def judge_final_screen(cloud: Cloud, goal: str, frame: np.ndarray, summary: str = "") -> dict:
@@ -193,7 +204,7 @@ class Teacher:
 
     def _turn(self, items: list, tools: list, instructions: str) -> dict:
         body = dict(model=config.TEACHER_MODEL, tools=tools, input=items, instructions=instructions,
-                    reasoning={"effort": self.effort}, truncation="disabled")
+                    reasoning={"effort": "medium" if any(t.get("type") == "computer" for t in tools) else self.effort}, truncation="disabled")
         if self.prev_id:
             body["previous_response_id"] = self.prev_id
         out = self.cloud.respond(**body)
@@ -291,9 +302,15 @@ class Teacher:
         if name == "write_harness":
             return self._write_harness(args["code"], args.get("inputs")), []
         if name == "trial":
-            return self._trial(int(args.get("seconds", 120)), args.get("params"))
+            return self._trial(int(args.get("seconds", 90)), args.get("params"))
         if name == "try_interface":
             return self._try_interface(args["name"], args.get("args"))
+        if name == "look":
+            frame = self.display.shot()
+            n = self._record(frame)
+            return f"frame {n}", [self._image_item(frame, f"The live app now (frame {n})")]
+        if name == "act":
+            return self._act(args)
         raise ValueError(f"unknown tool {name}")
 
     def _experiment(self, code: str, frame: np.ndarray) -> tuple[str, list]:
@@ -372,6 +389,24 @@ class Teacher:
         self.emit({"type": "code", "version": version, "code": code, "lines": code.count("\n") + 1, "interface": value})
         return f"saved version {version}. Verbs: {[v['name'] for v in value['verbs']]}"
 
+    def _act(self, args: dict) -> tuple[str, list]:
+        d, kind = self.display, args["kind"]
+        if kind == "restart":
+            self.target.reset()
+        elif kind in ("click", "right_click", "double_click"):
+            d.click(args["x"], args["y"], "right" if kind == "right_click" else "left", 2 if kind == "double_click" else 1)
+        elif kind == "drag":
+            d.drag([(args["x"], args["y"]), (args["x2"], args["y2"])])
+        elif kind == "key":
+            d.press(args["text"])
+        elif kind == "type":
+            d.type(args["text"])
+        d.wait_stable(1.5)
+        frame = d.shot()
+        n = self._record(frame)
+        self.emit({"type": "action", "tier": "cloud", "what": kind, "x": args.get("x"), "y": args.get("y")})
+        return f"frame {n}", [self._image_item(frame, f"After {kind} (frame {n})")]
+
     def _describe(self) -> dict:
         """What the saved harness offers to other models, read by importing it in the sandbox."""
         runner = Runner(self.pkg, self.display, None, self.sample_params, self.glimmer, stop=self.stop)
@@ -446,9 +481,9 @@ class Teacher:
                         args = {}
                     if name == "finish_explore":
                         self.understanding = args.get("understanding", "")
+                        self.key_frames = args.get("key_frames") or []
                         (self.pkg.path / "teach" / "understanding.md").write_text(self.understanding)
                         self.emit({"type": "understanding", "text": self.understanding})
-                        next_items.append({"type": "function_call_output", "call_id": item["call_id"], "output": "ok"})
                         finished = True
                     elif name == "finish":
                         if repairing or self.passes_in_a_row >= 2:
@@ -474,13 +509,11 @@ class Teacher:
                 next_items.append({"role": "user", "content": [{"type": "input_text", "text":
                                    "Note: the app closed or crashed after your last action, so it was restarted fresh. What you see now is a new instance."}]})
             if finished:
-                self.pending_items = next_items
                 return
             if not next_items:
                 next_items = [{"role": "user", "content": [{"type": "input_text", "text": "Keep going with your tools. Call "
                                + ("finish_explore" if phase == "explore" else "finish") + " when this phase is complete."}]}]
             items = next_items
-        self.pending_items = items
         raise TimeoutError(f"{phase} used all {max_turns} turns")
 
     def _explore(self) -> None:
@@ -498,15 +531,33 @@ class Teacher:
         try:
             self._loop(first, [{"type": "computer"}, *EXPLORE_TOOLS], rules, "explore", self.max_explore_turns)
         except TimeoutError:
-            self.understanding = self.understanding or "(exploration ran out of turns)"
+            self.understanding = self.understanding or "Exploration ran out of turns before a summary was written."
+            self.key_frames = []
 
     def _compile(self, extra_message: str = "") -> None:
+        """A new conversation, without the computer tool. Meta's API accepts images only in the first request of a
+        computer-use conversation, and writing code needs to look at frames. This also keeps the context focused."""
         self.emit({"type": "phase", "phase": "compile"})
         rules = COMPILE_RULES.format(sdk=sdk_reference())
-        msg = (extra_message or "Exploration is over. Now write the program.") + f"\nThe latest frame number is {self.frame_n}."
-        items = list(getattr(self, "pending_items", []))
-        items.append({"role": "user", "content": [{"type": "input_text", "text": msg}]})
-        self._loop(items, [{"type": "computer"}, *COMPILE_TOOLS], rules, "compile", self.max_compile_turns)
+        if extra_message:
+            items = [{"role": "user", "content": [{"type": "input_text", "text": extra_message + f"\nThe latest frame number is {self.frame_n}."}]}]
+            self._loop(items, COMPILE_TOOLS, rules, "compile", self.max_compile_turns)
+            return
+        self.prev_id = None
+        m = self.pkg.manifest
+        params = {k: v for k, v in self.sample_params.items() if k != "_files"}
+        content: list = [{"type": "input_text", "text":
+                          f"App: {self.target.name}\nGoal: {m['goal']}\nSample inputs each run: {json.dumps(params)}\n"
+                          f"Screen size: {self.display.width}x{self.display.height}. Recorded frames 1 to {self.frame_n}; view any with view_frame.\n\n"
+                          f"What you learned by exploring the app:\n{self.understanding}\n\nNotes: {json.dumps(self.notes)}\n\nKey frames:"}]
+        for kf in (getattr(self, "key_frames", []) or [])[:8]:
+            try:
+                content.append({"type": "input_text", "text": f"Frame {kf['frame']}: {kf.get('shows', '')}"})
+                content.append({"type": "input_image", "image_url": image_url(self._frame(int(kf["frame"])))})
+            except (OSError, ValueError, KeyError, TypeError):
+                continue
+        content.append({"type": "input_text", "text": "Now write the program."})
+        self._loop([{"role": "user", "content": content}], COMPILE_TOOLS, rules, "compile", self.max_compile_turns)
 
     def _verify(self) -> tuple[int, list[dict]]:
         """Fresh instance, no cloud, no recovery from the teacher. Then an independent judge."""

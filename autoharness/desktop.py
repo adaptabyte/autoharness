@@ -5,8 +5,10 @@ person and the driver does not care what kind of app it is.
 """
 from __future__ import annotations
 
+import ctypes
 import os
 import shutil
+import signal
 import subprocess
 import threading
 import time
@@ -45,6 +47,11 @@ def _ensure_rootless_links() -> None:
         if link and not Path(link).is_symlink():
             Path(link).parent.mkdir(parents=True, exist_ok=True)
             os.symlink(dest, link)
+
+
+def die_with_parent() -> None:
+    """Runs in a new child before exec: the kernel ends it if the parent dies, however the parent dies."""
+    ctypes.CDLL(None).prctl(1, signal.SIGTERM, 0, 0, 0)
 
 
 def find_tool(name: str) -> str | None:
@@ -87,26 +94,25 @@ class Display:
         xvfb = find_tool("Xvfb")
         if not xvfb:
             raise RuntimeError("Xvfb is missing: run scripts/setup_desktop.sh")
-        n = self.number if self.number is not None else 90
-        while Path(f"/tmp/.X11-unix/X{n}").exists() or Path(f"/tmp/.X{n}-lock").exists():
-            n += 1
+        log = subprocess.DEVNULL
+        # Xvfb picks a free display itself and reports it over a pipe, so two screens can never collide.
+        read_fd, write_fd = os.pipe()
+        self.procs.append(subprocess.Popen(
+            [xvfb, "-displayfd", str(write_fd), "-screen", "0", f"{self.width}x{self.height}x24", "-nolisten", "tcp", "-ac"],
+            env=base_env(0), stdout=log, stderr=log, start_new_session=True, pass_fds=(write_fd,), preexec_fn=die_with_parent))
+        os.close(write_fd)
+        with os.fdopen(read_fd) as pipe:
+            line = pipe.readline().strip()
+        if not line:
+            raise RuntimeError("Xvfb did not start")
+        n = int(line)
         self.number = n
         self.env = base_env(n)
-        log = subprocess.DEVNULL
-        self.procs.append(subprocess.Popen(
-            [xvfb, f":{n}", "-screen", "0", f"{self.width}x{self.height}x24", "-nolisten", "tcp", "-ac"],
-            env=self.env, stdout=log, stderr=log, start_new_session=True))
-        for _ in range(100):
-            if Path(f"/tmp/.X11-unix/X{n}").exists():
-                break
-            time.sleep(0.05)
-        else:
-            raise RuntimeError("Xvfb did not start")
         self._x = xdisplay.Display(f":{n}")
         wm = find_tool("openbox")
         if wm:
             self.procs.append(subprocess.Popen([wm], env=self.env, stdout=log, stderr=log,
-                                               start_new_session=True))
+                                               start_new_session=True, preexec_fn=die_with_parent))
             time.sleep(0.2)
         return self
 

@@ -128,9 +128,17 @@ def start_teach(target_text: str, goal: str, limit: float, params: dict | None) 
     return _start("teach", f"Teaching {spec.get('name', target_text)}", pkg.id, body)
 
 
-def start_run(package_id: str, local_only: bool, params: dict | None, repeat: int = 1) -> Job:
+def changed_spec(spec: dict) -> dict:
+    """The same app with its appearance and window changed: what happens when software updates under a harness."""
+    changed = dict(spec, size=[1100, 720], env={**spec.get("env", {}), "GTK_THEME": "Adwaita:dark"})
+    return changed
+
+
+def start_run(package_id: str, local_only: bool, params: dict | None, repeat: int = 1, change_app: bool = False) -> Job:
     pkg = library.get(package_id)
     spec = pkg.manifest["target"]
+    if change_app:
+        spec = changed_spec(spec)
 
     def body(job: Job):
         display = Display(*spec.get("size", (1280, 800))).start()
@@ -405,7 +413,7 @@ class Handler(BaseHTTPRequestHandler):
                 job = start_teach(str(body.get("target", "")), str(body.get("goal", "")), float(body.get("limit", 4)), body.get("params"))
                 return self._json(job.brief())
             if path == "/api/run":
-                job = start_run(str(body["id"]), bool(body.get("local_only")), body.get("params"), int(body.get("repeat", 1)))
+                job = start_run(str(body["id"]), bool(body.get("local_only")), body.get("params"), int(body.get("repeat", 1)), bool(body.get("change_app")))
                 return self._json(job.brief())
             if path == "/api/race":
                 return self._json(start_race(str(body["id"])).brief())

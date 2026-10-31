@@ -19,7 +19,7 @@ from pathlib import Path
 import numpy as np
 
 from . import config
-from .desktop import Display, find_tool
+from .desktop import Display, die_with_parent, find_tool
 
 CATALOG_DIR = config.REPO / "targets"
 
@@ -137,7 +137,7 @@ class Target:
         env.update(self.spec.get("env", {}))
         log = open(self.profile + "/app.log", "wb")
         self.proc = subprocess.Popen(self._command(), env=env, stdout=log, stderr=log, start_new_session=True,
-                                     cwd=self.profile)
+                                     cwd=self.profile, preexec_fn=die_with_parent)
         settle = settle if settle is not None else self.spec.get("settle", 1.0)
         deadline = time.time() + self.spec.get("start_timeout", 25)
         while time.time() < deadline:
