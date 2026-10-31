@@ -87,7 +87,7 @@ class Package:
     def summary(self) -> dict:
         m = self.manifest
         runs = self.runs()
-        real = [r for r in runs if r.get("kind") != "trial"]
+        real = [r for r in runs if r.get("kind") not in ("trial", "interface")]
         verified = [r for r in runs if r.get("kind") in ("verify", "run")]
         ok = sum(1 for r in verified if r.get("status") == "done")
         times = sorted(r.get("seconds", 0) for r in verified if r.get("status") == "done")
@@ -101,7 +101,7 @@ class Package:
             "repair_usd": round(sum(r.get("cloud_usd", 0) for r in real), 4), "runs": len(real), "successes": ok,
             "attempted": len(verified), "median_seconds": times[len(times) // 2] if times else None,
             "tier_code": code, "tier_glimmer": glimmer, "tier_cloud": repair_calls,
-            "baseline": m.get("baseline"), "lines": self.code.count("\n"), "sentinel": m.get("sentinel"),
+            "baseline": m.get("baseline"), "lines": self.code.count("\n"), "verified": m.get("verified"), "interface_verified": m.get("interface_verified"),
         }
 
     def export(self) -> Path:

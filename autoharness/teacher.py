@@ -106,6 +106,9 @@ Keep anything worth remembering in app.state, a JSON-safe dict that survives res
 app.fail(reason): that is what triggers recovery, so do not swallow errors or loop forever.
 - Before anything irreversible in the real world (submit, send, delete, pay), call app.confirm(message).
 - Things the user provides each run (a name, a file) are inputs: declare them in write_harness and read app.params.
+- observe() and verb results must be strictly honest. Never report success, or any state, you have not confirmed from \
+the pixels. A small model that cannot see the screen will believe every word. After you finish, it will be asked to reach \
+the goal using only observe() and the verbs, and a judge will check the real screen.
 - Log what it is doing in plain words with app.log, sparingly. A person reads this.
 - There is no network, no display access and no filesystem outside its own folder. Don't try.
 
@@ -669,6 +672,109 @@ class Teacher:
                        "glimmer": r.glimmer_calls, "why": verdict["why"]})
         return passed, rows
 
+    def _prove_interface(self, runs: int = 2) -> tuple[int, list[dict]]:
+        """Can a small model reach the goal using only the interface? Glimmer tries from a fresh copy, seeing no
+        screen, then the independent judge checks the real final screen. This catches an observe() that misreports."""
+        from .session import Session, operate
+        if not self.glimmer.available():
+            self.emit({"type": "log", "tier": "cloud", "text": "Glimmer isn't running, so the model interface wasn't proven."})
+            self.pkg.update(interface_verified=None)
+            return runs, []
+        self.emit({"type": "phase", "phase": "prove_interface"})
+        goal = self.pkg.manifest["goal"]
+        params = {k: v for k, v in self.sample_params.items() if k != "_files"}
+        request = goal + (f"\nInputs: {json.dumps(params)}" if params else "")
+        passed, rows = 0, []
+        for i in range(runs):
+            if self.stop.is_set():
+                raise InterruptedError("stopped")
+            self.target.reset()
+            self.emit({"type": "interface_start", "n": i + 1, "of": runs})
+            trail: list[dict] = []
+
+            def sink(e, trail=trail):
+                self.emit(e)
+                if e.get("type") in ("op_state", "op_call", "op_result"):
+                    trail.append({k: v for k, v in e.items() if k in ("type", "state", "verb", "args", "result", "ok")})
+
+            session = Session(self.pkg, self.display, self.target, sink, self.stop, glimmer=self.glimmer)
+            session.interface = self.pkg.manifest.get("interface") or {}
+            out = operate(session, request, sink, self.stop, max_steps=40)
+            frame = self.display.shot()
+            n = self._record(frame)
+            verdict = judge_final_screen(self.cloud, goal, frame, out["answer"], app_notes(self.pkg))
+            self._cost()
+            ok = out["finished"] and verdict["achieved"]
+            passed += ok
+            self.pkg.add_run({"kind": "interface", "at": time.time(), "status": "done" if ok else "failed", "seconds": out["seconds"],
+                              "actions": 0, "glimmer_calls": out["steps"], "cloud_usd": 0, "cloud_calls": 0, "judge": verdict,
+                              "prompt_tokens": out["prompt_tokens"], "screenshot_tokens": out["screenshot_tokens"], "frame": n})
+            rows.append({"ok": ok, "glimmer_said": out["answer"], "judge": verdict["why"], "final_frame": n, "steps": out["steps"], "last_steps": trail[-14:]})
+            self.emit({"type": "interface_end", "n": i + 1, "of": runs, "ok": ok, "steps": out["steps"], "seconds": out["seconds"], "why": verdict["why"]})
+        self.pkg.update(interface_verified=f"{passed}/{runs}")
+        return passed, rows
+
+    def _prove(self, rounds: int = 3) -> None:
+        """Verify run(app) and the model interface, sending failures back to the teacher, until both pass or rounds run out."""
+        pkg = self.pkg
+        needed = max(1, int(np.ceil(self.verify_runs * 0.8)))
+        passed = 0
+        for round_n in range(rounds):
+            passed, rows = self._verify()
+            bad = [r for r in rows if r["status"] != "done"]
+            if passed >= needed:
+                iface_passed, iface_rows = self._prove_interface()
+                if iface_passed >= 1:
+                    pkg.update(status="ready", verified=f"{passed}/{self.verify_runs}", how=self.finished_summary or pkg.manifest.get("how", ""), notes=self.notes, failure=None)
+                    return
+                message = ("run(app) works, but the model interface does not. Muse Glimmer, a small model that never sees the screen, was asked to reach the goal "
+                           "using only observe() and the verbs, and failed. If observe() said something the screen did not show, that is the bug to fix: observe() must "
+                           f"never claim success or a state it has not confirmed from the pixels. What happened: {json.dumps(iface_rows, default=str)[:9000]}")
+            else:
+                message = (f"Verification on fresh copies passed {passed} of {self.verify_runs}, and {needed} are needed. "
+                           f"Failures: {json.dumps(bad, default=str)[:8000]}")
+            if round_n == rounds - 1:
+                pkg.update(status="failed", failure=message[:400], verified=f"{passed}/{self.verify_runs}")
+                return
+            self.passes_in_a_row = 0
+            try:
+                self._compile(message + "\nView the listed frames if you need to, fix the cause, and pass two trials again.")
+            except TimeoutError as e:
+                self.emit({"type": "log", "tier": "cloud", "text": f"{e}. Testing the latest program as it stands."})
+
+    def improve(self, instruction: str) -> dict:
+        """Send an existing program back to the teacher, without paying to explore again."""
+        pkg = self.pkg
+        self.understanding = app_notes(pkg)
+        self.notes = pkg.manifest.get("notes") or []
+        self.frame_n = len(list(self.frames_dir.glob("*.png")))
+        self.code_written = True
+        pkg.update(status="teaching")
+        before = pkg.manifest.get("teach_usd", 0) or 0
+        rules = COMPILE_RULES.format(sdk=sdk_reference())
+        try:
+            self.emit({"type": "phase", "phase": "compile"})
+            content = [{"type": "input_text", "text":
+                        f"App: {self.target.name}\nGoal: {pkg.manifest['goal']}\nScreen size: {self.display.width}x{self.display.height}. Frames 1 to {self.frame_n} are recorded.\n\n"
+                        f"What you learned earlier:\n{self.understanding}\n\nCurrent harness.py:\n```python\n{pkg.code}\n```\n"
+                        f"Saved templates: {[f.name for f in pkg.assets.glob('*.png')]}\n\nWhat needs to change: {instruction}\n\nFix it and pass two trials."}]
+            try:
+                self._loop([{"role": "user", "content": content}], COMPILE_TOOLS, rules, "compile", self.max_compile_turns)
+            except TimeoutError as e:
+                self.emit({"type": "log", "tier": "cloud", "text": f"{e}. Testing the latest program as it stands."})
+            self._prove()
+        except (BudgetExceeded, CloudError, TimeoutError) as e:
+            pkg.update(status="failed", failure=str(e))
+        except InterruptedError:
+            pkg.update(status="stopped", failure="stopped by the user")
+        except Exception as e:  # noqa: BLE001
+            pkg.update(status="failed", failure=f"{type(e).__name__}: {e}")
+            self.emit({"type": "error", "text": traceback.format_exc()[-1500:]})
+        pkg.update(teach_usd=round(before + self.meter.usd, 4), teach_seconds=(pkg.manifest.get("teach_seconds") or 0) + round(time.time() - self._t0))
+        self._cost()
+        self.emit({"type": "taught", **{k: pkg.manifest.get(k) for k in ("status", "failure", "verified", "teach_usd", "teach_seconds")}})
+        return pkg.manifest
+
     def teach(self) -> dict:
         """The whole lesson. Always leaves the package in a state the UI can explain."""
         pkg = self.pkg
@@ -681,26 +787,7 @@ class Teacher:
                 if not self.code_written:
                     raise
                 self.emit({"type": "log", "tier": "cloud", "text": f"{e}. Testing the latest program as it stands."})
-            needed = max(1, int(np.ceil(self.verify_runs * 0.8)))
-            for round_n in range(3):
-                passed, rows = self._verify()
-                if passed >= needed:
-                    break
-                if round_n == 2:
-                    pkg.update(status="failed", failure=f"passed only {passed} of {self.verify_runs} verification runs")
-                    break
-                self.passes_in_a_row = 0
-                self.emit({"type": "phase", "phase": "compile"})
-                report = json.dumps([{k: v for k, v in row.items()} for row in rows if row["status"] != "done"], default=str)[:8000]
-                try:
-                    self._compile(f"Verification on fresh copies passed {passed} of {self.verify_runs}, and {needed} are needed. "
-                                  f"Failures: {report}\nView the listed frames if you need to, fix the cause, and pass two trials again.")
-                except TimeoutError as e:
-                    self.emit({"type": "log", "tier": "cloud", "text": f"{e}. Testing the latest program as it stands."})
-            else:
-                passed = 0
-            if pkg.manifest.get("status") != "failed":
-                pkg.update(status="ready", verified=f"{passed}/{self.verify_runs}", how=self.finished_summary or "", notes=self.notes)
+            self._prove()
         except BudgetExceeded as e:
             pkg.update(status="failed", failure=str(e))
         except InterruptedError:

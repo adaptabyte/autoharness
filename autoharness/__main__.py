@@ -44,6 +44,11 @@ def main() -> None:
     v = sub.add_parser("verify", help="run proof runs again on a program, without teaching")
     v.add_argument("id")
     v.add_argument("--runs", type=int, default=5)
+    i = sub.add_parser("improve", help="send a program back to the teacher, without exploring again")
+    i.add_argument("id")
+    i.add_argument("instruction")
+    i.add_argument("--limit", type=float, default=3.0)
+    i.add_argument("--verify", type=int, default=5)
     sub.add_parser("list", help="list taught apps")
     args = ap.parse_args()
 
@@ -88,6 +93,9 @@ def main() -> None:
                 res = runner.execute(repair=Repairer(pkg, d, tgt, printer), local_only=args.local_only)
                 pkg.add_run(res.record("run"))
                 print(json.dumps(res.record("run"), indent=0))
+        elif args.cmd == "improve":
+            m = Teacher(pkg, d, tgt, printer, limit_usd=args.limit, verify_runs=args.verify, sample_params=spec.get("sample_params")).improve(args.instruction)
+            print(json.dumps({k: m.get(k) for k in ("status", "failure", "verified", "interface_verified", "teach_usd")}, indent=1))
         elif args.cmd == "verify":
             print(json.dumps(verify_only(pkg, d, tgt, printer, args.runs, spec.get("sample_params")), indent=1))
         elif args.cmd == "baseline":

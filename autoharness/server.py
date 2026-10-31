@@ -16,6 +16,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import numpy as np
 from PIL import Image
 
 from . import __version__, config, library, targets
@@ -533,7 +534,13 @@ class Handler(BaseHTTPRequestHandler):
             if sig != last:
                 last = sig
                 buf = io.BytesIO()
-                Image.fromarray(f).save(buf, "JPEG", quality=78)
+                # A small window on a big black screen is hard to see: show the part in use, as the app really is.
+                lit = np.argwhere(f[::4, ::4].max(axis=2) > 0)
+                if len(lit):
+                    (y1, x1), (y2, x2) = lit.min(0) * 4, (lit.max(0) + 1) * 4
+                    if (x2 - x1) * (y2 - y1) < 0.8 * f.shape[0] * f.shape[1]:
+                        f = f[max(0, y1 - 12):y2 + 12, max(0, x1 - 12):x2 + 12]
+                Image.fromarray(f).save(buf, "JPEG", quality=82)
                 data = buf.getvalue()
                 self.wfile.write(b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: " + str(len(data)).encode() + b"\r\n\r\n" + data + b"\r\n")
                 self.wfile.flush()
