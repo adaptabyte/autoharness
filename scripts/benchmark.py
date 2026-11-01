@@ -104,13 +104,14 @@ def oracle_process(request: dict) -> dict:
         page.wait_for_timeout(2500)
         page.fill("input[type=search]", request["last_name"])
         page.wait_for_timeout(2500)
-        rows = [[c.strip() for c in r.split("\t")] for r in page.locator("table tbody tr").all_inner_texts()]
-        rows = [r for r in rows if r and r[0].lower().startswith(request["last_name"].lower() + ",")]
+        found = page.locator("table tbody tr")
+        rows = [[found.nth(i).get_attribute("id") or ""] + [c.strip() for c in found.nth(i).inner_text().split("\t")] for i in range(found.count())]
+        rows = [r for r in rows if len(r) > 1 and r[1].lower().startswith(request["last_name"].lower() + ",")]
         info = page.locator(".dataTables_info").first.inner_text()
         total = re.search(r"of ([\d,]+) entries", info)
         out = {"rows": len(rows), "total": int(total.group(1).replace(",", "")) if total else len(rows), "records": []}
         for row in rows[:5]:
-            page.goto(f"http://127.0.0.1:8300/interface/patient_file/summary/demographics_full.php?set_pid={row[-1]}")
+            page.goto(f"http://127.0.0.1:8300/interface/patient_file/summary/demographics_full.php?set_pid={row[0].removeprefix('pid_')}")
             page.wait_for_timeout(1500)
             out["records"].append(page.evaluate("""() => { const v = n => { const e = document.querySelector(`[name="${n}"]`);
                 return e ? (e.tagName === 'SELECT' ? e.options[e.selectedIndex].text : e.value) : null };

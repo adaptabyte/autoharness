@@ -216,6 +216,8 @@ class Teacher:
         self.max_explore_turns, self.max_compile_turns = max_explore_turns, max_compile_turns
         self.verify_runs = verify_runs
         self.sample_params = sample_params or {}
+        self.task = ""  # an extra request for this session; it must survive a lost conversation
+        self.old_verbs: set[str] | None = None  # when set, finishing requires a verb that isn't in here
         self.glimmer = glimmer or Glimmer()
         self.effort = effort
         self.approve = approve
@@ -291,6 +293,7 @@ class Teacher:
         results = [str(i.get("output"))[:4000] for i in items if i.get("type") == "function_call_output"]
         content = [{"type": "input_text", "text":
                     f"Your conversation history was lost, but all your work is saved.\nApp: {self.target.name}\nGoal: {m.get('goal')}\n"
+                    + (f"What you were asked to do, which may not be finished: {self.task}\n" if self.task else "") +
                     f"What you learned:\n{self.understanding}\nNotes: {json.dumps(self.notes)}\n"
                     f"Saved templates: {[f.name for f in self.pkg.assets.glob('*.png')]}\nLatest frame number: {self.frame_n}\n"
                     f"Current harness.py (version {m.get('version', 0)}):\n```python\n{self.pkg.code}\n```\n"
@@ -583,7 +586,10 @@ class Teacher:
                         self.emit({"type": "understanding", "text": self.understanding})
                         finished = True
                     elif name == "finish":
-                        if repairing or self.passes_in_a_row >= 2:
+                        if self.old_verbs is not None and not self._new_verbs():
+                            next_items.append({"type": "function_call_output", "call_id": item["call_id"],
+                                               "output": f"refused: you were asked to add verbs, and the program still has only {sorted(self.old_verbs)}. What was asked: {self.task}"})
+                        elif repairing or self.passes_in_a_row >= 2:
                             self.finished_summary = args.get("summary", "")
                             next_items.append({"type": "function_call_output", "call_id": item["call_id"], "output": "accepted"})
                             finished = True
@@ -759,9 +765,16 @@ class Teacher:
             except TimeoutError as e:
                 self.emit({"type": "log", "tier": "cloud", "text": f"{e}. Testing the latest program as it stands."})
 
-    def improve(self, instruction: str) -> dict:
-        """Send an existing program back to the teacher, without paying to explore again."""
+    def _new_verbs(self) -> set[str]:
+        return {v["name"] for v in (self.pkg.manifest.get("interface") or {}).get("verbs", [])} - (self.old_verbs or set())
+
+    def improve(self, instruction: str, add_verbs: bool = False) -> dict:
+        """Send an existing program back to the teacher, without paying to explore again. With add_verbs, the program
+        doesn't count as improved unless it gained a verb: its proof runs only test the old goal, so they can't tell."""
         pkg = self.pkg
+        self.task = instruction
+        if add_verbs:
+            self.old_verbs = {v["name"] for v in (pkg.manifest.get("interface") or {}).get("verbs", [])}
         self.understanding = app_notes(pkg)
         self.notes = pkg.manifest.get("notes") or []
         self.frame_n = len(list(self.frames_dir.glob("*.png")))
@@ -780,6 +793,8 @@ class Teacher:
             except TimeoutError as e:
                 self.emit({"type": "log", "tier": "cloud", "text": f"{e}. Testing the latest program as it stands."})
             self._prove()
+            if self.old_verbs is not None and pkg.manifest.get("status") == "ready" and not self._new_verbs():
+                pkg.update(status="failed", failure="the teacher was asked to add verbs and added none")
         except (BudgetExceeded, CloudError, TimeoutError) as e:
             pkg.update(status="failed", failure=str(e))
         except InterruptedError:
