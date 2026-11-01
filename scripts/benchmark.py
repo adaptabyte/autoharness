@@ -144,11 +144,13 @@ def check_answer(expression: str, text: str) -> tuple[bool, str]:
     return ok, f"expected {want}"
 
 
-def glimmer_screens(display, target, goal: str, skill: str, seconds: float, max_steps: int = 40) -> dict:
+def glimmer_screens(display, target, goal: str, skill: str, seconds: float, max_steps: int = 40, rules: str = GLIMMER_RULES, max_scroll: int | None = None) -> dict:
+    """max_scroll caps wheel notches per action. Any "note" in a reply is kept for the whole run, because the history window is short and a screen that scrolls away is gone."""
     glimmer = Glimmer()
     target.reset()
     t0 = time.time()
     history: list[str] = []
+    notes: list[str] = []
     answer, steps, prompt_tokens = None, 0, 0
     status = "ran out of steps"
     guide = f"\nA guide to this app, written by someone who has already learned it:\n{skill}\n" if skill else ""
@@ -157,7 +159,8 @@ def glimmer_screens(display, target, goal: str, skill: str, seconds: float, max_
             status = "ran out of time"
             break
         frame = display.shot()
-        prompt = GLIMMER_RULES.format(w=display.width, h=display.height, goal=goal, skill=guide, history="\n".join(history[-15:]) or "(nothing yet)")
+        kept = "Your notes so far:\n" + "\n".join(notes) + "\n\n" if notes else ""
+        prompt = rules.format(w=display.width, h=display.height, goal=goal, skill=guide, history=kept + ("\n".join(history[-15:]) or "(nothing yet)"))
         try:
             a = glimmer.ask(prompt, image=frame, schema={"action": "see above", "finished": "or this"}, max_tokens=2500, strength="low")
         except LocalModelError as e:
@@ -166,6 +169,8 @@ def glimmer_screens(display, target, goal: str, skill: str, seconds: float, max_
             continue
         steps += 1
         prompt_tokens += glimmer.last_prompt_tokens or 0
+        if a.get("note"):
+            notes.append(str(a["note"]))
         if a.get("finished"):
             answer, status = str(a["finished"]), "finished"
             break
@@ -183,14 +188,18 @@ def glimmer_screens(display, target, goal: str, skill: str, seconds: float, max_
             elif kind == "key":
                 display.press(str(a.get("keys", "")))
             elif kind == "scroll":
-                display.scroll(*px(), 0, int(a.get("dy", 3)))
+                dy = int(a.get("dy", 3))
+                if max_scroll:
+                    dy = max(-max_scroll, min(max_scroll, dy))
+                    a["dy"] = dy
+                display.scroll(*px(), 0, dy)
             elif kind == "wait":
                 time.sleep(1)
-            history.append(json.dumps(a))
+            history.append(json.dumps({k: v for k, v in a.items() if k != "note"}))
         except (KeyError, TypeError, ValueError, RuntimeError) as e:
             history.append(f"{json.dumps(a)} failed: {e}")
         display.wait_stable(1.5)
-    return {"claimed": answer is not None, "answer": answer or "", "status": status, "seconds": round(time.time() - t0, 1), "steps": steps, "prompt_tokens": prompt_tokens}
+    return {"claimed": answer is not None, "answer": answer or "", "status": status, "seconds": round(time.time() - t0, 1), "steps": steps, "prompt_tokens": prompt_tokens, "notes": notes}
 
 
 def one_run(app: str, contestant: str, i: int, goal_override: str | None = None, params: dict | None = None) -> dict:
