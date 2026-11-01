@@ -11,6 +11,23 @@ on your own computer, with no cloud at all.
 
 > Computer use becomes the compiler, not the runtime. For the models, by the models.
 
+## Measured against plain computer use
+
+Same jobs, new inputs each run, with passes checked by evidence: OpenEMR's saved record read through a separate login, Calculator's answer checked by arithmetic, and a separate model judging every final screen. Runs passed, median time, cloud cost per run:
+
+| | OpenEMR, a records system | Calculator | Minesweeper |
+|---|---|---|---|
+| Spark, a screenshot every step | 5/5, 286 s, $0.16 | 4/5, 24 s, $0.022 | 0/2, 422 s, $0.41 |
+| Spark + written guide | 5/5, 253 s, $0.18 | 5/5, 13 s, $0.016 | 0/1, 583 s, $0.40 |
+| Glimmer, screenshots | 3/5, 395 s, $0 | 4/5, 283 s, $0 | 0/3, 1203 s, $0 |
+| Glimmer + written guide | 5/5, 165 s, $0 | 5/5, 82 s, $0 | 0/3, 1210 s, $0 |
+| The program alone | 4/5, 81 s, $0 | 5/5, 3 s, $0 | 4/5, 46 s, $0 |
+| **Glimmer + the program** | **5/5, 111 s, $0** | **5/5, 15 s, $0** | **5/5, 48 s, $0** |
+
+Teaching cost $1.02, $1.04 and $1.56, once. These are small samples. Spark's Minesweeper runs were stopped at my $0.40 limit, and it has won with more money ($0.28 in one earlier race). Full report, including every failure: [docs/BENCHMARK.md](docs/BENCHMARK.md).
+
+**Couldn't this just be a markdown skill?** On form apps, largely yes. A written guide took Glimmer to 5 of 5 on OpenEMR and Calculator, and it is far cheaper to make. The program is faster and handled the game that takes real logic, where the guide went 0 of 3. A program also gives any model a typed interface, and a place for a sandbox and proof runs.
+
 ## How it works
 
 | | Who | What happens | Cost |
@@ -105,7 +122,12 @@ twitch games, since a harness reacts in tenths of a second at best. CAPTCHAs and
 you shouldn't automate software whose terms forbid it. Linux and X11 only so far. Teaching can fail, and when it does,
 the app says so rather than shipping something unproven.
 
-Results are in [docs/RESULTS.md](docs/RESULTS.md): the measured numbers, including the failures.
+It only knows what it was taught. On OpenEMR jobs it was never taught, Glimmer + the program went 0 of 3 and said so, where Spark went 3 of 3. Two more things I tried and failed, with the runs kept:
+
+- **A clinic job spanning two apps.** Reading a made-up chart and filling a fictional prior-authorization portal failed its bar, 0 of 6 with Glimmer and written guides. It got stuck holding facts across several screens. Nothing wrong was ever saved. [docs/PRIORAUTH.md](docs/PRIORAUTH.md)
+- **Growing a program on request.** Two attempts to have the teacher add verbs for those untaught jobs added none. [docs/GROW.md](docs/GROW.md)
+
+Lessons can also fail on their own. Solitaire, xcalc and 2048 haven't been proven. [docs/RESULTS.md](docs/RESULTS.md) has every app's numbers.
 
 ## Built during the hackathon
 
@@ -119,7 +141,7 @@ before this split, with Spark doing all of it. Computer-use conversations accept
 conversation. They were also refused after exactly 29 turns, twice (the docs give that limit for stateless replay), so
 exploring is capped below that and the comparison baseline starts a new conversation when it happens. Stored responses
 can expire mid-chain, so the teacher can rebuild a conversation from disk. Spark can
-believe the computer tool uses a 0 to 1000 grid. It uses pixels, as the docs say, so the prompts now say so outright.
+believe the computer tool uses a 0 to 1000 grid. It uses pixels, as the docs say, so the prompts now say so outright. Glimmer is the opposite: it clicks on a 0 to 1000 grid even when told pixels. Missing that gave my benchmark a bug that made it look like Glimmer couldn't use a screen at all, and the report says so.
 
 ## License
 

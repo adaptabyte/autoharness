@@ -9,6 +9,7 @@ import secrets
 import subprocess
 import shutil
 import socket
+import statistics
 import tempfile
 import threading
 import time
@@ -295,6 +296,22 @@ def _background_status() -> None:
         time.sleep(2)
 
 
+BENCHMARK = Path(__file__).resolve().parent.parent / "docs" / "benchmark.jsonl"
+
+
+def benchmark_summary() -> dict:
+    """The home page's table, worked out from the raw runs each time so no number is typed in."""
+    if not BENCHMARK.exists():
+        return {}
+    runs: dict = {}
+    for line in BENCHMARK.read_text().splitlines():
+        r = json.loads(line)
+        runs.setdefault(r["contestant"], {}).setdefault(r["app"], []).append(r)
+    return {c: {app: {"passed": sum(1 for x in rows if x.get("ok")), "runs": len(rows), "seconds": round(statistics.median(x.get("seconds") or 0 for x in rows)),
+                      "usd": round(statistics.median(x.get("usd") or 0 for x in rows), 3)}
+                for app, rows in apps.items() if not app.startswith("unseen_")} for c, apps in runs.items()}
+
+
 def state() -> dict:
     with _jobs_lock:
         jobs = [j.brief() for j in sorted(JOBS.values(), key=lambda j: -j.created)][:20]
@@ -302,7 +319,7 @@ def state() -> dict:
     catalog = [{k: s.get(k) for k in ("id", "name", "blurb", "suggested_goal", "kind")} for s in targets.catalog()]
     return {"version": __version__, "library": [p.summary() for p in library.all_packages()], "catalog": catalog, "jobs": jobs,
             "spent_usd": ledger["spent_usd"], "budget_usd": config.BUDGET_USD, "internet": _status["internet"],
-            "glimmer": _status["glimmer"], "has_key": bool(config.api_key())}
+            "glimmer": _status["glimmer"], "has_key": bool(config.api_key()), "benchmark": benchmark_summary()}
 
 
 def package_detail(package_id: str) -> dict:
@@ -589,6 +606,9 @@ def _tailscale_address() -> str:
 def serve(host: str = "127.0.0.1", port: int = 4140, tailscale: bool = False) -> None:
     global TOKEN
     config.ensure_dirs()
+    for pkg in library.all_packages():  # no job survives a restart, so nothing can still be learning
+        if pkg.manifest.get("status") == "teaching":
+            pkg.update(status="stopped", failure="interrupted before it finished")
     hosts = [host]
     if tailscale:
         hosts.append(_tailscale_address())

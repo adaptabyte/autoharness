@@ -65,6 +65,17 @@ textarea{resize:vertical;min-height:74px}
 .error{color:var(--bad);font-size:14px;margin-top:10px}
 
 section{margin-bottom:48px}
+.bench{overflow-x:auto}
+.bench table{border-collapse:collapse;width:100%;min-width:620px;font-size:14.5px}
+.bench th,.bench td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);font-weight:500;white-space:nowrap}
+.bench thead th{color:var(--muted);font-size:13px}
+.bench tbody th{color:var(--muted)}
+.bench td b{font-weight:680;margin-right:10px;font-variant-numeric:tabular-nums}
+.bench td span{color:var(--muted);margin-right:10px;font-variant-numeric:tabular-nums}
+.bench td span.paid{color:var(--paid,inherit)}
+.bench td.short b{color:var(--faint)}
+.bench tr.us th,.bench tr.us td b{color:var(--text)}
+.bench tr.us{background:var(--panel)}
 .lib{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
 .app{display:flex;flex-direction:column;gap:12px;text-decoration:none;transition:border-color .15s}
 .app:hover{border-color:var(--faint)}
@@ -203,9 +214,19 @@ function appCard(a){
     a.status!=="ready"?h("div",{class:"hint"},a.status==="teaching"?"Spark is learning this now.":`Spent ${usd(a.teach_usd)} before stopping.`):
     h("div",{class:"nums"},
       h("div",{class:"num"},h("small",{},"Taught once for"),h("b",{class:"paid"},usd(a.teach_usd))),
-      h("div",{class:"num"},h("small",{},"Each run after that"),h("b",{class:"free"},cost===null?"—":usd(cost,2))),
+      h("div",{class:"num"},h("small",{},"Repairs, per run"),h("b",{class:"free"},cost===null?"—":usd(cost,2))),
       h("div",{class:"num"},h("small",{},"Typical run"),h("b",{},secs(a.median_seconds))),
       h("div",{class:"num"},h("small",{},"Passed, judged"),h("b",{},a.attempted?a.successes+" of "+a.attempted:"—"))));
+}
+function benchmarkTable(){
+  const b=S.benchmark||{};if(!b.glimmer_interface)return null;
+  const apps=[["openemr","OpenEMR, a records system"],["calculator","Calculator"],["minesweeper","Minesweeper"]];
+  const rows=[["spark","Spark, a screenshot every step"],["spark_skill","Spark + written guide"],["glimmer_screens","Glimmer, screenshots"],["glimmer_skill","Glimmer + written guide"],["harness","The program alone"],["glimmer_interface","Glimmer + the program"]];
+  const cell=c=>{if(!c)return h("td",{},"—");return h("td",{class:c.passed===c.runs?"":"short"},h("b",{},c.passed+"/"+c.runs),h("span",{},c.seconds+" s"),h("span",{class:c.usd>0?"paid":"free"},usd(c.usd,c.usd>0&&c.usd<.1?3:2)))};
+  return h("section",{},h("h2",{},"Measured against plain computer use"),
+    h("div",{class:"bench"},h("table",{},h("thead",{},h("tr",{},h("th",{},"Same job, new inputs"),apps.map(a=>h("th",{},a[1])))),
+      h("tbody",{},rows.map(r=>h("tr",{class:r[0]==="glimmer_interface"?"us":""},h("th",{},r[1]),apps.map(a=>cell((b[r[0]]||{})[a[0]])))))),
+    h("p",{class:"hint"},"Runs passed, median time, cloud cost per run. Small samples. Spark stopped at $0.60, $0.10 and $0.40 a run, and has won Minesweeper with more money. On jobs nobody taught it, Glimmer + the program went 0 of 3 and said so; Spark went 3 of 3. ",h("a",{href:"https://github.com/adaptabyte/autoharness/blob/master/docs/BENCHMARK.md"},"Every run and every failure"),".")));
 }
 function viewHome(){
   const v=$("#view");
@@ -217,11 +238,12 @@ function viewHome(){
   const running=S.jobs.filter(j=>j.status==="running");
   fill(v,
     h("h1",{},"Stop paying a genius to click buttons."),
-    h("p",{class:"lede"},"Every app on earth was built for human eyes and hands, and today's agents pay a frontier model to squint at screenshots of them. Autoharness has the model ",h("b",{},"learn an app once and build the interface it wishes the app had."),"  After that the app runs on your computer, for free, with your data on your machine."),
+    h("p",{class:"lede"},"Every app on earth was built for human eyes and hands, and today's agents pay a frontier model to squint at screenshots of them. Autoharness has the model ",h("b",{},"learn an app once and build the interface it wishes the app had."),"  After that the app runs on your computer, with no cloud cost and your data on your machine."),
     h("div",{class:"how"},
       h("div",{},h("div",{class:"n"},"First, once"),h("h3",{},"Spark learns the app"),h("p",{},"No instructions and no API. It uses the app the way a person would, and works out how it behaves."),h("span",{class:"tag paid"},"Cloud, pennies to dollars")),
       h("div",{},h("div",{class:"n"},"Still once"),h("h3",{},"It builds its own interface"),h("p",{},"Wonder writes a program that gives any model the app as plain state and typed actions, tests it on fresh copies, and has to prove it works."),h("span",{class:"tag paid"},"Cloud, included above")),
       h("div",{},h("div",{class:"n"},"Every time after"),h("h3",{},"Your computer does the work"),h("p",{},"Code does the routine steps. Glimmer, a small local model, makes the calls, without ever seeing a screen. Pull the internet cable and it keeps going."),h("span",{class:"tag free"},"Local, $0.00 per run"))),
+    benchmarkTable(),
     running.length?h("section",{},h("h2",{},"Happening now"),h("div",{class:"lib"},running.map(j=>h("a",{class:"card app",href:"#/job/"+j.id},h("div",{class:"row spread"},h("h3",{},j.title),h("span",{class:"badge busy"},"Live")))))):null,
     h("section",{},h("h2",{},"Teach it something new"),h("div",{class:"card"},
       h("div",{class:"field"},h("label",{for:"tg"},"What should it learn?"),targetIn,chips),

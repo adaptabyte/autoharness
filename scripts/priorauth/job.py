@@ -96,12 +96,12 @@ def run_glimmer(case_id: str, chart_skill: str = "", portal_skill: str = "") -> 
     c = CASES[case_id]
     t0 = time.time()
     rec = {"case": case_id, "contestant": "glimmer_skill_notes" if chart_skill or portal_skill else "glimmer_notes", "at": t0, "usd": 0.0}
-    chart = glimmer_part(b.targets.get_spec("openemr"), chart_goal(c), chart_skill)
+    chart = glimmer_part(json.loads((Path(__file__).parent / "openemr-chart.json").read_text()), chart_goal(c), chart_skill)
     facts = parse_facts(chart.get("answer", ""))
     rec.update(chart_seconds=chart["seconds"], chart_steps=chart["steps"], chart_status=chart["status"], facts=facts, chart_notes=chart.get("notes"), chart_answer=chart.get("answer", "")[:600])
     saved: list[dict] = []
     if facts and not facts.get("missing"):  # anything missing goes to a person; the same rule for every patient
-        portal = glimmer_part(b.targets.get_spec("priorauth-portal"), portal_goal(facts), portal_skill)
+        portal = glimmer_part(json.loads((Path(__file__).parent / "priorauth-portal.json").read_text()), portal_goal(facts), portal_skill)
         rec.update(portal_seconds=portal["seconds"], portal_steps=portal["steps"], portal_status=portal["status"], portal_answer=portal.get("answer", "")[:400])
         saved = records(c["member_id"], t0)
     ok, detail = judge_job(c, facts, saved)
