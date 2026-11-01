@@ -875,7 +875,7 @@ Change as little as you can, using edit_harness. Tools: view_frame, experiment, 
 
 
 def baseline(display: Display, target: Target, goal: str, emit: Emit | None = None, stop: threading.Event | None = None,
-             limit_usd: float = 2.0, max_turns: int = 150, effort: str = "medium", notes: str = "") -> dict:
+             limit_usd: float = 2.0, max_turns: int = 150, effort: str = "medium", notes: str = "", skill: str = "") -> dict:
     """The comparison: Spark doing the job itself through computer use, every step, the way agents work today."""
     emit = emit or (lambda e: None)
     stop = stop or threading.Event()
@@ -891,6 +891,8 @@ def baseline(display: Display, target: Target, goal: str, emit: Emit | None = No
     status = "ran out of turns"
     chains = 1
     instructions = "Use the computer tool to reach the goal. Stop when it is reached."
+    if skill:
+        instructions += f"\n\nA guide to this app, written by someone who has already learned it:\n{skill}"
     while turns < max_turns and not stop.is_set():
         body = dict(model=config.SPARK_MODEL, tools=[{"type": "computer"}], input=items, reasoning={"effort": effort},
                     instructions=instructions)

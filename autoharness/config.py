@@ -23,7 +23,18 @@ GLIMMER_URL = os.environ.get("GLIMMER_URL", "http://127.0.0.1:8001/v1")
 GLIMMER_MODEL = os.environ.get("GLIMMER_MODEL", "muse-glimmer")
 
 # Hard stop for all Meta API spend made through this install, in dollars.
-BUDGET_USD = float(os.environ.get("AUTOHARNESS_BUDGET", "25"))
+def _budget() -> float:
+    """AUTOHARNESS_BUDGET from the environment, then ./.env, then $25."""
+    value = os.environ.get("AUTOHARNESS_BUDGET")
+    env = REPO / ".env"
+    if value is None and env.exists():
+        for line in env.read_text().splitlines():
+            if line.startswith("AUTOHARNESS_BUDGET="):
+                value = line.split("=", 1)[1].strip()
+    return float(value) if value else 25.0
+
+
+BUDGET_USD = _budget()
 
 
 @dataclass(frozen=True)
