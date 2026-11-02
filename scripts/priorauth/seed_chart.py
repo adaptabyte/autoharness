@@ -2,12 +2,13 @@
 """Put the made-up patients from cases.json into the local OpenEMR. Safe to run twice: existing patients are skipped."""
 import json
 import re
+import sys
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
 B = "http://127.0.0.1:8300"
-CASES = json.loads((Path(__file__).parent / "cases.json").read_text())
+CASES = json.loads((Path(__file__).parent / (sys.argv[1] if len(sys.argv) > 1 else "cases.json")).read_text())
 
 
 def issue(pg, pid, kind, title, begin="", end="", comments="", diagnosis=""):

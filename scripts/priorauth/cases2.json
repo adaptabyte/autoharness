@@ -1,0 +1,152 @@
+[
+ {
+  "id": "new1",
+  "first": "Solveig",
+  "last": "Barrowclough",
+  "dob": "1974-02-09",
+  "sex": "Female",
+  "member_id": "MBR-61842",
+  "problem": "Generalized anxiety disorder",
+  "icd10": "F41.1",
+  "request": {
+   "drug": "Vilazodone",
+   "strength": "20 mg",
+   "quantity": 30,
+   "days": 30
+  },
+  "trials": [
+   {
+    "drug": "Paroxetine 30 mg",
+    "start": "2024-06-17",
+    "end": "2025-01-28",
+    "outcome": "Intolerance"
+   },
+   {
+    "drug": "Citalopram 20 mg",
+    "start": "2025-02-10",
+    "end": "2025-10-02",
+    "outcome": "Inadequate response"
+   }
+  ]
+ },
+ {
+  "id": "new2",
+  "first": "Ikenna",
+  "last": "Dalrymple",
+  "dob": "1988-07-31",
+  "sex": "Male",
+  "member_id": "MBR-70236",
+  "problem": "Major depressive disorder, recurrent, moderate",
+  "icd10": "F33.1",
+  "request": {
+   "drug": "Duloxetine",
+   "strength": "60 mg",
+   "quantity": 30,
+   "days": 30
+  },
+  "trials": [
+   {
+    "drug": "Mirtazapine 30 mg",
+    "start": "2023-11-06",
+    "end": "2024-07-19",
+    "outcome": "Inadequate response"
+   },
+   {
+    "drug": "Trazodone 150 mg",
+    "start": "2024-08-05",
+    "end": "2025-03-14",
+    "outcome": "Intolerance"
+   }
+  ]
+ },
+ {
+  "id": "new3",
+  "first": "Ottilie",
+  "last": "Vanterpool",
+  "dob": "1966-12-03",
+  "sex": "Female",
+  "member_id": "MBR-48159",
+  "problem": "Bipolar II disorder",
+  "icd10": "F31.81",
+  "request": {
+   "drug": "Lurasidone",
+   "strength": "60 mg",
+   "quantity": 30,
+   "days": 30
+  },
+  "trials": [
+   {
+    "drug": "Valproate 1000 mg",
+    "start": "2024-01-22",
+    "end": "2024-12-09",
+    "outcome": "Intolerance"
+   },
+   {
+    "drug": "Aripiprazole 10 mg",
+    "start": "2025-01-06",
+    "end": "2025-08-25",
+    "outcome": "Inadequate response"
+   }
+  ]
+ },
+ {
+  "id": "new4",
+  "first": "Caspian",
+  "last": "Mbatha",
+  "dob": "2000-04-18",
+  "sex": "Male",
+  "member_id": "MBR-93570",
+  "problem": "ADHD, predominantly inattentive",
+  "icd10": "F90.0",
+  "request": {
+   "drug": "Viloxazine",
+   "strength": "150 mg",
+   "quantity": 30,
+   "days": 30
+  },
+  "trials": [
+   {
+    "drug": "Guanfacine ER 3 mg",
+    "start": "2024-09-09",
+    "end": "2025-02-21",
+    "outcome": "Inadequate response"
+   },
+   {
+    "drug": "Clonidine ER 0.2 mg",
+    "start": "2025-03-03",
+    "end": "2025-11-07",
+    "outcome": "Intolerance"
+   }
+  ]
+ },
+ {
+  "id": "new5",
+  "first": "Marguerite",
+  "last": "Tsosie",
+  "dob": "1959-10-25",
+  "sex": "Female",
+  "member_id": "MBR-25613",
+  "problem": "Schizophrenia, unspecified",
+  "icd10": "F20.9",
+  "request": {
+   "drug": "Cariprazine",
+   "strength": "4.5 mg",
+   "quantity": 30,
+   "days": 30
+  },
+  "trials": [
+   {
+    "drug": "Haloperidol 10 mg",
+    "start": "2023-03-27",
+    "end": "2024-05-30",
+    "outcome": "Intolerance"
+   },
+   {
+    "drug": "Ziprasidone 80 mg",
+    "start": "2024-06-10",
+    "end": "2025-07-16",
+    "outcome": "Inadequate response"
+   }
+  ]
+ }
+]

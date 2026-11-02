@@ -34,6 +34,11 @@ WORK = config.HOME / "uiteam"
 OUT = ROOT / "docs" / "uiteam.jsonl"
 
 
+def log_cost(app: str, kind: str, usd: float, job: str = "") -> None:
+    with OUT.open("a") as f:
+        f.write(json.dumps({"run": "cost", "app": app, "kind": kind, "job": job, "usd": round(usd, 4), "at": time.time()}) + "\n")
+
+
 def records_dir(app: str) -> Path:
     d = WORK / app
     d.mkdir(parents=True, exist_ok=True)
@@ -60,6 +65,7 @@ def do_explore(app: str, job: str) -> None:
         return uiteam.explore(display, target, goal, meter, limit_usd=info.get("limit", 0.6), emit=lambda e: print(e.get("turn"), e.get("said", "")[:140], f"${e.get('usd')}", flush=True))
     rec = with_app(app, body)
     (records_dir(app) / f"{job}.pkl").write_bytes(pickle.dumps(rec))
+    log_cost(app, "explore", rec["usd"], job)
     print(json.dumps({"job": job, "status": rec["status"], "turns": rec["turns"], "usd": rec["usd"]}))
 
 
@@ -69,6 +75,7 @@ def do_compile(app: str) -> None:
     plan = uiteam.compile_plan(recs, J.APPS[app].get("note", ""), meter=meter)
     plan["compile_usd"] = meter.usd
     (records_dir(app) / "plan.json").write_text(json.dumps(plan, indent=1))
+    log_cost(app, "compile", meter.usd)
     print(json.dumps(meter.snapshot()))
     print(json.dumps({"skills": {s["name"]: len(json.dumps(s["steps"])) for s in plan["skills"]}, "jobs": plan.get("jobs")}))
 
@@ -114,10 +121,12 @@ def do_teach(app: str, job: str, rounds: int = 6, cap: float = 2.0) -> None:
         if out["ok"]:
             again = one_run(app, job, 150 + round_no, plan, f"teach-{job}")
             if again["ok"]:
+                log_cost(app, "repair", meter.usd, job)
                 print(f"{job}: holds after {round_no} repairs, ${meter.usd:.3f}", flush=True)
                 return
             out = again
         if meter.usd >= cap:
+            log_cost(app, "repair", meter.usd, job)
             print(f"{job}: repair money for this job is gone, ${meter.usd:.3f}", flush=True)
             return
         failure = {"job": job, "skill": J.APPS[app]["jobs"][job].get("skill") or plan.get("jobs", {}).get(job) or job, "status": out["result"]["status"], "reason": out["result"]["reason"], "checker": out["detail"], "trace": out["result"]["trace"][-40:]}
@@ -129,6 +138,7 @@ def do_teach(app: str, job: str, rounds: int = 6, cap: float = 2.0) -> None:
         plan["repair_usd"] = plan.get("repair_usd", 0) + 0
         path.write_text(json.dumps(plan, indent=1))
         print(f"repaired, ${meter.usd:.3f} so far", flush=True)
+    log_cost(app, "repair", meter.usd, job)
 
 
 VERBOSE = True
@@ -138,6 +148,7 @@ if __name__ == "__main__":
     ap.add_argument("app")
     ap.add_argument("job", nargs="?")
     ap.add_argument("--n", type=int, default=5)
+    ap.add_argument("--start", type=int, default=1)
     ap.add_argument("--label", default="proof")
     ap.add_argument("--quiet", action="store_true")
     ap.add_argument("--rounds", type=int, default=6)
@@ -148,6 +159,6 @@ if __name__ == "__main__":
     elif a.what == "compile":
         do_compile(a.app)
     elif a.what == "prove":
-        do_prove(a.app, a.job, a.n, a.label)
+        do_prove(a.app, a.job, a.n, a.label, a.start)
     else:
         do_teach(a.app, a.job, a.rounds)

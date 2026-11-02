@@ -187,7 +187,7 @@ def compile_plan(records: list[dict], note: str = "", meter: Meter | None = None
 
 def repair_plan(plan: dict, failure: dict, frames: list[np.ndarray], meter: Meter | None = None, limit_usd: float = 0.6) -> dict:
     meter = meter or Meter()
-    cloud = Cloud(meter=meter, limit_usd=limit_usd)
+    cloud = Cloud(meter=meter, limit_usd=meter.usd + limit_usd)  # the limit is per repair; the meter counts the whole lesson
     content: list = [{"type": "input_text", "text": REPAIR_RULES.format(steps=STEP_DOCS) + "\n\nTHE PLAN:\n" + json.dumps(plan) + "\n\nTHE RUN:\n" + json.dumps({k: v for k, v in failure.items() if k != "frames"})[:9000]}]
     for f in frames[-2:]:
         content.append({"type": "input_image", "image_url": image_url(f, 80)})
@@ -196,6 +196,21 @@ def repair_plan(plan: dict, failure: dict, frames: list[np.ndarray], meter: Mete
 
 
 # ---- Running: code holds the memory, the small model answers one question at a time ---------------------------------------
+
+def enlarge(frame: np.ndarray, factor: float = 1.5) -> np.ndarray:
+    """Small interface text is where the small model slips, reading 'Winterton' as 'Wintertor'. Bigger pixels fix most of that."""
+    from PIL import Image
+
+    im = Image.fromarray(frame)
+    return np.asarray(im.resize((round(im.width * factor), round(im.height * factor)), Image.LANCZOS))
+
+
+def crop_around(frame: np.ndarray, spot: tuple[int, int], width: int = 700, height: int = 110, factor: float = 3.0) -> np.ndarray:
+    """Just the box that was typed into. Code knows exactly where it clicked, so the check needn't search the whole screen."""
+    h, w = frame.shape[:2]
+    x0, y0 = max(0, spot[0] - width // 2), max(0, spot[1] - height // 2)
+    return enlarge(frame[y0:min(h, y0 + height), x0:min(w, x0 + width)], factor)
+
 
 class Eyes:
     """Every question the small model is ever asked. Two looks at a different view of the screen must agree before a read counts."""
@@ -213,16 +228,26 @@ class Eyes:
             raise NeedsHelp(f"the local model gave no usable answer: {e}") from e
 
     def locate(self, target: str) -> tuple[int, int] | None:
+        """The plain screen first, because it's quick. A closer look only if that finds nothing."""
         frame = self.display.shot()
-        a = self._ask(f"This is a screenshot. Find exactly this on it: {target}\nGive the middle of it, on a grid from 0 to 1000 across and 0 to 1000 down. If it isn't visible, say found is false.", frame, {"found": "true or false", "x": "0-1000", "y": "0-1000"}, 60)
-        if not a.get("found") or a.get("x") is None or a.get("y") is None or str(a.get("found")).lower() == "false":
-            return None
-        return round(float(a["x"]) * self.display.width / 1000), round(float(a["y"]) * self.display.height / 1000)
+        for view in (frame, enlarge(frame)):
+            a = self._ask(f"This is a screenshot. Find exactly this on it: {target}\nGive the middle of it, on a grid from 0 to 1000 across and 0 to 1000 down. If it isn't visible, say found is false.", view, {"found": "true or false", "x": "0-1000", "y": "0-1000"}, 60)
+            if a.get("found") and str(a.get("found")).lower() != "false" and a.get("x") is not None and a.get("y") is not None:
+                return round(float(a["x"]) * self.display.width / 1000), round(float(a["y"]) * self.display.height / 1000)
+        return None
 
-    def yes(self, question: str) -> bool:
+    def yes(self, question: str, closer: bool = False) -> bool:
+        """closer=True gets a second, larger look before answering no. Used where a no would stop the run; a popup that isn't there doesn't need it."""
         frame = self.display.shot()
-        a = self._ask(f"This is a screenshot. Answer from what it shows, and nothing else: {question}", frame, {"answer": "true or false"}, 30)
-        return str(a.get("answer")).lower() == "true"
+        for view in (frame, enlarge(frame)) if closer else (frame,):
+            a = self._ask(f"This is a screenshot. Answer from what it shows, and nothing else: {question}", view, {"answer": "true or false"}, 30)
+            if str(a.get("answer")).lower() == "true":
+                return True
+        return False
+
+    def read_box(self, frame: np.ndarray, spot: tuple[int, int], target: str):
+        """What a box holds, from a close-up of where it was clicked."""
+        return self._ask(f"This is a close-up of part of a screen, around this box: {target}\nCopy exactly the text inside that box, character by character. If it's empty, use null.", crop_around(frame, spot), {"value": None}, 80).get("value")
 
     def read_once(self, fields: dict, frame: np.ndarray, where: str = "") -> dict:
         """Descriptions go in the question and the answer slots stay empty: given a description in a slot, the model sometimes copies it back as the answer."""
@@ -237,7 +262,7 @@ class Eyes:
     def read(self, fields: dict, types: dict | None = None) -> dict:
         """Two looks. A value only counts if they match; a third look may settle one split, and otherwise it stops."""
         types = types or {}
-        frame = self.display.shot()
+        frame = enlarge(self.display.shot())
         a, b = self.read_once(fields, frame), self.read_once(fields, team.second_look(frame))
         out = {}
         for key in fields:
@@ -246,13 +271,26 @@ class Eyes:
             if x == y:
                 out[key] = a.get(key)
                 continue
-            c = self.read_once({key: fields[key]}, frame)
+            c = self.read_once({key: fields[key]}, enlarge(frame, 1.5))
             z = team.normal(c.get(key), kind)
             if z in (x, y) and z:
                 out[key] = c.get(key)
             else:
                 raise NeedsHelp(f"the reads of {key} disagree: {a.get(key)!r}, {b.get(key)!r}, {c.get(key)!r}")
         return out
+
+
+def close_enough(a: str, b: str, limit: int = 2) -> bool:
+    """Within a couple of letters: small enough to be a misread, so it's worth one closer look. Anything further is a real mismatch."""
+    if abs(len(a) - len(b)) > limit:
+        return False
+    row = list(range(len(b) + 1))
+    for i, x in enumerate(a, 1):
+        new = [i]
+        for j, y in enumerate(b, 1):
+            new.append(min(new[j - 1] + 1, row[j] + 1, row[j - 1] + (x != y)))
+        row = new
+    return row[-1] <= limit
 
 
 class PlanRunner:
@@ -267,6 +305,7 @@ class PlanRunner:
         self.deadline = time.time() + max_seconds
         self.outputs: dict = {}
         self.writes: list[dict] = []
+        self.last_read: tuple[dict, str] | None = None
 
     def fill(self, text, scope: dict):
         """{name} from what's held in memory. A whole-string {name} keeps its type, so a list stays a list."""
@@ -335,7 +374,7 @@ class PlanRunner:
                 d.wait_stable(0.8, quiet=0.15)
                 if step.get("secret") or step.get("no_check"):
                     break
-                seen = self.eyes.read_once({"value": f"the text now in: {target}"}, d.shot()).get("value")
+                seen = self.eyes.read_box(d.shot(), spot, target)
                 if team.normal(seen) == team.normal(text):
                     break
                 if attempt == 1:
@@ -347,12 +386,13 @@ class PlanRunner:
             self.note({**step, "target": target}, True, "(hidden)" if step.get("secret") else text, t0)
         elif kind == "choose":
             target, option = self.fill(step["target"], scope), str(self.fill(step["option"], scope))
-            d.click(*self.find(target, step))
+            spot = self.find(target, step)
+            d.click(*spot)
             time.sleep(0.3)
             d.type(option)
             d.press("Return")
             self.settle()
-            seen = self.eyes.read_once({"value": f"the option now chosen in: {target}"}, d.shot()).get("value")
+            seen = self.eyes.read_box(d.shot(), spot, target)
             if option.lower() not in team.normal(seen) and team.normal(seen) not in option.lower():
                 raise NeedsHelp(f"chose {option!r} in {target}, but it reads back as {seen!r}")
             self.note({**step, "target": target}, True, option, t0)
@@ -371,7 +411,7 @@ class PlanRunner:
             self.note(step, True, "", t0)
         elif kind == "ensure":
             question = self.fill(step["question"], scope)
-            ok = self.eyes.yes(question) or (time.sleep(2) or self.settle() or self.eyes.yes(question))
+            ok = self.eyes.yes(question, closer=True) or (time.sleep(2) or self.settle() or self.eyes.yes(question, closer=True))
             self.note({**step, "question": question}, ok, "", t0)
             if not ok:
                 raise NeedsHelp(f"expected, but not true: {question}")
@@ -387,6 +427,7 @@ class PlanRunner:
             got = self.eyes.read(fields, step.get("types"))
             scope.setdefault(step["into"], {}).update(got)
             self.outputs[step["into"]] = scope[step["into"]]
+            self.last_read = (step, step["into"])
             self.note(step, True, json.dumps(got)[:190], t0)
         elif kind == "read_list":
             self.read_list(step, scope, t0)
@@ -394,6 +435,18 @@ class PlanRunner:
             a, b = str(self.fill(step["a"], scope)), str(self.fill(step["b"], scope))
             how = step.get("kind", "text")
             ok = team.normal(a, how) == team.normal(b, how)
+            if not ok and self.last_read and close_enough(team.normal(a, how), team.normal(b, how)):
+                # Possibly a one-letter misread rather than the wrong record. Look again much closer, without saying what's expected.
+                read_step, into = self.last_read
+                fields = {k: self.fill(v, scope) for k, v in read_step["fields"].items()}
+                frame = enlarge(self.display.shot(), 2.5)
+                again = self.eyes.read_once(fields, frame)
+                again2 = self.eyes.read_once(fields, team.second_look(frame))
+                kinds = read_step.get("types") or {}
+                settled = {k: again.get(k) for k in fields if team.normal(again.get(k), kinds.get(k, "text")) == team.normal(again2.get(k), kinds.get(k, "text"))}
+                scope.setdefault(into, {}).update(settled)
+                a = str(self.fill(step["a"], scope))
+                ok = team.normal(a, how) == team.normal(b, how)
             self.note(step, ok, f"{a} / {b}", t0)
             if not ok:
                 raise NeedsHelp(f"these should match and don't: {a!r} and {b!r}")
@@ -433,17 +486,26 @@ class PlanRunner:
         scroll = int(step.get("scroll", 0))
         shape = {"rows": [{k: v for k, v in item.items()}]}
         for page in range(pages):
-            frame = self.display.shot()
+            frame = enlarge(self.display.shot())
             a = self.eyes.read_once(shape, frame, where).get("rows") or []
             b = self.eyes.read_once(shape, team.second_look(frame), where).get("rows") or []
             before = len(rows)
             seen_a = {team.normal(r.get(first_key)): r for r in a if isinstance(r, dict) and r.get(first_key)}
             seen_b = {team.normal(r.get(first_key)): r for r in b if isinstance(r, dict) and r.get(first_key)}
+            third = None
             for name in set(seen_a) | set(seen_b):
                 if name not in seen_a or name not in seen_b:
-                    if not scroll:
-                        raise NeedsHelp(f"one read saw a row the other didn't: {name}")
-                    continue  # partly off the screen on this page; the next page settles it
+                    if third is None:  # one read saw a row the other didn't: a third look settles whether it's there
+                        got = self.eyes.read_once(shape, enlarge(frame, 1.4), where).get("rows") or []
+                        third = {team.normal(r.get(first_key)): r for r in got if isinstance(r, dict) and r.get(first_key)}
+                    if name not in third:
+                        if not scroll:
+                            raise NeedsHelp(f"one read saw a row the others didn't: {name}")
+                        continue  # partly off the screen on this page; the next page settles it
+                    if name not in seen_a:
+                        seen_a[name] = third[name]
+                    else:
+                        seen_b[name] = third[name]
                 x, y = seen_a[name], seen_b[name]
                 for k in item:
                     if team.normal(x.get(k)) != team.normal(y.get(k)):
@@ -509,7 +571,7 @@ def saved_plans() -> dict[str, dict]:
 
 
 def plan_brief(p: dict) -> dict:
-    return {"id": p["id"], "app": p.get("app") or p["id"], "how": p.get("how_it_behaves", ""), "target": p.get("target"), "cost": p.get("compile_usd"), "repairs": p.get("repairs", 0), "samples": p.get("samples") or {},
+    return {"id": p["id"], "app": p.get("app") or p["id"], "how": p.get("how_it_behaves", ""), "target": p.get("target"), "cost": p.get("compile_usd"), "repairs": p.get("repairs", 0), "samples": p.get("samples") or {}, "swarm": len(p.get("swarm_inputs") or []),
             "skills": [{"name": s["name"], "does": s.get("does", ""), "inputs": s.get("inputs") or {}, "size": count_steps(s["steps"])} for s in p["skills"]], "jobs": p.get("jobs") or {}}
 
 

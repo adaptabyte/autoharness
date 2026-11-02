@@ -359,6 +359,46 @@ def start_ui_run(app_id: str, skill: str, inputs: dict) -> Job:
     return _start("ui_run", f"Running {plan.get('app') or app_id}", None, body)
 
 
+def start_ui_swarm(app_id: str, skill: str, count: int) -> Job:
+    """Many copies of the interface at once, one runner each, all sharing the one served small model."""
+    plan = uiteam.saved_plans().get(app_id)
+    if not plan or not plan.get("swarm_inputs"):
+        raise ValueError("this plan has no sample inputs for a swarm")
+    spec = plan.get("target") or _resolve_target(app_id)
+    inputs = plan["swarm_inputs"][:max(1, min(count, 8))]
+
+    def body(job: Job):
+        t0 = time.time()
+        job.emit({"type": "swarm_start", "lanes": [f"w{n}" for n in range(len(inputs))]})
+        lock = threading.Lock()
+        results: list[dict] = []
+
+        def worker(n: int, values: dict) -> None:
+            lane = f"w{n}"
+            display = Display(*spec.get("size", (1280, 800))).start()
+            job.displays[lane] = display
+            tgt = targets.Target(spec, display)
+            try:
+                with lock:
+                    tgt.reset()
+                runner = uiteam.PlanRunner(plan, display, emit=job.lane(lane), stop=job.stop, max_seconds=900)
+                result = runner.run(skill, values)
+                results.append(result)
+                job.emit({"type": "lane_result", "status": result["status"], "reason": result["reason"][:200], "seconds": result["seconds"], "questions": result["questions"]}, lane)
+            finally:
+                tgt.stop()
+
+        threads = [threading.Thread(target=worker, args=(n, v), daemon=True) for n, v in enumerate(inputs)]
+        for th in threads:
+            th.start()
+        for th in threads:
+            th.join()
+        good = sum(r["status"] in ("done", "stopped_for_person") for r in results)
+        job.emit({"type": "swarm_end", "good": good, "total": len(inputs), "seconds": round(time.time() - t0, 1), "questions": sum(r["questions"] for r in results)})
+
+    return _start("ui_swarm", f"A swarm on {plan.get('app') or app_id}", None, body)
+
+
 def start_ui_teach(target_text: str, goal: str, inputs: dict) -> Job:
     spec = _resolve_target(target_text)
     goal = goal.strip() or spec.get("suggested_goal", "")
@@ -518,6 +558,18 @@ class Handler(BaseHTTPRequestHandler):
             m = re.fullmatch(r"/api/jobs/([0-9a-f]+)/events", path)
             if m:
                 return self._sse(m.group(1), int(query.get("since", ["0"])[0]))
+            m = re.fullmatch(r"/api/jobs/([0-9a-f]+)/shot/(\w+)", path)
+            if m:
+                buf = io.BytesIO()
+                Image.fromarray(JOBS[m.group(1)].displays[m.group(2)].shot()).resize((640, 400)).save(buf, "JPEG", quality=70)
+                data = buf.getvalue()
+                self.send_response(200)
+                self.send_header("Content-Type", "image/jpeg")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(data)
+                return None
             m = re.fullmatch(r"/api/jobs/([0-9a-f]+)/live/(\w+)", path)
             if m:
                 return self._mjpeg(m.group(1), m.group(2))
@@ -557,6 +609,8 @@ class Handler(BaseHTTPRequestHandler):
             body = self._body()
             if path == "/api/ui/run":
                 return self._json(start_ui_run(str(body["id"]), str(body["skill"]), body.get("inputs") or {}).brief())
+            if path == "/api/ui/swarm":
+                return self._json(start_ui_swarm(str(body["id"]), str(body["skill"]), int(body.get("count", 8))).brief())
             if path == "/api/ui/teach":
                 return self._json(start_ui_teach(str(body.get("target", "")), str(body.get("goal", "")), body.get("inputs") or {}).brief())
             if path == "/api/team/read":

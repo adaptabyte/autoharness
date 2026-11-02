@@ -22,5 +22,229 @@
   "last": "Rasmussen",
   "dob": "1972-06-21",
   "member_id": "MBR-493186"
+ },
+ {
+  "id": "swarm0",
+  "first": "Lior",
+  "last": "Galloway",
+  "dob": "1967-10-06",
+  "member_id": "MBR-341447",
+  "icd10": "F33.1",
+  "request": {
+   "drug": "Vortioxetine",
+   "strength": "10 mg",
+   "quantity": 30,
+   "days": 30
+  },
+  "trials": [
+   {
+    "drug": "Quetiapine 200 mg",
+    "start": "2024-02-05",
+    "end": "2024-09-12",
+    "outcome": "Inadequate response"
+   },
+   {
+    "drug": "Mirtazapine 30 mg",
+    "start": "2024-10-01",
+    "end": "2025-05-20",
+    "outcome": "Intolerance"
+   }
+  ]
+ },
+ {
+  "id": "swarm1",
+  "first": "Mette",
+  "last": "Hyland",
+  "dob": "1960-05-24",
+  "member_id": "MBR-501675",
+  "icd10": "F31.81",
+  "request": {
+   "drug": "Lurasidone",
+   "strength": "40 mg",
+   "quantity": 30,
+   "days": 30
+  },
+  "trials": [
+   {
+    "drug": "Escitalopram 20 mg",
+    "start": "2024-02-05",
+    "end": "2024-09-12",
+    "outcome": "Inadequate response"
+   },
+   {
+    "drug": "Mirtazapine 30 mg",
+    "start": "2024-10-01",
+    "end": "2025-05-20",
+    "outcome": "Intolerance"
+   }
+  ]
+ },
+ {
+  "id": "swarm2",
+  "first": "Anselm",
+  "last": "Ibarra",
+  "dob": "1960-10-16",
+  "member_id": "MBR-309157",
+  "icd10": "F20.9",
+  "request": {
+   "drug": "Cariprazine",
+   "strength": "3 mg",
+   "quantity": 30,
+   "days": 30
+  },
+  "trials": [
+   {
+    "drug": "Lamotrigine 200 mg",
+    "start": "2024-02-05",
+    "end": "2024-09-12",
+    "outcome": "Inadequate response"
+   },
+   {
+    "drug": "Mirtazapine 30 mg",
+    "start": "2024-10-01",
+    "end": "2025-05-20",
+    "outcome": "Intolerance"
+   }
+  ]
+ },
+ {
+  "id": "swarm3",
+  "first": "Oyin",
+  "last": "Jessop",
+  "dob": "1992-04-26",
+  "member_id": "MBR-926609",
+  "icd10": "F33.2",
+  "request": {
+   "drug": "Vilazodone",
+   "strength": "20 mg",
+   "quantity": 30,
+   "days": 30
+  },
+  "trials": [
+   {
+    "drug": "Quetiapine 200 mg",
+    "start": "2024-02-05",
+    "end": "2024-09-12",
+    "outcome": "Inadequate response"
+   },
+   {
+    "drug": "Lamotrigine 200 mg",
+    "start": "2024-10-01",
+    "end": "2025-05-20",
+    "outcome": "Intolerance"
+   }
+  ]
+ },
+ {
+  "id": "swarm4",
+  "first": "Petra",
+  "last": "Kovalenko",
+  "dob": "1998-04-05",
+  "member_id": "MBR-583900",
+  "icd10": "F90.0",
+  "request": {
+   "drug": "Viloxazine",
+   "strength": "200 mg",
+   "quantity": 30,
+   "days": 30
+  },
+  "trials": [
+   {
+    "drug": "Fluoxetine 40 mg",
+    "start": "2024-02-05",
+    "end": "2024-09-12",
+    "outcome": "Inadequate response"
+   },
+   {
+    "drug": "Quetiapine 200 mg",
+    "start": "2024-10-01",
+    "end": "2025-05-20",
+    "outcome": "Intolerance"
+   }
+  ]
+ },
+ {
+  "id": "swarm5",
+  "first": "Ravi",
+  "last": "Lindholm",
+  "dob": "1991-06-03",
+  "member_id": "MBR-851493",
+  "icd10": "F41.1",
+  "request": {
+   "drug": "Duloxetine",
+   "strength": "60 mg",
+   "quantity": 30,
+   "days": 30
+  },
+  "trials": [
+   {
+    "drug": "Mirtazapine 30 mg",
+    "start": "2024-02-05",
+    "end": "2024-09-12",
+    "outcome": "Inadequate response"
+   },
+   {
+    "drug": "Escitalopram 20 mg",
+    "start": "2024-10-01",
+    "end": "2025-05-20",
+    "outcome": "Intolerance"
+   }
+  ]
+ },
+ {
+  "id": "swarm6",
+  "first": "Sunniva",
+  "last": "Mwangi",
+  "dob": "1985-06-13",
+  "member_id": "MBR-144723",
+  "icd10": "F33.0",
+  "request": {
+   "drug": "Bupropion XL",
+   "strength": "300 mg",
+   "quantity": 30,
+   "days": 30
+  },
+  "trials": [
+   {
+    "drug": "Lamotrigine 200 mg",
+    "start": "2024-02-05",
+    "end": "2024-09-12",
+    "outcome": "Inadequate response"
+   },
+   {
+    "drug": "Sertraline 100 mg",
+    "start": "2024-10-01",
+    "end": "2025-05-20",
+    "outcome": "Intolerance"
+   }
+  ]
+ },
+ {
+  "id": "swarm7",
+  "first": "Tomas",
+  "last": "Nakashima",
+  "dob": "1955-07-07",
+  "member_id": "MBR-480141",
+  "icd10": "F90.2",
+  "request": {
+   "drug": "Lisdexamfetamine",
+   "strength": "30 mg",
+   "quantity": 30,
+   "days": 30
+  },
+  "trials": [
+   {
+    "drug": "Fluoxetine 40 mg",
+    "start": "2024-02-05",
+    "end": "2024-09-12",
+    "outcome": "Inadequate response"
+   },
+   {
+    "drug": "Lamotrigine 200 mg",
+    "start": "2024-10-01",
+    "end": "2025-05-20",
+    "outcome": "Intolerance"
+   }
+  ]
  }
 ]

@@ -33,6 +33,10 @@ class Screen:
 class Eyes:
     """Answers from a script, the way the small model would."""
 
+    def read_box(self, frame, spot, target):
+        self.questions += 1
+        return self.answers.get("value")
+
     def __init__(self, answers=None, spots=True):
         self.answers, self.questions, self.spots = dict(answers or {}), 0, spots
 
@@ -40,7 +44,7 @@ class Eyes:
         self.questions += 1
         return (500, 500) if self.spots else None
 
-    def yes(self, question):
+    def yes(self, question, closer=False):
         self.questions += 1
         return self.answers.get(question, True)
 
@@ -129,3 +133,27 @@ def test_a_skill_can_call_a_skill_and_what_it_read_stays():
 def test_a_bad_plan_is_refused(bad):
     with pytest.raises(ValueError):
         uiteam.check_plan(bad)
+
+
+def test_a_big_difference_isnt_treated_as_a_misread():
+    assert uiteam.close_enough("darius fenwick", "dariusz fenwick") and not uiteam.close_enough("ida lane", "marcus oyelaran")
+
+
+def test_a_one_letter_misread_gets_a_closer_look_and_can_recover():
+    class Later(Eyes):
+        def __init__(self):
+            super().__init__({"name": "Darius Fenwick"})
+            self.looks = 0
+
+        def read_once(self, fields, frame, where=""):
+            self.looks += 1
+            return {k: "Dariusz Fenwick" for k in fields}
+    steps = [{"do": "read", "into": "facts", "fields": {"name": "the name"}}, {"do": "compare", "a": "{facts.name}", "b": "{first} {last}", "kind": "name"}]
+    result, _ = run(steps, {"first": "Dariusz", "last": "Fenwick"}, Later())
+    assert result["status"] == "done"
+
+
+def test_a_similar_name_that_stays_different_on_a_closer_look_still_stops():
+    steps = [{"do": "read", "into": "facts", "fields": {"name": "the name"}}, {"do": "compare", "a": "{facts.name}", "b": "{first} {last}", "kind": "name"}]
+    result, _ = run(steps, {"first": "Dariusz", "last": "Fenwick"}, Eyes({"name": "Darius Fenwick"}))
+    assert result["status"] == "needs_help"

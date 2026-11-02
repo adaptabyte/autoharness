@@ -14,6 +14,7 @@ from autoharness import config, targets, team  # noqa: E402
 
 PRIOR = ROOT / "scripts" / "priorauth"
 CASES = {c["id"]: c for c in json.loads((PRIOR / "cases.json").read_text())}
+NEW = json.loads((PRIOR / "cases2.json").read_text())  # added after the first OpenEMR proofs, so the runs after the fix are on patients nothing has ever seen
 PROOF = ["held1", "held2", "held3", "held4", "teach"]  # read_dob and set_phone never touched these; the chart job teaches on its own patients below
 OEM_LOGIN = "Log in with username admin and password pass. "
 
@@ -39,6 +40,9 @@ def read_records(last: str) -> dict:
 # ---- OpenEMR: read one value ------------------------------------------------------------------------------------------------
 
 def dob_person(i: int) -> dict:
+    if i >= 200:
+        c = NEW[(i - 201) % 5]
+        return {"first": c["first"], "last": c["last"], "dob": c["dob"]}
     if i >= 100:
         return {"first": "Marcus", "last": "Oyelaran", "dob": "1971-11-23"}
     c = CASES[PROOF[(i - 1) % len(PROOF)]]
@@ -55,6 +59,9 @@ def dob_judge(result, inputs, before):
 # ---- OpenEMR: change one field --------------------------------------------------------------------------------------------
 
 def phone_person(i: int) -> dict:
+    if i >= 200:
+        c = NEW[(i - 201) % 5]
+        return {"first": c["first"], "last": c["last"], "phone": f"555-{int(time.time()) % 8000 + 1000}"}
     if i >= 100:
         return {"first": "Priya", "last": "Nakamura", "phone": f"555-01{i % 100:02d}"}
     c = CASES[PROOF[(i - 1) % len(PROOF)]]
@@ -84,6 +91,8 @@ def phone_judge(result, inputs, before):
 # ---- OpenEMR: read a whole chart, which Glimmer failed 0 of 6 ------------------------------------------------------------------
 
 def chart_case(i: int) -> dict:
+    if i >= 200:
+        return NEW[(i - 201) % 5]
     if i >= 100:
         return CASES["teach"]
     return CASES[["held1", "held2", "held3", "held4", "incomplete"][(i - 1) % 5]]
@@ -154,6 +163,73 @@ def portal_judge(result, inputs, since):
     return True, f"{saved[0]['ref']} matches the inputs and awaits signature", False
 
 
+# ---- A Django admin it has never seen: a real back-office interface, nothing to do with medicine ------------------------------
+
+SHOP = "http://127.0.0.1:8320"
+SHOP_LOGIN = "Log in with username manager and password demo-pass. "
+
+
+def shop_orders() -> list[dict]:
+    return json.loads(urllib.request.urlopen(SHOP + "/_orders.json", timeout=10).read())["orders"]
+
+
+def order_at(i: int) -> dict:
+    rows = sorted(shop_orders(), key=lambda o: o["number"])  # teaching uses the first few, proofs come from the rest
+    return dict(rows[i % 100 + 10 if i < 100 else i % 5])
+
+
+def ship_inputs(i: int) -> dict:
+    o = order_at(i)
+    return {**o, "new_status": "Shipped", "new_tracking": f"TRK{(int(time.time()) + i) % 900000 + 100000}"}
+
+
+def ship_judge(result, inputs, before):
+    now = next(o for o in shop_orders() if o["number"] == inputs["number"])
+    others_changed = [o["number"] for o in shop_orders() if o["number"] != inputs["number"] and before and (o["status"], o["tracking"]) != before.get(o["number"])]
+    if others_changed:
+        return False, f"another order changed: {others_changed}", True
+    saved = now["status"] == "shipped" and now["tracking"] == inputs["new_tracking"]
+    if result["status"] != "done":
+        return False, f"{result['status']}: {result['reason']}", False
+    return saved, "the saved order is correct" if saved else f"claimed success, but the order holds {now['status']}, {now['tracking']}", not saved
+
+
+def ship_before(inputs):
+    return {o["number"]: (o["status"], o["tracking"]) for o in shop_orders()}
+
+
+def total_judge(result, inputs, before):
+    if result["status"] != "done":
+        return False, f"{result['status']}: {result['reason']}", False
+    right = has_value(result, inputs["total"], "money") and has_value(result, inputs["customer"], "name")
+    return right, "read the right total and customer" if right else f"claimed success without {inputs['total']}, {inputs['customer']}: {values_in(result['outputs'])[:6]}", not right
+
+
+def spec_backoffice() -> dict:
+    return {"name": "Order back office", "kind": "web", "url": SHOP + "/admin/", "start_timeout": 30, "settle": 1.0}
+
+
+# ---- A native desktop app, drawn by GTK rather than a browser ------------------------------------------------------------------
+
+SUMS = ["(17 + 26) * 3", "845 - 267", "96 / 8 + 41", "(250 - 75) * 4", "1234 + 987"]
+
+
+def calc_inputs(i: int) -> dict:
+    expr = "(35 + 14) * 2" if i >= 100 else SUMS[(i - 1) % 5]
+    return {"expression": expr, "answer": str(eval(expr)).removesuffix(".0")}  # noqa: S307 - these are the constants above
+
+
+def calc_judge(result, inputs, before):
+    if result["status"] != "done":
+        return False, f"{result['status']}: {result['reason']}", False
+    right = has_value(result, inputs["answer"], "number")
+    return right, "the right answer" if right else f"claimed success without {inputs['answer']}: {values_in(result['outputs'])[:6]}", not right
+
+
+def spec_calculator() -> dict:
+    return targets.get_spec("calculator")
+
+
 def spec_openemr() -> dict:
     return targets.get_spec("openemr")
 
@@ -170,5 +246,12 @@ APPS = {
     }},
     "portal": {"spec": spec_portal, "note": "One job: save_request, which fills the whole form from its inputs (member_id, dob, drug, strength, quantity, days, icd10, trials, username, password) and stops for the prescriber's signature. Each item of trials has drug, start, end, outcome.", "jobs": {
         "save_request": dict(teach=CASES["teach"], goal=portal_goal, inputs=portal_case, plan_inputs=portal_inputs, before=portal_before, judge=portal_judge, seconds=500),
+    }},
+    "backoffice": {"spec": spec_backoffice, "note": "Two jobs: ship_order (inputs number, new_status, new_tracking, username, password) and read_order (inputs number, username, password; read the order's total and customer). Search the order list by number, and confirm the order number on the edit page before changing anything. Don't touch other orders.", "jobs": {
+        "ship_order": dict(skill="ship_order", teach=ship_inputs(100), goal=lambda o: SHOP_LOGIN + f"Find order {o['number']}, set its status to {o['new_status']} and its tracking to {o['new_tracking']}, then save.", inputs=ship_inputs, before=ship_before, judge=ship_judge, plan_inputs=lambda o: {"number": o["number"], "new_status": o["new_status"], "new_tracking": o["new_tracking"], "username": "manager", "password": "demo-pass"}, seconds=400),
+        "read_order": dict(skill="read_order", teach=order_at(101), goal=lambda o: SHOP_LOGIN + f"Find order {o['number']} and report its total and its customer's name.", inputs=order_at, judge=total_judge, plan_inputs=lambda o: {"number": o["number"], "username": "manager", "password": "demo-pass"}, seconds=300),
+    }},
+    "calculator": {"spec": spec_calculator, "note": "One job: calculate, with input expression. Prefer the keyboard over buttons: type the expression and press Return, read the display, and report the answer as its output.", "jobs": {
+        "calculate": dict(skill="calculate", teach=calc_inputs(100), goal=lambda c: f"Work out {c['expression']} with this calculator and report the answer shown on screen.", inputs=calc_inputs, judge=calc_judge, plan_inputs=lambda c: {"expression": c["expression"]}, seconds=120),
     }},
 }
