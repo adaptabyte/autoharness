@@ -49,3 +49,13 @@ Made-up full-page packets: typed scans, handwriting-style fills, faxes and phone
 | Same code, tuning set | One per page | 1 | 12/12 | 13/18 | 16.4 s |
 | **Unseen set** | Team | 0 | 12/12 | 12/18 | 31.3 s |
 | **Unseen set** | One per page | 0 | 12/12 | 13/18 | 16.3 s |
+| **Second unseen set**, after a speed fix | Team | 0 | 12/12 | 12/18 | 29.9 s |
+
+Teams designed by Muse Wonder from one example, on paperwork it hadn't seen:
+
+| Paperwork | Wrong saved | Defects sent to a person | Clean cleared | Median |
+|---|---|---|---|---|
+| invoices | 0 | 6/6 | 1/6 | 35.0 s |
+| rental applications | 1 | 5/6 | 6/6 | 32.6 s |
+| invoices, after refining | 0 | 6/6 | 5/6 | 34.5 s |
+| rental applications, after refining | 1 | 5/6 | 6/6 | 32.5 s |

@@ -60,7 +60,7 @@ def main() -> None:
                 names.append(name)
             return names
 
-        settings = {"clean": ("fax", None, "us"), "digit": ("hand_photo", "Caveat", "us"), "stray": ("typed_scan", None, "long"), "gap": ("hand_scan", "Kalam-Regular", "short")}
+        settings = {"clean": ("fax", None, "us"), "digit": ("phone_photo", None, "us"), "stray": ("typed_scan", None, "long"), "gap": ("hand_scan", "Kalam-Regular", "short")}
         for key, person in PEOPLE.items():
             condition, hand, dates = settings[key]
             rng = random.Random(key)

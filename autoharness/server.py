@@ -49,6 +49,7 @@ class Job:
         self.created = time.time()
         self.pending_confirm: dict | None = None
         self.session: Session | None = None
+        self.last_frame: bytes | None = None
 
     def emit(self, event: dict, lane: str | None = None) -> None:
         event = dict(event, t=round(time.time() - self.created, 2))
@@ -329,9 +330,16 @@ def ui_results() -> dict:
     if file.exists():
         for line in file.read_text().splitlines():
             r = json.loads(line)
-            if r.get("run") == "proof":
+            if r.get("run") == "final":
                 out.setdefault(r["app"], {}).setdefault(r["job"], []).append(r)
     return {app: {job: {"passes": sum(x["ok"] for x in rows), "runs": len(rows), "wrong": sum(bool(x["wrong_saved"]) for x in rows), "seconds": round(statistics.median(x["seconds"] for x in rows))} for job, rows in jobs.items()} for app, jobs in out.items()}
+
+
+def _keep_last_frame(job: Job, display: Display) -> None:
+    """The display stops with the job, so the page keeps the last thing it showed."""
+    buf = io.BytesIO()
+    Image.fromarray(display.shot()).save(buf, "JPEG", quality=85)
+    job.last_frame = buf.getvalue()
 
 
 def start_ui_run(app_id: str, skill: str, inputs: dict) -> Job:
@@ -352,6 +360,7 @@ def start_ui_run(app_id: str, skill: str, inputs: dict) -> Job:
             runner = uiteam.PlanRunner(plan, display, emit=job.emit, stop=job.stop)
             job.emit({"type": "stage", "stage": "run", "text": "Muse Glimmer is running the plan, with no cloud."})
             result = runner.run(skill, inputs)
+            _keep_last_frame(job, display)
             job.emit({"type": "result", **{k: v for k, v in result.items() if k in ("status", "reason", "outputs", "seconds", "questions", "steps", "writes")}})
         finally:
             tgt.stop()
@@ -412,6 +421,7 @@ def start_ui_teach(target_text: str, goal: str, inputs: dict) -> Job:
         tgt = targets.Target(spec, display)
         try:
             out = uiteam.teach(app_id, spec, goal, inputs, display, tgt, job.emit, job.stop)
+            _keep_last_frame(job, display)
             job.finish("done" if out["ok"] else "failed")
         finally:
             tgt.stop()
@@ -533,6 +543,9 @@ class Handler(BaseHTTPRequestHandler):
             m = re.fullmatch(r"/api/team/stack/([0-9a-f]+)/page/(\d+)", path)
             if m:
                 return self._file(team_app.page_files(m.group(1))[int(m.group(2))], "image/jpeg")
+            m = re.fullmatch(r"/api/team/stack/([0-9a-f]+)/closeup/(\d+)", path)
+            if m:
+                return self._file(team_app.stack_dir(m.group(1)) / f"closeup{int(m.group(2))}.jpg", "image/jpeg")
             m = re.fullmatch(r"/api/team/stack/([0-9a-f]+)/approved.json", path)
             if m:
                 return self._file(team_app.stack_dir(m.group(1)) / "decision.json", "application/json")
@@ -553,6 +566,16 @@ class Handler(BaseHTTPRequestHandler):
             m = re.fullmatch(r"/api/jobs/([0-9a-f]+)/events", path)
             if m:
                 return self._sse(m.group(1), int(query.get("since", ["0"])[0]))
+            m = re.fullmatch(r"/api/jobs/([0-9a-f]+)/last", path)
+            if m:
+                data = JOBS[m.group(1)].last_frame or b""
+                self.send_response(200 if data else 404)
+                self.send_header("Content-Type", "image/jpeg")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(data)
+                return None
             m = re.fullmatch(r"/api/jobs/([0-9a-f]+)/shot/(\w+)", path)
             if m:
                 buf = io.BytesIO()

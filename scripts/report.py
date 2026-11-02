@@ -29,7 +29,7 @@ def ui_rows() -> list[dict]:
     for key, name in NAMES.items():
         runs = labels.get(key) or {}
         spark = [r for r in UI if r.get("run") == "spark" and (r["app"].replace("openemr", "openemr-chart") if r["job"] == "read_chart" else r["app"], r["job"]) == key]
-        final = runs.get("proof3") or runs.get("proof2") or runs.get("proof") or []
+        final = runs.get("final") or runs.get("proof3") or runs.get("proof2") or runs.get("proof") or []
         out.append(dict(key=key, name=name, attempts={k: f"{sum(x['ok'] for x in v)}/{len(v)}" for k, v in runs.items()}, passes=sum(r["ok"] for r in final), runs=len(final), wrong=sum(bool(r["wrong_saved"]) for r in final), seconds=med(final, "seconds"), questions=med(final, "questions"),
                         spark_pass=sum(r["ok"] for r in spark), spark_runs=len(spark), spark_seconds=med(spark, "seconds"), spark_usd=med(spark, "usd"), spark_bytes=med(spark, "bytes_sent"), old=OLD.get(key, "")))
     return out
@@ -50,6 +50,18 @@ def paper_summary(run: str, mode: str) -> dict | None:
     n = lambda v: sum(r["verdict"] == v for r in rows)
     clean = [r for r in rows if r["defect"] == "clean"]
     return dict(packets=len(rows), wrong=n("WRONG_SAVED"), caught=n("caught"), defects=len(rows) - len(clean), cleared=n("cleared_right"), clean=len(clean), seconds=round(med(rows, "seconds"), 1))
+
+
+def swarm_lines() -> list[str]:
+    lines = ["| At once | Finished and verified | Wrong saved | Time for all | Jobs an hour |", "|---|---|---|---|---|"]
+    proof = [r for r in UI if r.get("run") == "proof" and r["app"] == "portal"]
+    if proof:
+        lines.append(f"| 1 | {sum(r['ok'] for r in proof)}/{len(proof)} | {sum(bool(r['wrong_saved']) for r in proof)} | {round(sum(r['seconds'] for r in proof))} s in a row | {round(3600 / med(proof, 'seconds'))} |")
+    for n in (4, 8):
+        rows = [r for r in UI if r.get("run") == "swarm-summary" and r["at_once"] == n][-1:]
+        for r in rows:
+            lines.append(f"| {n} | {r['passes']}/{n} | {r['wrong']} | {round(r['wall_s'])} s | {round(r['passes'] / r['wall_s'] * 3600)} |")
+    return lines
 
 
 def money(x) -> str:
@@ -80,7 +92,7 @@ def main() -> None:
         lines.append(f"| {app} | {money(c['explore'])} | {money(c['compile'])} | {money(c['repair'])} | {money(sum(c.values()))} |")
     lines += ["", "## Paperwork, the read-only case", "", "Made-up full-page packets: typed scans, handwriting-style fills, faxes and phone photos, with planted errors. Not real faxes or real handwriting. The bar is in `scripts/paperwork/evaluate.py`: no wrong saved, at least 90% of planted errors caught, at least 60% of clean packets cleared, median under 30 s.", "",
               "| Round | Readers | Wrong saved | Errors caught | Clean cleared | Median |", "|---|---|---|---|---|---|"]
-    labels = [("hard30-v1", "team", "First run, tuning set"), ("hard30-v1", "one", "First run, tuning set"), ("hard30-v2-tuning", "team", "No reasoning step, tuning set"), ("hard30-v3b-tuning", "team", "Scan first + second view, tuning set"), ("hard30-final-one", "one", "Same code, tuning set"), ("fresh30-final", "team", "**Unseen set**"), ("fresh30-final", "one", "**Unseen set**"), ("fresh30-fast", "team", "**Second unseen set**, after a speed fix")]
+    labels = [("hard30-v1", "team", "First run, tuning set"), ("hard30-v1", "one", "First run, tuning set"), ("hard30-v2-tuning", "team", "No reasoning step, tuning set"), ("hard30-v3b-tuning", "team", "Scan first + second view, tuning set"), ("hard30-final-one", "one", "Same code, tuning set"), ("fresh30-final", "team", "**Unseen set**"), ("fresh30-final", "one", "**Unseen set**"), ("fresh30-fast", "team", "**Second unseen set**, after a speed fix"), ("fresh30-last", "team", "**Third unseen set**, final code"), ("fresh30-last", "one", "**Third unseen set**, final code")]
     for run, mode, name in labels:
         s = paper_summary(run, mode)
         if s:
@@ -106,7 +118,10 @@ def main() -> None:
             if r["runs"]:
                 spark = f"{r['spark_pass']}/{r['spark_runs']}, {secs(r['spark_seconds'])}, {money(r['spark_usd'])}" if r["spark_runs"] else "—"
                 short.append(f"| {r['name']} | **{r['passes']}/{r['runs']}** | {secs(r['seconds'])} | $0 | {spark} |")
-        readme.write_text(text[:text.index(start) + len(start)] + "\n" + "\n".join(short) + "\n" + text[text.index(end):])
+        text = text[:text.index(start) + len(start)] + "\n" + "\n".join(short) + "\n" + text[text.index(end):]
+        a, b = "<!-- swarm -->", "<!-- /swarm -->"
+        text = text[:text.index(a) + len(a)] + "\n" + "\n".join(swarm_lines()) + "\n" + text[text.index(b):]
+        readme.write_text(text)
     table = [[r["name"], f"{r['passes']}/{r['runs']}", secs(r["seconds"]), "$0", f"{r['spark_pass']}/{r['spark_runs']}, {secs(r['spark_seconds'])}, {money(r['spark_usd'])}" if r["spark_runs"] else "—"] for r in rows if r["runs"]]
     (ROOT / "docs" / "paperwork-final.json").write_text(json.dumps({"title": "Measured, on inputs it hadn't seen", "columns": ["Job", "Glimmer + plan", "Median", "Cloud per run", "Spark doing it live"], "rows": table, "highlight": None, "note": "Checked against each app's own data. Small samples. Every failed round is in docs/PROOF.md."}, indent=1))
     print("\n".join(lines))

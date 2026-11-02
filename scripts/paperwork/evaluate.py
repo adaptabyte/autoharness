@@ -57,7 +57,7 @@ def score(result: dict, info: dict, plan: dict) -> dict:
         return dict(verdict="WRONG_SAVED", errors=[f"missed planted {expect['defect']}"], kinds=kinds)
     want = set(expect["why"])
     # A gap counts as caught if the row check fired, or the empty cell's own row was flagged.
-    if "gap" in want and any(i["kind"] in ("gap", "missing", "unconfirmed") and i.get("field", "").startswith("prior_treatments") for i in result["issues"]):
+    if "gap" in want and any(i["kind"] in ("gap", "missing", "unconfirmed", "unconfirmed_row") and i.get("field", "").startswith("prior_treatments") for i in result["issues"]):
         return dict(verdict="caught", errors=[], kinds=kinds)
     return dict(verdict="caught" if want & touched else "routed_other_reason", errors=[], kinds=kinds)
 

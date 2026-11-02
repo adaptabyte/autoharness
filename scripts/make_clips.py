@@ -88,7 +88,7 @@ def paperwork(sample_title: str):
         pg.wait_for_selector(".verdict", timeout=200 * 1000)
         pg.wait_for_timeout(5000)
         for opt in pg.locator(".opt").all()[:1]:
-            opt.click()
+            opt.locator("span").click()  # the image opens a zoom, and the label just chooses
             pg.wait_for_timeout(2500)
         approve = pg.locator("button:has-text('Approve')").first
         if approve.is_enabled() and sample_title == "A clean stack":
@@ -112,7 +112,24 @@ def teach(pg):
     pg.wait_for_timeout(5000)
 
 
-CLIPSET = {"home": home, "run": run, "swarm": swarm, "digit": paperwork("One wrong digit"), "stray": paperwork("Someone else"), "clean": paperwork("A clean stack"), "invoice": paperwork("An invoice"), "teach": teach}
+STILL = """<!doctype html><style>body{margin:0;background:#f6f5f1;color:#17201c;font:20px/1.4 Arial,sans-serif;padding:34px 52px}h1{font-size:34px;margin:0 0 6px;letter-spacing:-.02em}p{color:#5f6a64;margin:0 0 18px;font-size:18px}table{border-collapse:collapse;width:100%%;background:#fff;font-size:18px}td,th{padding:10px 14px;text-align:left;border-bottom:1px solid #e1dfd7}th{color:#5f6a64;font-size:15px;font-weight:600}b{font-weight:700}.us{color:#116149}li{margin:0 0 13px;font-size:21px}ul{padding-left:24px}</style>%s"""
+
+
+def table(pg):
+    import json
+    data = json.loads((CLIPS.parent / "docs" / "paperwork-final.json").read_text())
+    rows = "".join("<tr>" + "".join(f"<td>{'<b class=us>' + c + '</b>' if i == 1 else c}</td>" for i, c in enumerate(r)) + "</tr>" for r in data["rows"])
+    pg.set_content(STILL % f"<h1>{data['title']}</h1><p>{data['note']}</p><table><tr>{''.join(f'<th>{c}</th>' for c in data['columns'])}</tr>{rows}</table>")
+    pg.wait_for_timeout(24000)
+
+
+def failed(pg):
+    items = ["Patching a plan again and again made it worse. It overfit to one patient and went 0 of 5 on new ones.", "The first paperwork test failed its bar, because my own code skipped a date check.", "On rental applications it let through one missing date.", "A swarm barely adds speed on this hardware.", "Spark still wins anything it wasn't taught, and costs only cents on small jobs.", "All data is made up, and it isn't ready for real patients."]
+    pg.set_content(STILL % f"<h1>What failed</h1><p>Every run is in the repo.</p><ul>{''.join(f'<li>{i}</li>' for i in items)}</ul>")
+    pg.wait_for_timeout(8000)
+
+
+CLIPSET = {"table": table, "failed": failed, "home": home, "run": run, "swarm": swarm, "digit": paperwork("One wrong digit"), "stray": paperwork("Someone else"), "clean": paperwork("A clean stack"), "invoice": paperwork("An invoice"), "teach": teach}
 
 if __name__ == "__main__":
     for name in sys.argv[1:] or list(CLIPSET):

@@ -198,3 +198,8 @@ def test_what_is_read_in_a_loop_stays_with_its_row():
     steps = [{"do": "for_each", "list": "{rows}", "as": "row", "steps": [{"do": "read", "into": "detail", "fields": {"start": "the start"}}]}]
     result, _ = run(steps, {"rows": [{"title": "A"}, {"title": "B"}]}, ByRow())
     assert result["outputs"]["detail"] == [{"title": "A", "start": "day1"}, {"title": "B", "start": "day2"}]
+
+
+def test_a_placeholder_copied_back_counts_as_nothing():
+    from autoharness import team
+    assert team.normal("...") == "" and team.normal("…") == ""

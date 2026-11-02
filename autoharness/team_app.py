@@ -10,6 +10,7 @@ import tempfile
 import time
 from pathlib import Path
 
+import numpy as np
 from PIL import Image, ImageOps
 
 from . import config, team
@@ -122,8 +123,30 @@ def run_stack(job, stack_id: str) -> None:
         job.emit({"type": "read", "page": a["page"], "reader": a["reader"], "ok": not a.get("error"), "skipped": bool(a.get("skipped")), "done": done[0], "total": total})
 
     result = team.process(plan, pages, on_read=on_read)
+    add_close_ups(d, pages, result)
     (d / "result.json").write_text(json.dumps(team.jsonable(result)))
     job.emit({"type": "result", "stack": stack_id, "result": public_result(result)})
+
+
+def add_close_ups(d: Path, pages: list[Path], result: dict) -> None:
+    """For each disagreement, a close-up of each value where it's written, so a person can see the difference at a glance."""
+    n = 0
+    for issue in result["issues"][:6]:
+        for vote in issue.get("votes") or []:
+            if not vote.get("seen"):
+                continue
+            page = vote["seen"][0]["page"]
+            im = Image.open(pages[page]).convert("RGB")
+            spot = team.where_is(np.asarray(im), str(vote["value"]))
+            if not spot:
+                continue
+            w, h = im.size
+            box = (max(0, int((spot[0] - .24) * w)), max(0, int((spot[1] - .045) * h)), min(w, int((spot[0] + .24) * w)), min(h, int((spot[1] + .045) * h)))
+            if box[2] <= box[0] or box[3] <= box[1]:
+                continue
+            im.crop(box).save(d / f"closeup{n}.jpg", quality=88)
+            vote["closeup"] = n
+            n += 1
 
 
 def public_result(result: dict) -> dict:

@@ -53,6 +53,8 @@ def main():
         with ThreadPoolExecutor(n) as ex:
             rows = list(ex.map(lambda c: one(plan, spec, info, c, f"swarm-{n}", lock), CASES[:n]))
         wall = time.time() - t0
+        with OUT.open("a") as f:
+            f.write(json.dumps(dict(run="swarm-summary", at_once=n, wall_s=round(wall, 1), passes=sum(r["ok"] for r in rows), wrong=sum(bool(r["wrong_saved"]) for r in rows), at=time.time())) + "\n")
         print(json.dumps(dict(at_once=n, passes=sum(r["ok"] for r in rows), wrong=sum(bool(r["wrong_saved"]) for r in rows), wall_s=round(wall, 1), jobs_per_hour=round(sum(r["ok"] for r in rows) / wall * 3600))), flush=True)
 
 

@@ -121,7 +121,7 @@ Rules for a good plan:
 Steps available, and no others:
 {steps}
 Reply with only one JSON object, no other text:
-{{"app":"name","how_it_behaves":"a few sentences a repairer would need","skills":[{{"name":"snake_case","does":"one plain sentence","inputs":{{"name":"what it is"}},"outputs":["keys of values it reads, to report at the end"],"steps":[...]}}],"jobs":{{"job_name":"skill to run for this kind of request"}}}}"""
+{{"app":"name","how_it_behaves":"a few sentences a repairer would need","skills":[{{"name":"snake_case","does":"one plain sentence","inputs":{{"name":"what it is"}},"outputs":["keys of values it reads, to report at the end"],"steps":[...]}}],"jobs":{{"job_name":"skill to run for this kind of request"}},"defaults":{{"input_name":"value from the record, only if asked for below"}}}}"""
 REPAIR_RULES = """You wrote this plan for a small model that answers one narrow question per screenshot, and code walks the plan. A proof run went wrong. Fix the plan so this can't happen again, without baking in any values from this run. The trace shows each step that ran and how it went; the images are the screen just before the failure and at the failure. Often the fix is a clearer target description, a dismiss for something unexpected, a wait, a different route, or a looser question for an ensure that was asking too much of a single screenshot.
 
 Steps available, and no others:
@@ -247,14 +247,14 @@ class Eyes:
 
     def read_box(self, frame: np.ndarray, spot: tuple[int, int], target: str):
         """What a box holds, from a close-up of where it was clicked."""
-        return self._ask(f"This is a close-up of part of a screen, around this box: {target}\nCopy exactly the text inside that box, character by character. If it's empty, use null.", crop_around(frame, spot), {"value": None}, 80).get("value")
+        return self._ask(f"This is a close-up of part of a screen, around this box: {target}\nCopy exactly the text inside that box, character by character. If it's empty, use null.", crop_around(frame, spot), {"value": "..."}, 80).get("value")
 
     def read_once(self, fields: dict, frame: np.ndarray, where: str = "") -> dict:
         """Descriptions go in the question and the answer slots stay empty: given a description in a slot, the model sometimes copies it back as the answer."""
         rows = isinstance(fields.get("rows"), list)
         spec = fields["rows"][0] if rows else fields
         wanted = "\n".join(f"- {k}: {v}" for k, v in spec.items())
-        blank = {k: None for k in spec}
+        blank = {k: "..." for k in spec}  # measured: an empty slot gets copied back as "nothing" on one-field reads, 11 times in 15; "..." never was
         shape = {"rows": [blank]} if rows else blank
         ask = "Copy every matching row." if rows else "Copy these values."
         return self._ask(f"This is a screenshot. {ask} Copy exactly what the screen shows, and never guess. Use null for anything not visible. {where}\n{wanted}", frame, shape, 900 if rows else 300)
@@ -617,11 +617,14 @@ def teach(app_id: str, spec: dict, goal: str, inputs: dict, display: Display, ta
     emit({"type": "stage", "stage": "explore", "text": "Muse Spark is using the interface for the first time."})
     record = explore(display, target, full_goal, meter, limit_usd=min(1.0, limit_usd), emit=lambda e: emit({**e, "usd": round(meter.usd, 4)}), stop=stop)
     emit({"type": "stage", "stage": "compile", "text": "Muse Wonder is writing the plan.", "usd": round(meter.usd, 4)})
-    note = f"Name the job's skill run_job, with these inputs: {json.dumps(sorted(inputs))}." if inputs else "Name the job's skill run_job."
+    note = ("Name the job's skill run_job. Every value a run needs that could change, including any login, name or number stated in the job, must be an input used as {name}, "
+            'and must also appear with the value from this job in a top-level "defaults" object in your reply, so a run with no other inputs still works.')
     plan = compile_plan([record], note, meter=meter, limit_usd=min(1.5, limit_usd))
+    inputs = {**(plan.get("defaults") or {}), **inputs}
     plan.update(target=spec, samples={"run_job": inputs}, repairs=0, goal=goal)
     emit({"type": "plan", "plan": plan_brief({**plan, "id": app_id}), "usd": round(meter.usd, 4)})
     frames: list[np.ndarray] = []
+    last_reason = None
     for attempt in range(repairs + 1):
         if stop.is_set():
             break
@@ -639,12 +642,15 @@ def teach(app_id: str, spec: dict, goal: str, inputs: dict, display: Display, ta
             (folder / "plan.json").write_text(json.dumps(plan, indent=1))
             emit({"type": "learned", "id": app_id, "usd": round(meter.usd, 4)})
             return {"ok": True, "plan": plan, "usd": meter.usd}
-        if attempt == repairs or meter.usd >= limit_usd:
-            break
+        if attempt == repairs or meter.usd >= limit_usd or result["reason"] == last_reason:
+            break  # the same failure twice means repairs aren't reaching the problem, so stop spending
+        last_reason = result["reason"]
         emit({"type": "stage", "stage": "repair", "text": "Muse Wonder is fixing the plan from what went wrong.", "usd": round(meter.usd, 4)})
         failure = {"status": result["status"], "reason": result["reason"], "judge": verdict["why"], "trace": result["trace"][-40:]}
         try:
-            plan = {**repair_plan(plan, failure, frames, meter=meter), "target": spec, "samples": {"run_job": inputs}, "goal": goal, "repairs": attempt + 1}
+            fixed = repair_plan(plan, failure, frames, meter=meter)
+            inputs = {**(fixed.get("defaults") or {}), **inputs}
+            plan = {**fixed, "target": spec, "samples": {"run_job": inputs}, "goal": goal, "repairs": attempt + 1}
         except (ValueError, CloudError) as e:
             emit({"type": "log", "text": f"The repair didn't work: {e}"[:300]})
     emit({"type": "not_learned", "why": "It didn't pass within its repair limit, so nothing was saved.", "usd": round(meter.usd, 4)})

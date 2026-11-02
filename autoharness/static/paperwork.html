@@ -38,7 +38,7 @@ h2{font-size:15px;margin:32px 0 2px;font-weight:650}
 .verdict{padding:22px 24px;border-radius:var(--radius);margin:12px 0 18px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:center}.verdict.ok{background:var(--ok);color:#fff}.verdict.warn{background:var(--warn-soft);border:1px solid #ecd4a8}.verdict h1{margin:0;font-size:clamp(24px,3.4vw,34px);letter-spacing:-.02em}.verdict p{margin:2px 0 0;opacity:.82;font-size:14.5px}
 .split{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px;align-items:start}
 .issue{padding:16px 18px;margin-bottom:12px}.issue h3{margin:0 0 2px;font-size:17px;font-weight:650;letter-spacing:-.01em}.issue>p{margin:0 0 10px;font-size:14.5px;color:var(--muted)}.issue.done{opacity:.62}
-.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}.opt{display:block;text-align:left;width:100%;background:#faf9f6;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer}.opt:hover{border-color:var(--faint)}.opt.sel{border-color:var(--ok);background:var(--ok-soft)}.opt b{display:block;font:600 17px/1.25 var(--mono);word-break:break-word}.opt span{font-size:12.5px;color:var(--muted)}.opt .thumb{display:block;width:100%;height:64px;object-fit:cover;object-position:top;border-radius:5px;margin-bottom:7px;border:1px solid var(--line)}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}.opt{display:block;text-align:left;width:100%;background:#faf9f6;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer}.opt:hover{border-color:var(--faint)}.opt.sel{border-color:var(--ok);background:var(--ok-soft)}.opt b{display:block;font:600 17px/1.25 var(--mono);word-break:break-word}.opt span{font-size:12.5px;color:var(--muted)}.opt .closeup{display:block;width:100%;border-radius:5px;margin-bottom:7px;border:1px solid var(--line);background:#fff}.opt .thumb{display:block;width:100%;height:64px;object-fit:cover;object-position:top;border-radius:5px;margin-bottom:7px;border:1px solid var(--line)}
 .vals{padding:6px 16px 10px}.vals h3{margin:10px 0 4px;font-size:13px;color:var(--muted);font-weight:600}.val{display:grid;grid-template-columns:minmax(110px,40%) minmax(0,1fr) 18px;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid #efeee9;font-size:14.5px}.val:last-child{border:0}.val label{color:var(--muted)}.val input{border-color:transparent;background:transparent;padding:3px 6px;font-weight:600}.val input:hover,.val input:focus{border-color:var(--line);background:var(--paper)}.val .ic{font-size:13px;font-weight:700;text-align:center}.ic.ok{color:var(--ok)}.ic.warn{color:var(--warn)}
 .rows{width:100%;min-width:560px;border-collapse:collapse;font-size:13.5px}.rows th{font-weight:500;color:var(--muted);text-align:left;padding:3px 4px;font-size:12.5px}.rows td{padding:1px 2px}.rows input{border-color:transparent;background:transparent;padding:4px;font-weight:600;font-size:13px}.rows input:hover,.rows input:focus{border-color:var(--line);background:var(--paper)}.rows td.warn input{background:var(--warn-soft)}
 .val.warn input{background:var(--warn-soft)}.foot{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px}
@@ -135,17 +135,19 @@ function jobView(id){
     if(e.type==="stage"){stage.textContent=(STAGES.find(s=>s[0]===e.stage)||[,e.stage])[1];sub.textContent=e.text||""}
     if(e.type==="explore"&&e.said)add(null,"Spark: "+e.said);
     if(e.type==="plan")add(null,`Plan written: ${plural(e.plan.skills.length,"skill")}`,e.plan.skills.map(s=>s.name).join(", "));
-    if(e.type==="step"&&e.do!=="wait"){if(e.ok)steps++;add(e.ok,`${LABEL[e.do]||e.do}: ${e.what}`,e.detail)}
+    if(e.type==="step"&&e.do!=="wait"){if(e.ok)steps++;add(e.ok,`${LABEL[e.do]||e.do}: ${e.what.length>84?e.what.slice(0,82)+"…":e.what}`,e.detail)}
     if(e.type==="proof")add(e.achieved,e.achieved?"A separate model checked the final screen and agrees":`Attempt ${e.attempt} didn't pass`,e.why);
     if(e.type==="learned"){clearInterval(tick);paint();verdict.replaceChildren(h("div",{class:"verdict ok"},h("div",{},h("h1",{},"Learned"),h("p",{},`That cost $${e.usd.toFixed(2)} once. From now on it runs on this computer.`)),h("button",{class:"btn",style:"color:var(--ink)",onclick:()=>go("ui/"+e.id)},"Use it")))}
     if(e.type==="not_learned"){clearInterval(tick);paint();verdict.replaceChildren(h("div",{class:"verdict warn"},h("div",{},h("h1",{},"It didn't learn this"),h("p",{},e.why))))}
     if(e.type==="result"){clearInterval(tick);usd=0;paint();const ok=e.status==="done"||e.status==="stopped_for_person";
       const vals=e.outputs?Object.entries(e.outputs).filter(([k])=>!k.startsWith("_")):[];
       verdict.replaceChildren(h("div",{class:"verdict "+(ok?"ok":"warn")},h("div",{},h("h1",{},e.status==="stopped_for_person"?"Done, and stopped for a person":ok?"Done, and every step checked out":"It stopped and asked for help"),h("p",{},ok?`${e.steps} steps, ${e.questions} questions to the small model, ${Math.round(e.seconds)} s, $0.00 in cloud.${e.status==="stopped_for_person"?" "+(e.outputs?._stopped_for_person||""):""}`:e.reason))));
-      if(vals.length)feed.prepend(h("div",{class:"line"},h("span",{class:"ic ok"},"✓"),h("div",{},h("b",{},"What it read"),h("small",{style:"white-space:pre-wrap"},JSON.stringify(Object.fromEntries(vals),null,1)))))}
+      if(vals.length)feed.prepend(h("div",{class:"line"},h("span",{class:"ic ok"},"✓"),h("div",{},h("b",{},"What it read"),h("small",{style:"white-space:pre-wrap"},flatten(Object.fromEntries(vals)).join("\n")))))}
     if(e.type==="error")verdict.replaceChildren(h("div",{class:"verdict warn"},h("div",{},h("h1",{},"Something went wrong"),h("p",{},e.text))));
-    if(e.type==="end"){clearInterval(tick);es.close()}};
+    if(e.type==="end"){clearInterval(tick);es.close();const live=v.querySelector(".screen img");if(live)live.src=`/api/jobs/${id}/last`}};
 }
+
+function flatten(x,prefix=""){if(Array.isArray(x))return x.flatMap((y,i)=>flatten(y,`${prefix}${prefix?" ":""}${i+1}`));if(x&&typeof x==="object")return Object.entries(x).flatMap(([k,y])=>flatten(y,prefix?`${prefix}, ${k}`:k));return x==null||x===""?[]:[`${prefix}: ${x}`]}
 
 function home(){
   const v=$("#view");const plans=T.plans;let plan=plans[0]?.id;
@@ -199,7 +201,7 @@ function reading(jobId){
     if(e.type==="error"){clearInterval(tick);es.close();v.append(h("div",{class:"error"},e.text))}};
 }
 
-const ISSUE_TEXT={conflict:"The readings disagree.",identity:"The pages disagree about who this is. One of these is wrong.",unconfirmed:"Only one read saw this, so it isn't confirmed.",missing:"Nobody found this in the stack.",not_allowed:"This isn't one of the allowed values.",unknown_word:"This isn't a word on the known list, so a letter may be wrong.",unreadable:"This can't be understood as written, so it can't be checked."};
+const ISSUE_TEXT={conflict:"The readings disagree.",identity:"The pages disagree about who this is. One of these is wrong.",unconfirmed:"Only one read saw this, so it isn't confirmed.",unconfirmed_row:"Only one read saw this row, or its name is spelled differently between reads.",missing:"Nobody found this in the stack.",not_allowed:"This isn't one of the allowed values.",unknown_word:"This isn't a word on the known list, so a letter may be wrong.",unreadable:"This can't be understood as written, so it can't be checked."};
 async function stack(id){
   const v=$("#view");const d=await api("/api/team/stack/"+id);const r=d.result;if(!r){v.textContent="Not read yet.";return}
   const inputs={};const cellInputs={};const decided={};
@@ -215,7 +217,7 @@ async function stack(id){
   const cards=r.issues.map((iss,i)=>{
     const card=h("div",{class:"card issue"});
     const mark=()=>{decided[i]=true;card.classList.add("done");refresh()};
-    const opts=(iss.votes||[]).map(vote=>{const pages=[...new Set(vote.seen.map(s=>s.page))];const opt=h("button",{class:"opt",onclick:()=>{for(const o of card.querySelectorAll(".opt"))o.classList.remove("sel");opt.classList.add("sel");setValue(iss,vote.value);mark()}},h("img",{class:"thumb zoom",src:pageImg(pages[0]),alt:"",onclick:e=>{e.stopPropagation();zoom(pageImg(pages[0]))}}),h("b",{},vote.value),h("span",{},`Page ${pages.map(p=>p+1).join(", ")}, ${plural(vote.seen.length,"read")}`));return opt});
+    const opts=(iss.votes||[]).map(vote=>{const pages=[...new Set(vote.seen.map(s=>s.page))];const opt=h("button",{class:"opt",onclick:()=>{for(const o of card.querySelectorAll(".opt"))o.classList.remove("sel");opt.classList.add("sel");setValue(iss,vote.value);mark()}},vote.closeup!=null?h("img",{class:"closeup zoom",src:`/api/team/stack/${id}/closeup/${vote.closeup}`,alt:"Where this value is written",onclick:e=>{e.stopPropagation();zoom(pageImg(pages[0]))}}):h("img",{class:"thumb zoom",src:pageImg(pages[0]),alt:"",onclick:e=>{e.stopPropagation();zoom(pageImg(pages[0]))}}),h("b",{},vote.value),h("span",{},`Page ${pages.map(p=>p+1).join(", ")}, ${plural(vote.seen.length,"read")}`));return opt});
     card.append(h("h3",{},iss.label),h("p",{},iss.text||ISSUE_TEXT[iss.kind]||"Someone should look at this."));
     if(opts.length)card.append(h("div",{class:"opts"},opts));
     else if(iss.kind==="missing"){card.append(h("div",{class:"row"},h("button",{class:"btn small",onclick:()=>{inputs[iss.field]?.focus();mark()}},"I'll type it in")))}

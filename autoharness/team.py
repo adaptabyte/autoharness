@@ -62,7 +62,7 @@ def normal(value, kind: str = "text") -> str:
     if value is None:
         return ""
     s = re.sub(r"\s+", " ", str(value)).strip()
-    if s.lower() in ("", "null", "none", "n/a", "na", "unknown", "not stated", "not shown", "blank", "-", "--"):
+    if s.lower() in ("", "...", "…", "null", "none", "n/a", "na", "unknown", "not stated", "not shown", "blank", "-", "--"):
         return ""
     if kind == "date":
         return parse_date(s) or s.lower()
@@ -204,7 +204,7 @@ def refine(plan: dict, issues: list[dict], samples: list, model: str | None = No
 
 
 def _field_note(f: dict) -> str | None:
-    note = f.get("note") or f.get("label") or None
+    note = f.get("note") or f.get("label") or "..."  # never an empty slot: it gets copied back as "nothing"
     if f.get("choices"):
         note = (note + ". " if note else "") + "Exactly one of: " + ", ".join(f["choices"]) + ", or null if the page doesn't say"
     return note
@@ -398,6 +398,11 @@ def merge(plan: dict, answers: list[dict], min_support: int = 2) -> dict:
                 else:
                     cells[c["key"]] = _settle(items, min_support)
             out_rows.append({"cells": cells})
+            if all(cells[c["key"]]["status"] in ("unconfirmed", "missing") for c in t["columns"]):
+                # A whole row only one read saw is one thing for a person to look at, not one per column.
+                name = cells[key_col["key"]]["value"]
+                issues.append({"kind": "unconfirmed_row", "field": f"{t['key']}.{key_col['key']}", "label": name, "votes": cells[key_col["key"]]["votes"]})
+                continue
             for c in t["columns"]:
                 s = cells[c["key"]]
                 label = f"{cells[key_col['key']]['value']}: {c.get('label') or c['key']}"
@@ -446,6 +451,17 @@ def merge(plan: dict, answers: list[dict], min_support: int = 2) -> dict:
         issues.append({"kind": "unread", "field": "", "label": "Some reads failed", "text": f"{len(errors)} of {len(answers)} reads gave no usable answer"})
     return {"status": "clear" if not issues else "needs_person", "fields": fields, "tables": tables, "issues": issues, "reads": len(answers),
             "merge_seconds": round(time.time() - started, 3)}
+
+
+def where_is(page: np.ndarray, value: str, url: str | None = None) -> tuple[float, float] | None:
+    """Where a value sits on a page, 0 to 1 each way, so a person can see it without hunting."""
+    try:
+        a = Glimmer(url=url).read_json(f"This is one page. Find exactly this text on it: {value}\nGive the middle of it, on a grid from 0 to 1000 across and 0 to 1000 down. If it isn't there, say found is false.", page, {"found": "true or false", "x": "0-1000", "y": "0-1000"}, 60)
+        if str(a.get("found")).lower() == "false" or a.get("x") is None or a.get("y") is None:
+            return None
+        return float(a["x"]) / 1000, float(a["y"]) / 1000
+    except (LocalModelError, ValueError, TypeError):
+        return None
 
 
 def process(plan: dict, pages: list, readers: list[dict] | None = None, min_support: int = 2, url: str | None = None,

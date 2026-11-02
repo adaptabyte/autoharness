@@ -15,7 +15,7 @@ SIZE = "1280:720"
 
 # clip, seconds into the clip to start from (negative counts from the end), how long the result runs, how much it's sped up, caption
 CUT = [
-    ("swarm", 20, 13, 6, "One small open model on my desk, running 8 copies of an interface at once. No cloud. (sped up 6x)"),
+    ("swarm", 20, 13, 6, "One small open model on my desk, keeping 8 jobs straight. No cloud. (sped up 6x)"),
     ("home", 1, 11, 1, "AI agents pay a genius to look at a screenshot and click a button.\nSo this compiles the interface instead."),
     ("teach", 1, 15, 1, "Point it at any interface. This Django admin is one it has never seen."),
     ("teach", 18, 18, 5, "Muse Spark uses it once, and everything is recorded. (sped up 5x)"),

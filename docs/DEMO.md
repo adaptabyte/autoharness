@@ -22,7 +22,7 @@ Watch the app on this machine or over your LAN, not over Tailscale, or pulling t
 
 | Time | On screen | You say |
 |---|---|---|
-| 0:00 | The swarm: eight screens, all moving | "Every one of these is an app built for human eyes and hands. Nobody on this screen is a person, and none of it is in the cloud. It's one small open model on my desk." |
+| 0:00 | The swarm: eight screens, all moving | "Every one of these is an app built for human eyes and hands. Nobody on this screen is a person, and none of it is in the cloud. It's one small open model on my desk, keeping eight jobs straight." |
 | 0:12 | Home page | "AI agents today pay a genius to look at a screenshot and click a button. So I built a compiler. Give it any interface, and Meta's strongest models learn it once, then hand it to a small model for good." |
 | 0:25 | `teach`: typing an address and a job, then Spark exploring | "I'll give it a Django admin it has never seen. No API and no instructions. Muse Spark uses it once, and everything it sees and does gets recorded." |
 | 0:45 | `teach`: the plan appears | "Muse Wonder turns that into a plan. It isn't code, and it isn't a prompt. It's every decision made in advance, so the small model never has to think about what to do next." |
@@ -52,4 +52,5 @@ These take about 20 minutes and do more for the entry than anything else left:
 - Don't imply the plan handles jobs it wasn't taught. Spark wins those.
 - Don't show real patient data, or imply it's ready for it.
 - Don't say it's more accurate than Spark. Spark also passed every job here.
+- Don't say the swarm is faster. On this rig it isn't, really: about 34 jobs an hour at 8 at once against about 30 one at a time. Use it to show that copies don't get confused, not for speed.
 - Say that Claude Code wrote most of the code. Judges must be able to tell what was built during the event and how, and hiding it risks disqualification.

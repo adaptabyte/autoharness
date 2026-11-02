@@ -59,9 +59,13 @@ A plan is data, never code. Here's a real step sequence Wonder wrote:
 
 ## A swarm, on one small model
 
-Each copy of the interface gets its own screen and its own memory. They all share one served Glimmer, because code does the remembering. Reads flatten at about 8 at once on four 16 GB GPUs, so that's the size used here.
+Each copy of the interface gets its own screen and its own memory, so several can run on one served Glimmer without confusing each other. It works, but on my hardware it barely adds speed: one job already nearly fills what four 16 GB GPUs can serve. Reads flatten at about 8 at once. A swarm needs more served capacity to pay off, which I couldn't test here.
 
 <!-- swarm -->
+| At once | Finished and verified | Wrong saved | Time for all | Jobs an hour |
+|---|---|---|---|---|
+| 1 | 5/5 | 0 | 610 s in a row | 30 |
+| 8 | 6/8 | 0 | 630 s | 34 |
 <!-- /swarm -->
 
 ## Paperwork is an interface too
@@ -70,13 +74,13 @@ A stack of pages is a read-only interface, so the same idea applies. Wonder sees
 
 Results are in [docs/PROOF.md](docs/PROOF.md). The test pages are made up: typed scans, handwriting-style fonts, simulated faxes and phone photos. They are not real faxes or real handwriting.
 
-One honest finding: more readers mattered less than I expected. On one 30-packet set, one reader per page matched the four-reader team. On the other, one reader saved a wrong value and the team didn't. The code checks and the pages checking each other do most of the work.
+One honest finding: more readers mattered less than I expected. On one 30-packet set, one reader per page matched the four-reader team. On the tuning set, one reader saved a wrong value and the team didn't. The code checks and the pages checking each other do most of the work.
 
 ## The questions you'd ask
 
 **Couldn't this just be a markdown skill?** On simple form apps, largely. A written guide took Glimmer to 5 of 5 on registering a patient in OpenEMR. But the same guide approach went 0 of 6 reading a chart, because a guide still asks the small model to plan and remember. A plan doesn't.
 
-**Why not just use Muse Spark?** On one-off or unfamiliar jobs, do. It's flexible, and on small jobs it costs only cents. A plan only knows what it was taught. The compiled route wins when a job repeats, when it's long, or when the data can't leave your machine.
+**Why not just use Muse Spark?** On one-off or unfamiliar jobs, do. Spark passed every job here too, it costs only cents on small ones, and it was slightly faster on one of the Django jobs. A plan only knows what it was taught. The compiled route is for jobs that repeat, are long, or involve data that can't leave your machine: there, a small open model matched the frontier model's pass rate, with no cloud at all.
 
 **What does teaching cost?** See the table in [docs/PROOF.md](docs/PROOF.md). The portal cost about $1.34 once, against about $0.17 for each Spark run, so it pays for itself in about 8 runs.
 
@@ -88,7 +92,7 @@ Keeping these is the point. Every run is in the logs.
 
 - Patching a plan again and again made it worse. The chart plan bloated, overfit to one patient, and went 0 of 5 on new ones. It needed recompiling and teaching on several patients.
 - Interface repairs that teach on one input don't generalize. Rotating the teaching inputs did.
-- The first paperwork test failed its bar with a wrong save, caused by my own code skipping a date check when a date couldn't be parsed. The final unseen run still missed my 30 s speed bar by 1.3 s.
+- The first paperwork test failed its bar with a wrong save, caused by my own code skipping a date check when a date couldn't be parsed. The first unseen run then missed my 30 s speed bar by 1.3 s, and passed it on a second unseen set only after a speed fix, at 29.9 s.
 - My first design was a generated Python harness with OCR. It works and it's still here (see below), but it can't handle jobs it wasn't taught, and its medication-request programs went 0 of 2.
 - A request to grow a harness with new verbs failed twice ([docs/GROW.md](docs/GROW.md)).
 

@@ -19,14 +19,6 @@
    "identity": true
   },
   {
-   "key": "buyer_name",
-   "label": "Buyer name",
-   "type": "name",
-   "note": "The buying company: 'Bill to' on the invoice, or the company in the small header on the purchase order and receiving report. Do not swap with the vendor/supplier name.",
-   "required": true,
-   "identity": true
-  },
-  {
    "key": "vendor_bank_account",
    "label": "Vendor bank account number",
    "type": "code",
@@ -72,19 +64,19 @@
      "key": "unit_price",
      "label": "Unit price",
      "type": "money",
-     "note": "Headed 'Unit price' or 'Price' on the purchase order and invoice; leave blank on the receiving report, which has no prices."
+     "note": "This column appears only on some pages: headed 'Unit price' or 'Price' on the purchase order and invoice only; leave blank on the receiving report, which has no prices."
     },
     {
      "key": "line_amount",
      "label": "Line amount",
      "type": "money",
-     "note": "Headed 'Amount' or 'Line total' for that row only; leave blank on the receiving report. Do not use the order total/amount due below the table."
+     "note": "This column appears only on some pages: headed 'Amount' or 'Line total' on the purchase order and invoice only, for that row only; leave blank on the receiving report, which has no line amounts. Do not use the order total/amount due below the table."
     },
     {
      "key": "condition",
      "label": "Condition",
      "type": "text",
-     "note": "Headed 'Condition' on the receiving report only (e.g. OK); leave blank on the purchase order and invoice, which have no condition column."
+     "note": "This column appears only on some pages: headed 'Condition' on the receiving report only (e.g. OK); leave blank on the purchase order and invoice, which have no condition column."
     }
    ]
   }
@@ -96,7 +88,6 @@
    "reads": [
     "po_number",
     "vendor_name",
-    "buyer_name",
     "vendor_bank_account",
     "vendor_bank_routing",
     "total_amount",
@@ -105,11 +96,10 @@
   },
   {
    "name": "Parties and PO specialist",
-   "instruction": "Read only the PO number, vendor/supplier name and buyer name from the header area, carefully not swapping vendor and buyer. Ignore bank details, totals, dates, invoice number and the line-item table.",
+   "instruction": "Read only the PO number and vendor/supplier name from the header area. Ignore bank details, totals, dates, invoice number, buyer name and the line-item table.",
    "reads": [
     "po_number",
-    "vendor_name",
-    "buyer_name"
+    "vendor_name"
    ]
   },
   {
