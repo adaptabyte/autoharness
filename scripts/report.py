@@ -24,7 +24,7 @@ def ui_rows() -> list[dict]:
     out = []
     labels = {}
     for r in UI:
-        if r.get("run", "").startswith("proof"):
+        if r.get("run", "").startswith("proof") or r.get("run") == "final":
             labels.setdefault((r["app"], r["job"]), {}).setdefault(r["run"], []).append(r)
     for key, name in NAMES.items():
         runs = labels.get(key) or {}

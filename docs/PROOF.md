@@ -8,23 +8,23 @@ Results are checked against each app's own data: OpenEMR's saved record through 
 
 | Job | Glimmer + compiled plan | Wrong saved | Median | Cloud at run time | Muse Spark doing it live | Before this |
 |---|---|---|---|---|---|---|
-| A made-up insurer's portal: fill and save a five-step request | **5/5** | 0 | 122 s | $0 | 3/3, 556 s, $0.172 | Generated programs: 0 of 2 |
+| A made-up insurer's portal: fill and save a five-step request | **5/5** | 0 | 157 s | $0 | 3/3, 556 s, $0.172 | Generated programs: 0 of 2 |
 | OpenEMR: find a patient, read their birth date | **5/5** | 0 | 47 s | $0 | 3/3, 84 s, $0.036 | Glimmer + generated program: 0 of 1 |
-| OpenEMR: change a patient's phone number | **5/5** | 0 | 83 s | $0 | 3/3, 293 s, $0.095 | Glimmer + generated program: 0 of 1 |
-| OpenEMR: read a whole chart | **5/5** | 0 | 167 s | $0 | 3/3, 218 s, $0.091 | Glimmer + written guide: 0 of 6 |
-| Django admin: mark an order shipped | **5/5** | 0 | 89 s | $0 | 3/3, 74 s, $0.024 |  |
-| Django admin: read an order | **5/5** | 0 | 47 s | $0 | 3/3, 52 s, $0.016 |  |
+| OpenEMR: change a patient's phone number | **5/5** | 0 | 76 s | $0 | 3/3, 293 s, $0.095 | Glimmer + generated program: 0 of 1 |
+| OpenEMR: read a whole chart | **5/5** | 0 | 205 s | $0 | 3/3, 218 s, $0.091 | Glimmer + written guide: 0 of 6 |
+| Django admin: mark an order shipped | **5/5** | 0 | 72 s | $0 | 3/3, 74 s, $0.024 |  |
+| Django admin: read an order | **5/5** | 0 | 32 s | $0 | 3/3, 52 s, $0.016 |  |
 | GNOME Calculator, a native desktop app | **5/5** | 0 | 15 s | $0 | 3/3, 24 s, $0.009 |  |
 
 Every proof round, including the ones that missed the bar:
 
-- A made-up insurer's portal: fill and save a five-step request: proof 5/5
-- OpenEMR: find a patient, read their birth date: proof 2/5, proof2 0/5, proof3 5/5
-- OpenEMR: change a patient's phone number: proof 0/5, proof2 5/5
-- OpenEMR: read a whole chart: proof 0/5, proof2 5/5
-- Django admin: mark an order shipped: proof 5/5
-- Django admin: read an order: proof 5/5
-- GNOME Calculator, a native desktop app: proof 5/5
+- A made-up insurer's portal: fill and save a five-step request: proof 5/5, final 5/5
+- OpenEMR: find a patient, read their birth date: proof 2/5, proof2 0/5, proof3 5/5, final 5/5
+- OpenEMR: change a patient's phone number: proof 0/5, proof2 5/5, final 5/5
+- OpenEMR: read a whole chart: proof 0/5, proof2 5/5, final 5/5
+- Django admin: mark an order shipped: proof 5/5, final 5/5
+- Django admin: read an order: proof 5/5, final 5/5
+- GNOME Calculator, a native desktop app: proof 5/5, final 5/5
 
 ## What teaching cost, once
 
@@ -50,6 +50,8 @@ Made-up full-page packets: typed scans, handwriting-style fills, faxes and phone
 | **Unseen set** | Team | 0 | 12/12 | 12/18 | 31.3 s |
 | **Unseen set** | One per page | 0 | 12/12 | 13/18 | 16.3 s |
 | **Second unseen set**, after a speed fix | Team | 0 | 12/12 | 12/18 | 29.9 s |
+| **Third unseen set**, final code | Team | 0 | 11/12 | 14/18 | 30.7 s |
+| **Third unseen set**, final code | One per page | 0 | 12/12 | 15/18 | 15.8 s |
 
 Teams designed by Muse Wonder from one example, on paperwork it hadn't seen:
 
@@ -59,3 +61,5 @@ Teams designed by Muse Wonder from one example, on paperwork it hadn't seen:
 | rental applications | 1 | 5/6 | 6/6 | 32.6 s |
 | invoices, after refining | 0 | 6/6 | 5/6 | 34.5 s |
 | rental applications, after refining | 1 | 5/6 | 6/6 | 32.5 s |
+| invoices, final code | 0 | 6/6 | 5/6 | 34.2 s |
+| rental applications, final code | 1 | 5/6 | 6/6 | 35.2 s |

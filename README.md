@@ -15,16 +15,16 @@ Each job ran on inputs that weren't used in teaching. Results were checked again
 <!-- proof -->
 | Job | Glimmer + compiled plan | Median time | Cloud per run | Muse Spark, a screenshot every step |
 |---|---|---|---|---|
-| A made-up insurer's portal: fill and save a five-step request | **5/5** | 122 s | $0 | 3/3, 556 s, $0.172 |
+| A made-up insurer's portal: fill and save a five-step request | **5/5** | 157 s | $0 | 3/3, 556 s, $0.172 |
 | OpenEMR: find a patient, read their birth date | **5/5** | 47 s | $0 | 3/3, 84 s, $0.036 |
-| OpenEMR: change a patient's phone number | **5/5** | 83 s | $0 | 3/3, 293 s, $0.095 |
-| OpenEMR: read a whole chart | **5/5** | 167 s | $0 | 3/3, 218 s, $0.091 |
-| Django admin: mark an order shipped | **5/5** | 89 s | $0 | 3/3, 74 s, $0.024 |
-| Django admin: read an order | **5/5** | 47 s | $0 | 3/3, 52 s, $0.016 |
+| OpenEMR: change a patient's phone number | **5/5** | 76 s | $0 | 3/3, 293 s, $0.095 |
+| OpenEMR: read a whole chart | **5/5** | 205 s | $0 | 3/3, 218 s, $0.091 |
+| Django admin: mark an order shipped | **5/5** | 72 s | $0 | 3/3, 74 s, $0.024 |
+| Django admin: read an order | **5/5** | 32 s | $0 | 3/3, 52 s, $0.016 |
 | GNOME Calculator, a native desktop app | **5/5** | 15 s | $0 | 3/3, 24 s, $0.009 |
 <!-- /proof -->
 
-No run in this table saved a wrong result, though earlier plans did. A run either finished verified, or it stopped and asked for help. Samples are small. Every proof round, including the ones that missed the bar, is in [docs/PROOF.md](docs/PROOF.md).
+All 35 runs in this table are on the final code, and none saved a wrong result. Earlier rounds failed, some by stopping and asking for help, and those are kept in the report. Samples are small. Every proof round, including the ones that missed the bar, is in [docs/PROOF.md](docs/PROOF.md).
 
 ## How it works
 
@@ -65,6 +65,7 @@ Each copy of the interface gets its own screen and its own memory, so several ca
 | At once | Finished and verified | Wrong saved | Time for all | Jobs an hour |
 |---|---|---|---|---|
 | 1 | 5/5 | 0 | 610 s in a row | 30 |
+| 4 | 4/4 | 0 | 411 s | 35 |
 | 8 | 6/8 | 0 | 630 s | 34 |
 <!-- /swarm -->
 
@@ -74,15 +75,15 @@ A stack of pages is a read-only interface, so the same idea applies. Wonder sees
 
 Results are in [docs/PROOF.md](docs/PROOF.md). The test pages are made up: typed scans, handwriting-style fonts, simulated faxes and phone photos. They are not real faxes or real handwriting.
 
-One honest finding: more readers mattered less than I expected. On one 30-packet set, one reader per page matched the four-reader team. On the tuning set, one reader saved a wrong value and the team didn't. The code checks and the pages checking each other do most of the work.
+One honest finding: more readers mattered less than I expected. On the unseen sets, one reader per page did as well as the four-reader team and in about half the time, and on one set it did better. On the tuning set, one reader saved a wrong value and the team didn't, which is why the team stays the default for now. That difference is small. The code checks and the pages checking each other do most of the work.
 
 ## The questions you'd ask
 
 **Couldn't this just be a markdown skill?** On simple form apps, largely. A written guide took Glimmer to 5 of 5 on registering a patient in OpenEMR. But the same guide approach went 0 of 6 reading a chart, because a guide still asks the small model to plan and remember. A plan doesn't.
 
-**Why not just use Muse Spark?** On one-off or unfamiliar jobs, do. Spark passed every job here too, it costs only cents on small ones, and it was slightly faster on one of the Django jobs. A plan only knows what it was taught. The compiled route is for jobs that repeat, are long, or involve data that can't leave your machine: there, a small open model matched the frontier model's pass rate, with no cloud at all.
+**Why not just use Muse Spark?** On one-off or unfamiliar jobs, do. Spark passed every job here too, and it costs only cents on small ones. A plan only knows what it was taught. The compiled route is for jobs that repeat, are long, or involve data that can't leave your machine: there, a small open model matched the frontier model's pass rate, with no cloud at all.
 
-**What does teaching cost?** See the table in [docs/PROOF.md](docs/PROOF.md). The portal cost about $1.34 once, against about $0.17 for each Spark run, so it pays for itself in about 8 runs.
+**What does teaching cost?** See the table in [docs/PROOF.md](docs/PROOF.md). It ranged from $0.12 for the calculator to about $4 for OpenEMR, including repairs that didn't work. The portal cost about $1.34 once, against about $0.17 for each Spark run, so it pays for itself in about 8 runs. On small jobs where Spark costs a cent or two, money alone doesn't justify it.
 
 **Does it replace computer use?** No. The learning phase is computer use.
 
@@ -94,6 +95,8 @@ Keeping these is the point. Every run is in the logs.
 - Interface repairs that teach on one input don't generalize. Rotating the teaching inputs did.
 - The first paperwork test failed its bar with a wrong save, caused by my own code skipping a date check when a date couldn't be parsed. The first unseen run then missed my 30 s speed bar by 1.3 s, and passed it on a second unseen set only after a speed fix, at 29.9 s.
 - My first design was a generated Python harness with OCR. It works and it's still here (see below), but it can't handle jobs it wasn't taught, and its medication-request programs went 0 of 2.
+- One blank answer slot in my prompt made one-field reads come back empty 11 times in 15, which looked like random failures until I measured it.
+- Rental applications still fail their bar: a missing employment date got through, because Wonder marked that field optional.
 - A request to grow a harness with new verbs failed twice ([docs/GROW.md](docs/GROW.md)).
 
 ## Limits
@@ -113,6 +116,8 @@ bash serve/serve_glimmer.sh             # Muse Glimmer on :8001, or set GLIMMER_
 .venv-app/bin/python scripts/priorauth/portal.py &   # the made-up portal on :8310
 .venv-app/bin/python -m autoharness serve            # http://127.0.0.1:4140
 ```
+
+OpenEMR and the Django admin are optional test interfaces: see `scripts/openemr` and `scripts/backoffice/run.py`.
 
 Set `MODEL_API_KEY` to teach new interfaces. `AUTOHARNESS_BUDGET` is a hard stop on Meta API spend, enforced in code.
 

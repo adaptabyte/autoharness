@@ -203,3 +203,14 @@ def test_what_is_read_in_a_loop_stays_with_its_row():
 def test_a_placeholder_copied_back_counts_as_nothing():
     from autoharness import team
     assert team.normal("...") == "" and team.normal("…") == ""
+
+
+def test_running_a_plan_never_touches_the_cloud(monkeypatch):
+    from autoharness import cloud
+
+    def blocked(*a, **k):
+        raise AssertionError("a plan's run tried to use the cloud")
+    monkeypatch.setattr(cloud.Cloud, "_post", blocked)
+    monkeypatch.setattr(cloud.Cloud, "respond", blocked)
+    result, _ = run([{"do": "click", "target": "Login"}, {"do": "ensure", "question": "Is it open?"}, {"do": "type", "target": "Box", "text": "x", "no_check": True}])
+    assert result["status"] == "done"

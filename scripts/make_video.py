@@ -6,6 +6,7 @@ from __future__ import annotations
 import subprocess
 import sys
 import tempfile
+import textwrap
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,20 +16,21 @@ SIZE = "1280:720"
 
 # clip, seconds into the clip to start from (negative counts from the end), how long the result runs, how much it's sped up, caption
 CUT = [
-    ("swarm", 20, 13, 6, "One small open model on my desk, keeping 8 jobs straight. No cloud. (sped up 6x)"),
-    ("home", 1, 11, 1, "AI agents pay a genius to look at a screenshot and click a button.\nSo this compiles the interface instead."),
-    ("teach", 1, 15, 1, "Point it at any interface. This Django admin is one it has never seen."),
-    ("teach", 18, 18, 5, "Muse Spark uses it once, and everything is recorded. (sped up 5x)"),
-    ("teach", -55, 18, 3, "Muse Wonder writes a plan: data, not code, with every decision made in advance. Glimmer has to pass alone. (sped up 3x)"),
-    ("run", 6, 22, 4, "Muse Glimmer runs it on this machine, answering one narrow question per screen. Code holds the memory. (sped up 4x)"),
-    ("run", 45, 15, 2, "What it types gets read back. What it reads gets read twice.\nA run ends verified, or it stops and asks. (sped up 2x)"),
-    ("run", -12, 8, 1, "$0.00 in cloud. It keeps working with the internet unplugged."),
-    ("table", 0, 23, 1, "Inputs it had never seen. Checked against each app's own data. Bars committed before the first run."),
-    ("digit", 2, 12, 3, "Paper is an interface too. A stack is read on this computer, page against page. (sped up 3x)"),
-    ("digit", -11, 9, 1, "One digit differs between pages. It doesn't pick one. It comes to a person."),
-    ("clean", -60, 15, 4, "Approve a clean stack, and a compiled plan fills the portal. No connector was written by hand. (sped up 4x)"),
+    ("swarm", 60, 10, 40, "One small open model on my desk, keeping 8 jobs straight. No cloud. (sped up 40x)"),
+    ("home", 1, 10, 1, "AI agents pay a genius to look at a screenshot and click a button.\nSo this compiles the interface instead."),
+    ("teach", 0, 9, 1, "Point it at any interface and say the job. This Django admin is one it has never seen."),
+    ("teach", 18, 14, 6, "Muse Spark uses it once, and everything is recorded. (sped up 6x)"),
+    ("teach", 110, 16, 7, "Muse Wonder writes the plan: data, not code, with every decision made in advance. Then Glimmer has to pass alone. (sped up 7x)"),
+    ("teach", -7, 7, 1, "Learned. A separate model checked the final screen. That cost $0.15, once."),
+    ("run", 20, 20, 4, "Muse Glimmer runs a plan on this machine, answering one narrow question per screen. Code holds the memory. (sped up 4x)"),
+    ("run", 95, 13, 2, "What it types gets read back. What it reads gets read twice.\nA run ends verified, or it stops and asks. (sped up 2x)"),
+    ("run", -8, 7, 1, "$0.00 in cloud. A plan needs no other model."),
+    ("table", 0, 20, 1, "Inputs it had never seen. Checked against each app's own data. Bars committed to git before the first run."),
+    ("digit", 25, 9, 3, "Paper is an interface too. A stack is read on this computer, page against page. (sped up 3x)"),
+    ("digit", -9, 9, 1, "One digit differs between pages. It doesn't pick one. It comes to a person."),
+    ("clean", 45, 13, 8, "Approve a clean stack, and a compiled plan fills the portal. No connector was written by hand. (sped up 8x)"),
     ("clean", -7, 6, 1, "It stops at the signature. Only a person can sign."),
-    ("failed", 0, 6, 1, "It isn't ready for real patients. Made-up records, small samples, and every failure is in the repo."),
+    ("failed", 0, 7, 1, "It isn't ready for real patients. Made-up records, small samples, and every failure is in the repo."),
     ("home", 1, 5, 1, "Computer use becomes the compiler, not the runtime.\nFor the models, by the models."),
 ]
 
@@ -50,10 +52,10 @@ def main() -> None:
             at = min(at, max(0.0, total - 1))
             need = length * speed
             text = Path(tmp) / f"{n}.txt"
-            text.write_text(caption)
+            text.write_text("\n".join(textwrap.wrap(caption.replace("\n", " "), 92)[:2]))
             part = Path(tmp) / f"{n}.mp4"
             filters = (f"setpts=PTS/{speed},scale={SIZE}:force_original_aspect_ratio=decrease,pad={SIZE}:(ow-iw)/2:(oh-ih)/2:white,tpad=stop_mode=clone:stop_duration={length},"
-                       f"drawbox=y=ih-104:w=iw:h=104:color=black@0.78:t=fill,drawtext=fontfile={FONT}:textfile={text}:fontcolor=white:fontsize=25:line_spacing=8:x=(w-text_w)/2:y=h-92")
+                       f"drawbox=y=ih-104:w=iw:h=104:color=black@0.78:t=fill,drawtext=fontfile={FONT}:textfile={text}:fontcolor=white:fontsize=24:line_spacing=8:x=(w-text_w)/2:y=h-92")
             subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", str(at), "-t", str(need), "-i", str(source), "-vf", filters, "-t", str(length), "-r", "24", "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "21", "-pix_fmt", "yuv420p", str(part)], check=True)
             parts.append(part)
         listing = Path(tmp) / "list.txt"

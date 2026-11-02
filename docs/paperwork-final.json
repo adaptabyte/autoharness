@@ -11,7 +11,7 @@
   [
    "A made-up insurer's portal: fill and save a five-step request",
    "5/5",
-   "122 s",
+   "157 s",
    "$0",
    "3/3, 556 s, $0.172"
   ],
@@ -25,28 +25,28 @@
   [
    "OpenEMR: change a patient's phone number",
    "5/5",
-   "83 s",
+   "76 s",
    "$0",
    "3/3, 293 s, $0.095"
   ],
   [
    "OpenEMR: read a whole chart",
    "5/5",
-   "167 s",
+   "205 s",
    "$0",
    "3/3, 218 s, $0.091"
   ],
   [
    "Django admin: mark an order shipped",
    "5/5",
-   "89 s",
+   "72 s",
    "$0",
    "3/3, 74 s, $0.024"
   ],
   [
    "Django admin: read an order",
    "5/5",
-   "47 s",
+   "32 s",
    "$0",
    "3/3, 52 s, $0.016"
   ],
