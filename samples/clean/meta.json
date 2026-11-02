@@ -1,0 +1,11 @@
+{
+ "order": 1,
+ "title": "A clean stack",
+ "blurb": "Nothing wrong. Approve it and watch it fill a made-up portal, then stop for a signature.",
+ "plan": "clinic",
+ "files": [
+  "page1.jpg",
+  "page2.jpg",
+  "page3.jpg"
+ ]
+}

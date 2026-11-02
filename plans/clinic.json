@@ -1,0 +1,149 @@
+{
+ "name": "Medication request packet",
+ "document": "a made-up patient's medication request packet (it may be a fax, a scan or a phone photo, and may be handwritten)",
+ "fields": [
+  {
+   "key": "patient_name",
+   "label": "Patient",
+   "type": "name",
+   "identity": true,
+   "note": "the patient this page is about, as written"
+  },
+  {
+   "key": "dob",
+   "label": "Date of birth",
+   "type": "date",
+   "identity": true
+  },
+  {
+   "key": "member_id",
+   "label": "Insurance member ID",
+   "type": "id",
+   "identity": true,
+   "note": "the member, subscriber or policy number, not the group number"
+  },
+  {
+   "key": "icd10",
+   "label": "Diagnosis code",
+   "type": "code",
+   "note": "the code of the diagnosis being treated, not other conditions"
+  },
+  {
+   "key": "drug",
+   "label": "Requested drug",
+   "type": "text",
+   "note": "the newly requested or ordered drug, name only, no dose"
+  },
+  {
+   "key": "strength",
+   "label": "Strength",
+   "type": "text",
+   "note": "the dose of the newly requested drug, like 10 mg"
+  },
+  {
+   "key": "quantity",
+   "label": "Quantity",
+   "type": "number",
+   "note": "the number to dispense on the order form"
+  },
+  {
+   "key": "days",
+   "label": "Days supply",
+   "type": "number"
+  }
+ ],
+ "tables": [
+  {
+   "key": "prior_treatments",
+   "label": "Prior treatments",
+   "columns": [
+    {
+     "key": "drug",
+     "label": "Medication",
+     "type": "text",
+     "note": "with dose"
+    },
+    {
+     "key": "start",
+     "label": "Started",
+     "type": "date"
+    },
+    {
+     "key": "end",
+     "label": "Stopped",
+     "type": "date",
+     "note": "null if not recorded"
+    },
+    {
+     "key": "outcome",
+     "label": "Result",
+     "type": "choice",
+     "choices": [
+      "Inadequate response",
+      "Intolerance"
+     ],
+     "note": "null if not recorded"
+    }
+   ]
+  }
+ ],
+ "readers": [
+  {
+   "name": "Whole page",
+   "instruction": "Prior treatments are medications that were tried and stopped; never list current or unrelated medications there. Leave a date or result null if the page doesn't give it.",
+   "reads": [
+    "patient_name",
+    "dob",
+    "member_id",
+    "icd10",
+    "drug",
+    "strength",
+    "quantity",
+    "days",
+    "prior_treatments"
+   ]
+  },
+  {
+   "name": "Identity",
+   "instruction": "Read only who this page is about and their identifiers, if it has them.",
+   "reads": [
+    "patient_name",
+    "dob",
+    "member_id",
+    "icd10"
+   ]
+  },
+  {
+   "name": "Order",
+   "instruction": "Read only the new request or order, if this page has one.",
+   "reads": [
+    "drug",
+    "strength",
+    "quantity",
+    "days"
+   ]
+  },
+  {
+   "name": "History",
+   "instruction": "Read only medications that were tried and stopped, if this page has them; never list current or unrelated medications. Leave a date or result null if the page doesn't give it.",
+   "reads": [
+    "prior_treatments"
+   ]
+  }
+ ],
+ "checks": [
+  {
+   "kind": "min_complete_rows",
+   "table": "prior_treatments",
+   "count": 2,
+   "message": "the plan needs 2 prior treatments with start, stop and result"
+  },
+  {
+   "kind": "date_order",
+   "table": "prior_treatments",
+   "first": "start",
+   "second": "end"
+  }
+ ],
+ "connector": "demo_portal"
+}

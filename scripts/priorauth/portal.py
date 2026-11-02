@@ -23,7 +23,7 @@ CODES = {"F20.9": "Schizophrenia, unspecified", "F31.81": "Bipolar II disorder",
          "F33.1": "Major depressive disorder, recurrent, moderate", "F33.2": "Major depressive disorder, recurrent, severe without psychotic features",
          "F41.1": "Generalized anxiety disorder", "F90.0": "ADHD, predominantly inattentive", "F90.2": "Attention-deficit hyperactivity disorder, combined presentation"}
 OUTCOMES = ["Inadequate response", "Intolerance", "Contraindicated"]
-MEMBERS = {c["member_id"]: c for c in json.loads((HERE / "cases.json").read_text())}
+MEMBERS = {c["member_id"]: c for f in ("cases.json", "demo_members.json") if (HERE / f).exists() for c in json.loads((HERE / f).read_text())}
 SESSIONS: dict[str, dict] = {}
 STEPS = ["Member", "Medication", "Diagnosis", "Prior treatments", "Review"]
 CSS = """*{box-sizing:border-box}body{margin:0;font:15px/1.45 Arial,sans-serif;color:#1c2733;background:#eef1f4}

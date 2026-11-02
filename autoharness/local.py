@@ -76,6 +76,27 @@ class Glimmer:
         self.last_prompt_tokens = (out.get("usage") or {}).get("prompt_tokens")
         return (out["choices"][0]["message"].get("content") or "").strip()
 
+    def read_json(self, question: str, image: np.ndarray, schema: dict, max_tokens: int = 800) -> dict:
+        """Copying from a page, without the reasoning step: the reply starts as the JSON itself. Measured at 4.8 s against 12 s, because most of a normal read is thinking."""
+        prompt = question + "\n\nReply with only a JSON object matching this shape, no other text:\n" + json.dumps(schema)
+        body = {"model": self.model, "temperature": 0, "max_tokens": max_tokens, "add_generation_prompt": False, "continue_final_message": True,
+                "messages": [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": _data_url(image)}}, {"type": "text", "text": prompt}]}, {"role": "assistant", "content": "{"}]}
+        req = urllib.request.Request(self.url + "/chat/completions", data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
+        t0 = time.time()
+        try:
+            with urllib.request.urlopen(req, timeout=240) as r:
+                out = json.load(r)
+        except (urllib.error.URLError, OSError, ValueError) as e:
+            raise LocalModelError(f"Glimmer is not answering at {self.url}: {e}") from e
+        self.calls += 1
+        self.seconds += time.time() - t0
+        self.tokens += int((out.get("usage") or {}).get("completion_tokens", 0))
+        text = "{" + (out["choices"][0]["message"].get("content") or "")
+        try:
+            return extract_json(text)
+        except ValueError as e:
+            raise LocalModelError(f"Glimmer gave no usable answer: {e}") from e
+
     def ask(self, question: str, image: np.ndarray | None = None, choices: list[str] | None = None,
             schema: dict | None = None, max_tokens: int = 1500, strength: str = "low"):
         """Answer a question about an image. With choices returns one of them; with schema, parsed JSON."""

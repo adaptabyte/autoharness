@@ -21,7 +21,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from . import __version__, config, library, targets
+from . import __version__, config, library, targets, team_app
 from .cloud import Ledger
 from .desktop import Display
 from .local import Glimmer
@@ -322,6 +322,45 @@ def state() -> dict:
             "glimmer": _status["glimmer"], "has_key": bool(config.api_key()), "benchmark": benchmark_summary()}
 
 
+def team_state() -> dict:
+    return {"plans": [team_app.plan_brief(p) for p in team_app.all_plans().values()], "samples": team_app.all_samples(), "internet": _status["internet"], "glimmer": _status["glimmer"],
+            "spent_usd": Ledger.read()["spent_usd"], "budget_usd": config.BUDGET_USD, "proof": team_app.proof()}
+
+
+def stack_view(stack_id: str) -> dict:
+    out = team_app.read_result(stack_id)
+    portal = team_app.stack_dir(stack_id) / "portal.json"
+    return {**out, "portal": json.loads(portal.read_text()) if portal.exists() else None}
+
+
+def _uploaded(paths: list) -> list[Path]:
+    """Only files this app's own upload route wrote. A request can't name anything else on the disk."""
+    out = []
+    for p in paths:
+        path = Path(str(p)).resolve()
+        if path.parent != UPLOADS.resolve() or not path.is_file():
+            raise ValueError("that file wasn't uploaded here")
+        out.append(path)
+    return out
+
+
+def start_team_read(body: dict) -> Job:
+    if body.get("sample"):
+        files, meta = team_app.sample_files(str(body["sample"]))
+        stack = team_app.new_stack(meta["plan"], files, meta["title"])
+    else:
+        stack = team_app.new_stack(str(body.get("plan", "")), _uploaded(body.get("files") or []))
+    return _start("team", "Reading a stack", None, lambda job: team_app.run_stack(job, stack["id"]))
+
+
+def start_team_design(body: dict) -> Job:
+    files = _uploaded(body.get("files") or [])
+    if not files:
+        raise ValueError("add a blank form or a made-up example")
+    note = str(body.get("note") or "")[:500]
+    return _start("design", "Designing a team", None, lambda job: job.emit({"type": "plan", "plan": team_app.design_plan(files, note)}))
+
+
 def package_detail(package_id: str) -> dict:
     pkg = library.get(package_id)
     understanding = pkg.path / "teach" / "understanding.md"
@@ -342,6 +381,15 @@ class Handler(BaseHTTPRequestHandler):
         data = json.dumps(value, default=str).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _file(self, path: Path, kind: str) -> None:
+        data = path.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", kind)
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
@@ -369,8 +417,8 @@ class Handler(BaseHTTPRequestHandler):
         if not self._authorized(query):
             return self._json({"error": "add ?token=... to the address"}, 401)
         try:
-            if path == "/":
-                data = (STATIC / "index.html").read_bytes()
+            if path in ("/", "/apps"):
+                data = (STATIC / ("paperwork.html" if path == "/" else "index.html")).read_bytes()
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Content-Length", str(len(data)))
@@ -382,6 +430,20 @@ class Handler(BaseHTTPRequestHandler):
                 return None
             if path == "/api/state":
                 return self._json(state())
+            if path == "/api/team":
+                return self._json(team_state())
+            m = re.fullmatch(r"/api/team/stack/([0-9a-f]+)", path)
+            if m:
+                return self._json(stack_view(m.group(1)))
+            m = re.fullmatch(r"/api/team/stack/([0-9a-f]+)/page/(\d+)", path)
+            if m:
+                return self._file(team_app.page_files(m.group(1))[int(m.group(2))], "image/jpeg")
+            m = re.fullmatch(r"/api/team/stack/([0-9a-f]+)/portal/(\d\d)", path)
+            if m:
+                return self._file(team_app.stack_dir(m.group(1)) / "portal" / f"{m.group(2)}.jpg", "image/jpeg")
+            m = re.fullmatch(r"/api/team/stack/([0-9a-f]+)/approved.json", path)
+            if m:
+                return self._file(team_app.stack_dir(m.group(1)) / "decision.json", "application/json")
             m = re.fullmatch(r"/api/package/([a-z0-9-]+)", path)
             if m:
                 return self._json(package_detail(m.group(1)))
@@ -403,7 +465,7 @@ class Handler(BaseHTTPRequestHandler):
             if m:
                 return self._mjpeg(m.group(1), m.group(2))
             return self._json({"error": "not found"}, 404)
-        except KeyError as e:
+        except (KeyError, IndexError, FileNotFoundError) as e:
             return self._json({"error": f"not found: {e}"}, 404)
         except (BrokenPipeError, ConnectionResetError):
             return None
@@ -436,6 +498,17 @@ class Handler(BaseHTTPRequestHandler):
                 dest.write_bytes(self.rfile.read(n))
                 return self._json({"path": str(dest), "name": name})
             body = self._body()
+            if path == "/api/team/read":
+                return self._json(start_team_read(body).brief())
+            if path == "/api/team/design":
+                return self._json(start_team_design(body).brief())
+            m = re.fullmatch(r"/api/team/stack/([0-9a-f]+)/decide", path)
+            if m:
+                return self._json(team_app.decide(m.group(1), body))
+            m = re.fullmatch(r"/api/team/stack/([0-9a-f]+)/portal", path)
+            if m:
+                stack_id = m.group(1)
+                return self._json(_start("portal", "Filling the portal", None, lambda job: team_app.fill_portal(job, stack_id)).brief())
             if path == "/api/teach":
                 job = start_teach(str(body.get("target", "")), str(body.get("goal", "")), float(body.get("limit", 4)), body.get("params"))
                 return self._json(job.brief())

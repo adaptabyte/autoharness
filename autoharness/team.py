@@ -35,6 +35,8 @@ MONTHS = {m: i + 1 for i, m in enumerate(("jan", "feb", "mar", "apr", "may", "ju
 def parse_date(raw) -> str | None:
     """A US-style written date as YYYY-MM-DD, or None if it can't be read as one date. Never guesses a day-first order."""
     s = re.sub(r"\s+", " ", str(raw or "")).strip().strip(".,")
+    if re.fullmatch(r"[\d\s/.-]+", s):  # readers sometimes add a stray space inside a numeric date: "3/2 3/24"
+        s = re.sub(r"\s", "", s)
     y = mo = d = None
     if m := re.fullmatch(r"(\d{4})-(\d{1,2})-(\d{1,2})", s):
         y, mo, d = int(m[1]), int(m[2]), int(m[3])
@@ -128,6 +130,48 @@ def check_plan(plan: dict) -> dict:
     return plan
 
 
+PLAN_SHAPE = """{
+ "name": "short name for this kind of paperwork",
+ "document": "a phrase that finishes 'This is one page from ...', mentioning it may be a scan, fax or phone photo",
+ "fields": [{"key": "snake_case", "label": "what a person calls it", "type": "id|date|number|money|name|code|text|choice", "note": "how to tell it apart from look-alikes on the page",
+             "required": true, "identity": true, "choices": ["only for type choice"]}],
+ "tables": [{"key": "snake_case", "label": "...", "columns": [{"key": "snake_case", "label": "...", "type": "...", "note": "..."}]}],
+ "readers": [{"name": "short role", "instruction": "one or two sentences on what to read and what to ignore", "reads": ["field and table keys"]}],
+ "checks": [{"kind": "min_complete_rows", "table": "key", "count": 1, "message": "why it matters"},
+            {"kind": "date_order", "table": "key or omit for two fields", "first": "key", "second": "key"},
+            {"kind": "sum", "table": "key", "column": "key", "total": "field key"}]
+}"""
+DESIGN_RULES = """You're designing a team of small, cheap vision models that will check stacks of this paperwork on someone's own computer, long after you're gone. Each small model sees one page at a time, can't remember anything, and is good at copying what's in front of it but bad at deciding things. Plain code merges what they say. A value only counts when two reads agree, and any disagreement goes to a person.
+
+Design the plan for the paperwork shown:
+- Fields: every value someone would need to check or copy into a system, including who or what the stack is about, marked "identity": true, so a page from the wrong stack is caught because identifiers disagree. Fields that appear on several kinds of page are the most valuable, because pages check each other. Set "required": false for values that often aren't there. Use tables for repeating rows; the first column must name the row.
+- Notes: warn the reader about look-alikes (a group number next to a member number, a shipping address next to a bank account).
+- Readers: the first reads everything. Then add two or three specialists, each reading a subset, so every field is read at least twice per page. Say what to ignore.
+- Checks: only ones that the document's logic implies. There's no other kind of check.
+{note}
+Reply with only one JSON object in this shape, no other text:
+{shape}"""
+
+
+def design(samples: list, note: str = "", model: str | None = None, limit_usd: float = 0.25, effort: str = "low") -> tuple[dict, dict]:
+    """The one cloud step: the frontier model sees a blank form or sample once and writes the team. Returns the plan and what it cost."""
+    from . import config
+    from .cloud import Cloud, Meter, image_url, response_text
+    from .local import extract_json
+
+    meter = Meter()
+    cloud = Cloud(meter=meter, limit_usd=limit_usd)
+    extra = f"\nWhat the person told you: {note.strip()}\n" if note.strip() else ""
+    content = [{"type": "input_text", "text": DESIGN_RULES.format(note=extra, shape=PLAN_SHAPE)}]
+    for s in samples:
+        im = Image.fromarray(load_page(s))
+        im.thumbnail((1100, 1100))
+        content.append({"type": "input_image", "image_url": image_url(np.asarray(im), 80)})
+    resp = cloud.respond(model=model or config.TEACHER_MODEL, reasoning={"effort": effort}, max_output_tokens=4000, input=[{"role": "user", "content": content}])
+    plan = check_plan(extract_json(response_text(resp)))
+    return plan, meter.snapshot()
+
+
 def _field_note(f: dict) -> str | None:
     note = f.get("note") or f.get("label") or None
     if f.get("choices"):
@@ -162,7 +206,7 @@ def _read_once(page_index: int, page: np.ndarray, plan: dict, reader: dict, url:
     prompt, shape = reader_prompt(plan, reader)
     t0 = time.time()
     try:
-        data = Glimmer(url=url).ask(prompt, image=page, schema=shape, max_tokens=1500)
+        data = Glimmer(url=url).read_json(prompt, page, shape)
         return {"page": page_index, "reader": reader["name"], "data": data if isinstance(data, dict) else {}, "seconds": round(time.time() - t0, 1)}
     except (LocalModelError, ValueError) as e:
         return {"page": page_index, "reader": reader["name"], "data": {}, "seconds": round(time.time() - t0, 1), "error": str(e)[:200]}
@@ -194,6 +238,15 @@ def _rows_match(a: str, b: str) -> bool:
     x, y = a.split(), b.split()
     n = min(len(x), len(y))
     return n > 0 and x[:n] == y[:n]
+
+
+def well_formed(value, kind: str) -> bool:
+    """A value that can't be understood can't be checked, so it must never pass silently."""
+    if kind == "date":
+        return parse_date(value) is not None
+    if kind in ("number", "money"):
+        return re.search(r"\d", str(value)) is not None
+    return True
 
 
 def _votes(items: list[tuple[str, dict]]) -> list[dict]:
@@ -237,6 +290,8 @@ def merge(plan: dict, answers: list[dict], min_support: int = 2) -> dict:
             issues.append({"kind": "missing", "field": f["key"], "label": f.get("label") or f["key"]})
         elif s["status"] == "unconfirmed" and required:
             issues.append({"kind": "unconfirmed", "field": f["key"], "label": f.get("label") or f["key"], "votes": s["votes"]})
+        elif s["value"] and not well_formed(s["value"], kind):
+            issues.append({"kind": "unreadable", "field": f["key"], "label": f.get("label") or f["key"], "votes": s["votes"]})
         elif s["value"] and f.get("choices") and normal(s["value"]) not in [normal(c) for c in f["choices"]]:
             issues.append({"kind": "not_allowed", "field": f["key"], "label": f.get("label") or f["key"], "votes": s["votes"]})
 
@@ -283,6 +338,10 @@ def merge(plan: dict, answers: list[dict], min_support: int = 2) -> dict:
                     issues.append({"kind": "conflict", "field": f"{t['key']}.{c['key']}", "label": label, "votes": s["votes"]})
                 elif s["status"] == "unconfirmed":
                     issues.append({"kind": "unconfirmed", "field": f"{t['key']}.{c['key']}", "label": label, "votes": s["votes"]})
+                elif s["value"] and not well_formed(s["value"], c.get("type", "text")):
+                    issues.append({"kind": "unreadable", "field": f"{t['key']}.{c['key']}", "label": label, "votes": s["votes"]})
+                elif s["value"] and c.get("choices") and normal(s["value"]) not in [normal(x) for x in c["choices"]]:
+                    issues.append({"kind": "not_allowed", "field": f"{t['key']}.{c['key']}", "label": label, "votes": s["votes"]})
         tables.append({"key": t["key"], "label": t.get("label") or t["key"], "columns": [{"key": c["key"], "label": c.get("label") or c["key"], "type": c.get("type", "text")} for c in t["columns"]], "rows": out_rows})
 
     by_table = {t["key"]: t for t in tables}

@@ -1,0 +1,11 @@
+{
+ "order": 4,
+ "title": "A missing date",
+ "blurb": "The handwritten history leaves out when a medication stopped.",
+ "plan": "clinic",
+ "files": [
+  "page1.jpg",
+  "page2.jpg",
+  "page3.jpg"
+ ]
+}

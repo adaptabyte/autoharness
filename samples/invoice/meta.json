@@ -1,0 +1,11 @@
+{
+ "order": 5,
+ "title": "An invoice with a new bank account",
+ "blurb": "Not medical at all: the invoice asks to pay an account that isn't the one on file.",
+ "plan": "invoice",
+ "files": [
+  "page1.jpg",
+  "page2.jpg",
+  "page3.jpg"
+ ]
+}
