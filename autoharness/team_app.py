@@ -119,7 +119,7 @@ def run_stack(job, stack_id: str) -> None:
 
     def on_read(a: dict) -> None:
         done[0] += 1
-        job.emit({"type": "read", "page": a["page"], "reader": a["reader"], "ok": not a.get("error"), "done": done[0], "total": total})
+        job.emit({"type": "read", "page": a["page"], "reader": a["reader"], "ok": not a.get("error"), "skipped": bool(a.get("skipped")), "done": done[0], "total": total})
 
     result = team.process(plan, pages, on_read=on_read)
     (d / "result.json").write_text(json.dumps(team.jsonable(result)))

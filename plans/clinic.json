@@ -32,7 +32,8 @@
    "key": "drug",
    "label": "Requested drug",
    "type": "text",
-   "note": "the newly requested or ordered drug, name only, no dose"
+   "note": "the newly requested or ordered drug, name only, no dose",
+   "vocabulary": "drugs"
   },
   {
    "key": "strength",
@@ -61,7 +62,8 @@
      "key": "drug",
      "label": "Medication",
      "type": "text",
-     "note": "with dose"
+     "note": "with dose",
+     "vocabulary": "drugs"
     },
     {
      "key": "start",

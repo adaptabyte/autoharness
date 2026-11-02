@@ -106,6 +106,13 @@ def test_a_date_that_cant_be_understood_goes_to_a_person():
     assert any(i["kind"] == "unreadable" for i in r["issues"]) and r["status"] == "needs_person"
 
 
+def test_a_misspelled_drug_agreed_on_by_every_reader_still_goes_to_a_person():
+    # Found by the hard test: all readers copied "Lamotrigine" as "Lamotrigrine", and agreement can't catch that.
+    bad = [{**TRIALS[0], "drug": "Lamotrigrine 200 mg"}, TRIALS[1]]
+    r = team.merge(PLAN, [read(0, n, **{**GOOD, "prior_treatments": bad}) for n in "ab"])
+    assert any(i["kind"] == "unknown_word" for i in r["issues"])
+
+
 def test_sum_check():
     plan = {"document": "an invoice", "fields": [{"key": "total", "label": "Total", "type": "money"}], "tables": [{"key": "items", "columns": [{"key": "name"}, {"key": "amount", "type": "money"}]}],
             "readers": [{"name": "a", "reads": ["total", "items"]}], "checks": [{"kind": "sum", "table": "items", "column": "amount", "total": "total"}]}

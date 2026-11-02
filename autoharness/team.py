@@ -13,10 +13,11 @@ import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Callable
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter, ImageOps
 
 from .local import Glimmer, LocalModelError
 
@@ -144,7 +145,7 @@ PLAN_SHAPE = """{
 DESIGN_RULES = """You're designing a team of small, cheap vision models that will check stacks of this paperwork on someone's own computer, long after you're gone. Each small model sees one page at a time, can't remember anything, and is good at copying what's in front of it but bad at deciding things. Plain code merges what they say. A value only counts when two reads agree, and any disagreement goes to a person.
 
 Design the plan for the paperwork shown:
-- Fields: every value someone would need to check or copy into a system, including who or what the stack is about, marked "identity": true, so a page from the wrong stack is caught because identifiers disagree. Fields that appear on several kinds of page are the most valuable, because pages check each other. Set "required": false for values that often aren't there. Use tables for repeating rows; the first column must name the row.
+- Fields: every value someone would need to check or copy into a system, including who or what the stack is about, marked "identity": true, so a page from the wrong stack is caught because identifiers disagree. Every field must have ONE true value for the whole stack, because any two different values are treated as a problem: never add a field that naturally differs from page to page, such as a document type, page title or per-document date or number. Fields that appear on several kinds of page are the most valuable, because pages check each other. Set "required": false for values that often aren't there. Use tables for repeating rows; the first column must name the row, and a table's columns must also agree between pages, so leave out any column that only some pages have unless they're marked in its note to be left blank elsewhere.
 - Notes: warn the reader about look-alikes (a group number next to a member number, a shipping address next to a bank account).
 - Readers: the first reads everything. Then add two or three specialists, each reading a subset, so every field is read at least twice per page. Say what to ignore.
 - Checks: only ones that the document's logic implies. There's no other kind of check.
@@ -202,22 +203,36 @@ def load_page(source) -> np.ndarray:
     return np.asarray(im)
 
 
+def second_look(page: np.ndarray) -> np.ndarray:
+    """The same page with stronger contrast and sharper edges. Identical input makes identical mistakes, and two identical mistakes look like agreement."""
+    im = ImageOps.autocontrast(Image.fromarray(page).convert("L"), cutoff=1).filter(ImageFilter.UnsharpMask(radius=2, percent=160, threshold=2))
+    return np.asarray(im.convert("RGB"))
+
+
 def _read_once(page_index: int, page: np.ndarray, plan: dict, reader: dict, url: str | None) -> dict:
     prompt, shape = reader_prompt(plan, reader)
     t0 = time.time()
     try:
-        data = Glimmer(url=url).read_json(prompt, page, shape)
+        glimmer = Glimmer(url=url)
+        view = second_look(page) if reader.get("view") == "second_look" else page
+        data = glimmer.ask(prompt, image=view, schema=shape, max_tokens=1800) if reader.get("thinks") else glimmer.read_json(prompt, view, shape)
         return {"page": page_index, "reader": reader["name"], "data": data if isinstance(data, dict) else {}, "seconds": round(time.time() - t0, 1)}
     except (LocalModelError, ValueError) as e:
         return {"page": page_index, "reader": reader["name"], "data": {}, "seconds": round(time.time() - t0, 1), "error": str(e)[:200]}
 
 
+def _found_something(answer: dict, keys: list[str]) -> bool:
+    data = answer["data"]
+    return any(data.get(k) not in (None, "", [], {}) and normal(data.get(k)) != "" for k in keys)
+
+
 def read_packet(plan: dict, pages: list, readers: list[dict] | None = None, url: str | None = None,
                 on_read: Callable[[dict], None] | None = None) -> list[dict]:
-    """Every reader on every page, at most MAX_READS_AT_ONCE at a time. Nothing leaves this machine."""
+    """Nothing leaves this machine. The first reader scans every page. Then each specialist reads only the pages where the scan
+    found something in its area, with a second view of the page so that two reads can't simply repeat one mistake. A page the scan
+    wrongly passes over loses its second read, which can only send a value to a person, never settle one."""
     readers = plan["readers"] if readers is None else readers
     frames = [load_page(p) for p in pages]
-    jobs = [(i, f, plan, r, url) for i, f in enumerate(frames) for r in readers]
 
     def work(job):
         out = _read_once(*job)
@@ -226,7 +241,15 @@ def read_packet(plan: dict, pages: list, readers: list[dict] | None = None, url:
         return out
 
     with ThreadPoolExecutor(MAX_READS_AT_ONCE) as ex:
-        return list(ex.map(work, jobs))
+        first = list(ex.map(work, [(i, f, plan, readers[0], url) for i, f in enumerate(frames)]))
+        later = []
+        for i, f in enumerate(frames):
+            for r in readers[1:]:
+                if first[i].get("error") or _found_something(first[i], r["reads"]):
+                    later.append((i, f, plan, {**r, "view": r.get("view", "second_look")}, url))
+                elif on_read:
+                    on_read({"page": i, "reader": r["name"], "data": {}, "skipped": True})
+        return first + list(ex.map(work, later))
 
 
 # ---- Merging, in plain code -------------------------------------------------------------------------------------------
@@ -238,6 +261,18 @@ def _rows_match(a: str, b: str) -> bool:
     x, y = a.split(), b.split()
     n = min(len(x), len(y))
     return n > 0 and x[:n] == y[:n]
+
+
+def vocabulary(name: str) -> set[str]:
+    """A list of known words, one per line, for values where a slip of one letter matters and every reader makes the same slip."""
+    file = Path(__file__).resolve().parent.parent / "plans" / "vocab" / f"{name}.txt"
+    return {line.strip().lower() for line in file.read_text().splitlines() if line.strip()} if file.exists() else set()
+
+
+def known_word(value, name: str) -> bool:
+    """True if any word of the value is in the vocabulary, so 'Sertraline 100 mg' passes and 'Lamotrigrine 200 mg' doesn't."""
+    words = vocabulary(name)
+    return not words or any(w in words for w in re.findall(r"[a-z]+", str(value).lower()))
 
 
 def well_formed(value, kind: str) -> bool:
@@ -290,6 +325,8 @@ def merge(plan: dict, answers: list[dict], min_support: int = 2) -> dict:
             issues.append({"kind": "missing", "field": f["key"], "label": f.get("label") or f["key"]})
         elif s["status"] == "unconfirmed" and required:
             issues.append({"kind": "unconfirmed", "field": f["key"], "label": f.get("label") or f["key"], "votes": s["votes"]})
+        elif s["value"] and f.get("vocabulary") and not known_word(s["value"], f["vocabulary"]):
+            issues.append({"kind": "unknown_word", "field": f["key"], "label": f.get("label") or f["key"], "votes": s["votes"]})
         elif s["value"] and not well_formed(s["value"], kind):
             issues.append({"kind": "unreadable", "field": f["key"], "label": f.get("label") or f["key"], "votes": s["votes"]})
         elif s["value"] and f.get("choices") and normal(s["value"]) not in [normal(c) for c in f["choices"]]:
@@ -338,6 +375,8 @@ def merge(plan: dict, answers: list[dict], min_support: int = 2) -> dict:
                     issues.append({"kind": "conflict", "field": f"{t['key']}.{c['key']}", "label": label, "votes": s["votes"]})
                 elif s["status"] == "unconfirmed":
                     issues.append({"kind": "unconfirmed", "field": f"{t['key']}.{c['key']}", "label": label, "votes": s["votes"]})
+                elif s["value"] and c.get("vocabulary") and not known_word(s["value"], c["vocabulary"]):
+                    issues.append({"kind": "unknown_word", "field": f"{t['key']}.{c['key']}", "label": label, "votes": s["votes"]})
                 elif s["value"] and not well_formed(s["value"], c.get("type", "text")):
                     issues.append({"kind": "unreadable", "field": f"{t['key']}.{c['key']}", "label": label, "votes": s["votes"]})
                 elif s["value"] and c.get("choices") and normal(s["value"]) not in [normal(x) for x in c["choices"]]:
