@@ -72,7 +72,7 @@ def do_explore(app: str, job: str) -> None:
 def do_compile(app: str) -> None:
     recs = [pickle.loads(f.read_bytes()) for f in sorted(records_dir(app).glob("*.pkl"))]
     meter = Meter()
-    plan = uiteam.compile_plan(recs, J.APPS[app].get("note", ""), meter=meter)
+    plan = uiteam.compile_plan(recs, J.APPS[app].get("note", ""), meter=meter, effort=EFFORT)
     plan["compile_usd"] = meter.usd
     (records_dir(app) / "plan.json").write_text(json.dumps(plan, indent=1))
     log_cost(app, "compile", meter.usd)
@@ -94,6 +94,13 @@ def one_run(app: str, job: str, i: int, plan: dict, label: str) -> dict:
         return dict(result=result, ok=ok, detail=detail, wrong=wrong, frames=runner.frames)
     out = with_app(app, body)
     r = out["result"]
+    if not out["ok"]:  # every failure explains itself later: its trace and its last screens
+        folder = records_dir(app) / "failures" / f"{label}-{job}-{i}-{int(time.time())}"
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "trace.json").write_text(json.dumps({"reason": r["reason"], "detail": out["detail"], "trace": r["trace"]}, indent=1, default=str))
+        from PIL import Image
+        for n, f in enumerate(out["frames"]):
+            Image.fromarray(f).save(folder / f"screen{n}.png")
     rec = dict(run=label, app=app, job=job, i=i, ok=out["ok"], wrong_saved=out["wrong"], detail=out["detail"], status=r["status"], reason=r["reason"][:300], seconds=r["seconds"], questions=r["questions"], steps=r["steps"], usd=0.0, at=time.time())
     with OUT.open("a") as f:
         f.write(json.dumps(rec, default=str) + "\n")
@@ -142,6 +149,7 @@ def do_teach(app: str, job: str, rounds: int = 6, cap: float = 2.0) -> None:
 
 
 VERBOSE = True
+EFFORT = "medium"
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("what", choices=["explore", "compile", "prove", "teach"])
@@ -152,8 +160,10 @@ if __name__ == "__main__":
     ap.add_argument("--label", default="proof")
     ap.add_argument("--quiet", action="store_true")
     ap.add_argument("--rounds", type=int, default=6)
+    ap.add_argument("--effort", default="medium")
     a = ap.parse_args()
     VERBOSE = not a.quiet
+    EFFORT = a.effort
     if a.what == "explore":
         do_explore(a.app, a.job)
     elif a.what == "compile":

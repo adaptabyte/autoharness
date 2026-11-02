@@ -255,7 +255,7 @@ def read_packet(plan: dict, pages: list, readers: list[dict] | None = None, url:
 # ---- Merging, in plain code -------------------------------------------------------------------------------------------
 
 def _rows_match(a: str, b: str) -> bool:
-    """Two rows are the same row if their names are equal, or one is the start of the other ("Sertraline" and "Sertraline 100 mg")."""
+    """Two rows are the same row if their names are equal, or one is the start of the other ("Hex bolts" and "Hex bolts, box of 100")."""
     if a == b:
         return True
     x, y = a.split(), b.split()
@@ -270,7 +270,7 @@ def vocabulary(name: str) -> set[str]:
 
 
 def known_word(value, name: str) -> bool:
-    """True if any word of the value is in the vocabulary, so 'Sertraline 100 mg' passes and 'Lamotrigrine 200 mg' doesn't."""
+    """True if any word of the value is in the vocabulary, so a known name with a size after it passes and a misspelled one doesn't."""
     words = vocabulary(name)
     return not words or any(w in words for w in re.findall(r"[a-z]+", str(value).lower()))
 

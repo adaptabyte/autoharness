@@ -41,7 +41,7 @@ def get_plan(plan_id: str) -> dict:
 
 
 def plan_brief(p: dict) -> dict:
-    return {"id": p["id"], "name": p.get("name") or p["id"], "designed_by": p.get("designed_by"), "cost": p.get("design_usd"), "connector": p.get("connector"),
+    return {"id": p["id"], "name": p.get("name") or p["id"], "designed_by": p.get("designed_by"), "cost": p.get("design_usd"), "hand_off": (p.get("hand_off") or {}).get("label"),
             "readers": [r["name"] for r in p["readers"]], "fields": [f.get("label") or f["key"] for f in p.get("fields") or []] + [t.get("label") or t["key"] for t in p.get("tables") or []],
             "checks": [c["kind"] for c in p.get("checks") or []]}
 
@@ -169,73 +169,35 @@ def design_plan(sources: list[Path], note: str, limit_usd: float = 0.25) -> dict
     return plan_brief(get_plan(plan_id)) | {"cost": cost}
 
 
-# ---- The hand-off. This connector is hand-written for the fictional demo portal, and the README says so. -----------------
+# ---- The hand-off: approved values go to a compiled interface, so no connector is ever written by hand --------------------
 
-PORTAL_URL = "http://127.0.0.1:8310"
-
-
-def fill_portal(job, stack_id: str) -> None:
-    """Types the approved values into the fictional portal, then stops at the signature, which only a person can give."""
-    from playwright.sync_api import sync_playwright
-
+def hand_off_inputs(stack_id: str) -> tuple[str, str, dict]:
+    """A plan's hand_off says which compiled interface takes the approved values, and under what names. Dates are normalised, since the receiving form has its own format."""
     d = stack_dir(stack_id)
     decision = json.loads((d / "decision.json").read_text())
     if decision["action"] != "approve":
         raise ValueError("a person hasn't approved this stack")
-    v, rows = decision["values"], (decision["rows"].get("prior_treatments") or [])
-    shots = d / "portal"
-    shots.mkdir(exist_ok=True)
-    count = [0]
+    plan = get_plan(json.loads((d / "stack.json").read_text())["plan"])
+    off = plan.get("hand_off")
+    if not off:
+        raise ValueError("this kind of paperwork doesn't hand off to anything")
+    kinds = {f["key"]: f.get("type", "text") for f in plan.get("fields") or []}
+    columns = {t["key"]: {c["key"]: c.get("type", "text") for c in t["columns"]} for t in plan.get("tables") or []}
 
-    def snap(page, caption: str) -> None:
-        name = f"{count[0]:02d}.jpg"
-        page.screenshot(path=str(shots / name), type="jpeg", quality=80)
-        job.emit({"type": "portal", "n": count[0], "caption": caption})
-        count[0] += 1
+    def clean(value, kind: str):
+        if kind == "date":
+            return team.parse_date(value) or value
+        if kind == "number":
+            return team.normal(value, "number")
+        return value
 
-    with sync_playwright() as pw:
-        br = pw.chromium.launch(args=["--no-sandbox"])
-        page = br.new_page(viewport={"width": 1000, "height": 720})
-        page.goto(PORTAL_URL + "/login")
-        page.fill("#user", "clinic01")
-        page.fill("#password", "demo-pass")
-        page.click("button")
-        page.goto(PORTAL_URL + "/new")
-        page.fill("#member_id", v["member_id"])
-        page.fill("#dob", team.parse_date(v["dob"]) or v["dob"])
-        snap(page, "Member")
-        page.click("button:has-text('Find member')")
-        if page.locator(".err").count():
-            raise ValueError("the portal says: " + page.locator(".err").inner_text())
-        page.select_option("#drug", v["drug"])
-        page.wait_for_load_state()
-        page.select_option("#strength", v["strength"])
-        page.fill("#quantity", str(team.normal(v["quantity"], "number")))
-        page.fill("#days", str(team.normal(v["days"], "number")))
-        snap(page, "Medication")
-        page.click("button:has-text('Continue')")
-        page.fill("#search", v["icd10"])
-        page.click("button[value=search]")
-        page.check(f"input[value='{v['icd10']}']")
-        snap(page, "Diagnosis")
-        page.click("button:has-text('Continue')")
-        for r in rows:
-            page.fill("#t_drug", r["drug"])
-            page.fill("#t_start", team.parse_date(r["start"]) or r["start"])
-            page.fill("#t_end", team.parse_date(r["end"]) or r["end"])
-            page.select_option("#t_outcome", r["outcome"])
-            page.click("button[value=add]")
-            page.wait_for_load_state()
-        snap(page, "Prior treatments")
-        page.click("button:has-text('Continue to review')")
-        snap(page, "Review")
-        page.click("button:has-text('Save for prescriber signature')")
-        page.wait_for_load_state()
-        ref = page.url.rsplit("/", 1)[-1]
-        snap(page, "Stopped for the prescriber's signature")
-        br.close()
-    (d / "portal.json").write_text(json.dumps({"ref": ref, "at": time.time()}))
-    job.emit({"type": "portal_done", "ref": ref, "url": f"{PORTAL_URL}/request/{ref}"})
+    inputs = dict(off.get("fixed") or {})
+    for name, source in off.get("map", {}).items():
+        if source in kinds:
+            inputs[name] = clean(decision["values"].get(source, ""), kinds[source])
+        else:
+            inputs[name] = [{c: clean(v, columns[source].get(c, "text")) for c, v in row.items()} for row in decision["rows"].get(source, [])]
+    return off["interface"], off["skill"], inputs
 
 
 def proof() -> dict | None:

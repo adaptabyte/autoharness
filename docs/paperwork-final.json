@@ -1,0 +1,56 @@
+{
+ "title": "Measured, on inputs it hadn't seen",
+ "columns": [
+  "Job",
+  "Glimmer + plan",
+  "Median",
+  "Cloud per run",
+  "Spark doing it live"
+ ],
+ "rows": [
+  [
+   "A made-up insurer's portal: fill and save a five-step request",
+   "5/5",
+   "122 s",
+   "$0",
+   "3/3, 556 s, $0.172"
+  ],
+  [
+   "OpenEMR: find a patient, read their birth date",
+   "0/5",
+   "55 s",
+   "$0",
+   "3/3, 84 s, $0.036"
+  ],
+  [
+   "OpenEMR: change a patient's phone number",
+   "5/5",
+   "83 s",
+   "$0",
+   "2/2, 275 s, $0.109"
+  ],
+  [
+   "OpenEMR: read a whole chart",
+   "0/5",
+   "58 s",
+   "$0",
+   "\u2014"
+  ],
+  [
+   "Django admin: mark an order shipped",
+   "5/5",
+   "89 s",
+   "$0",
+   "\u2014"
+  ],
+  [
+   "Django admin: read an order",
+   "4/4",
+   "49 s",
+   "$0",
+   "\u2014"
+  ]
+ ],
+ "highlight": null,
+ "note": "Checked against each app's own data. Small samples. Every failed round is in docs/PROOF.md."
+}

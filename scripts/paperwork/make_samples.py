@@ -33,7 +33,7 @@ OTHER = dict(first="Marisol", last="Dragomir", dob="1955-09-17", member_id="MBR-
 for person in [*PEOPLE.values(), OTHER]:
     person.update(name=f"{person['first']} {person['last']}", group="GRP-40112", npi="1447203981", phone="(555) 314-2267", other="Metformin 500 mg", other_since="2019-05-14")
 META = {
-    "clean": dict(order=1, title="A clean stack", blurb="Nothing wrong. Approve it and watch it fill a made-up portal, then stop for a signature.", plan="clinic"),
+    "clean": dict(order=1, title="A clean stack", blurb="Nothing wrong. Approve it and watch a small model fill a made-up portal, then stop for a signature.", plan="clinic"),
     "digit": dict(order=2, title="One wrong digit", blurb="The order form's member ID differs from the chart by one digit.", plan="clinic"),
     "stray": dict(order=3, title="Someone else's page", blurb="A page from another patient's chart slipped into the stack.", plan="clinic"),
     "gap": dict(order=4, title="A missing date", blurb="The handwritten history leaves out when a medication stopped.", plan="clinic"),

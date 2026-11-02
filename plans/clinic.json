@@ -147,5 +147,23 @@
    "second": "end"
   }
  ],
- "connector": "demo_portal"
+ "hand_off": {
+  "label": "fill the portal",
+  "interface": "portal",
+  "skill": "save_request",
+  "fixed": {
+   "username": "clinic01",
+   "password": "demo-pass"
+  },
+  "map": {
+   "member_id": "member_id",
+   "dob": "dob",
+   "drug": "drug",
+   "strength": "strength",
+   "quantity": "quantity",
+   "days": "days",
+   "icd10": "icd10",
+   "trials": "prior_treatments"
+  }
+ }
 }

@@ -157,3 +157,44 @@ def test_a_similar_name_that_stays_different_on_a_closer_look_still_stops():
     steps = [{"do": "read", "into": "facts", "fields": {"name": "the name"}}, {"do": "compare", "a": "{facts.name}", "b": "{first} {last}", "kind": "name"}]
     result, _ = run(steps, {"first": "Dariusz", "last": "Fenwick"}, Eyes({"name": "Darius Fenwick"}))
     assert result["status"] == "needs_help"
+
+
+class Pages(Eyes):
+    """A list that scrolls, returning a fixed answer per page, the same to both reads."""
+
+    def __init__(self, pages):
+        super().__init__()
+        self.pages, self.seen = pages, 0
+
+    def read_once(self, fields, frame, where=""):
+        page = self.pages[min(self.seen // 2, len(self.pages) - 1)]
+        self.seen += 1
+        return {"rows": page}
+
+
+def list_step():
+    return [{"do": "read_list", "into": "rows", "item": {"name": "n", "end": "e"}, "scroll": 3, "max_pages": 3}]
+
+
+def test_a_row_cut_off_on_one_page_is_filled_from_the_next():
+    result, _ = run(list_step(), eyes=Pages([[{"name": "A", "end": None}], [{"name": "A", "end": "2024-01-01"}], [{"name": "A", "end": "2024-01-01"}]]))
+    assert result["status"] == "done" and result["outputs"]["rows"][0]["end"] == "2024-01-01"
+
+
+def test_two_real_values_for_one_row_still_stop():
+    result, _ = run(list_step(), eyes=Pages([[{"name": "A", "end": "2024-01-01"}], [{"name": "A", "end": "2024-01-09"}]]))
+    assert result["status"] == "needs_help" and "differently" in result["reason"]
+
+
+def test_what_is_read_in_a_loop_stays_with_its_row():
+    class ByRow(Eyes):
+        def __init__(self):
+            super().__init__()
+            self.n = 0
+
+        def read(self, fields, types=None):
+            self.n += 1
+            return {"start": f"day{self.n}"}
+    steps = [{"do": "for_each", "list": "{rows}", "as": "row", "steps": [{"do": "read", "into": "detail", "fields": {"start": "the start"}}]}]
+    result, _ = run(steps, {"rows": [{"title": "A"}, {"title": "B"}]}, ByRow())
+    assert result["outputs"]["detail"] == [{"title": "A", "start": "day1"}, {"title": "B", "start": "day2"}]

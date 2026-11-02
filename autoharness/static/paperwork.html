@@ -206,7 +206,7 @@ async function stack(id){
   const pageImg=n=>`/api/team/stack/${id}/page/${n}`;
   const needsChoice=r.issues.length;
   const status=h("span",{});
-  const approve=h("button",{class:"btn primary",onclick:()=>decide("approve")},d.plan.connector?"Approve and fill the portal":"Approve");
+  const approve=h("button",{class:"btn primary",onclick:()=>decide("approve")},d.plan.hand_off?`Approve and ${d.plan.hand_off}`:"Approve");
   const sendBack=h("button",{class:"btn",onclick:()=>decide("send_back")},"Send back");
   const after=h("div",{});
   function refresh(){const left=r.issues.filter((_,i)=>!decided[i]).length;approve.disabled=left>0;status.textContent=left?`${plural(left,"thing")} left to decide`:"Nothing left to decide";}
@@ -226,7 +226,7 @@ async function stack(id){
   async function decide(action){const values={};for(const[k,i]of Object.entries(inputs))values[k]=i.value.trim();const rows={};for(const tr of v.querySelectorAll("tr[data-table]")){const k=tr.dataset.table;const row={};for(const i of tr.querySelectorAll("input"))row[i.dataset.col]=i.value.trim();(rows[k]=rows[k]||[]).push(row)}
     approve.disabled=sendBack.disabled=true;const rec=await api(`/api/team/stack/${id}/decide`,{action,values,rows,resolved:r.issues.filter((_,i)=>decided[i]).map(i=>i.field)});
     if(action==="send_back"){after.replaceChildren(h("div",{class:"card done-box"},h("h3",{},"Sent back. Nothing was saved anywhere else."),h("p",{class:"hint",style:"margin:0"},"What was wrong:"),h("ul",{style:"margin:4px 0"},r.issues.map(i=>h("li",{},i.label)))));return}
-    if(d.plan.connector){const j=await api(`/api/team/stack/${id}/portal`,{});watchPortal(j.id,after,id)}else after.replaceChildren(h("div",{class:"card done-box"},h("h3",{},"Approved by you."),h("a",{class:"btn small",href:`/api/team/stack/${id}/approved.json`,download:true},"Download the values")))}
+    if(d.plan.hand_off){const j=await api(`/api/team/stack/${id}/portal`,{});go("job/"+j.id)}else after.replaceChildren(h("div",{class:"card done-box"},h("h3",{},"Approved by you."),h("a",{class:"btn small",href:`/api/team/stack/${id}/approved.json`,download:true},"Download the values")))}
   const ok=r.status==="clear";
   v.replaceChildren(
     h("button",{class:"back",onclick:()=>go("")},"← New stack"),
@@ -234,12 +234,9 @@ async function stack(id){
     h("div",{class:"split"},
       h("div",{},cards.length?cards:h("div",{class:"card issue"},h("h3",{},"The team agrees on everything"),h("p",{style:"margin:0"},"Every value has at least two matching reads and no page contradicts another.")),
         h("h2",{},"The pages"),h("div",{class:"pages",style:"margin-top:8px"},Array.from({length:r.pages},(_,i)=>h("div",{class:"card pg"},h("img",{class:"zoom",src:pageImg(i),alt:`Page ${i+1}`,onclick:()=>zoom(pageImg(i))}),h("small",{},`Page ${i+1}`))))),
-      h("div",{},h("div",{class:"card vals"},h("h3",{},"What the team read"),fieldRows,tables),h("div",{class:"foot"},approve,sendBack,status),h("p",{class:"hint"},"You can correct any value before approving. A person always approves; the team never submits anything."),after)));
+      h("div",{},h("div",{class:"card vals"},h("h3",{},"What the team read"),fieldRows,tables),h("div",{class:"foot"},approve,sendBack,status),h("p",{class:"hint"},"You can correct any value before approving. A person always approves, and nothing gets signed or submitted without one."),after)));
   refresh();
-  if(d.decision?.action==="approve"&&d.portal)after.replaceChildren(h("div",{class:"card done-box"},h("h3",{},`Saved as ${d.portal.ref}. Waiting for the prescriber's signature.`)));
 }
-function watchPortal(jobId,after,id){const frames=h("div",{class:"frames"});const head=h("h3",{},"Filling the portal...");after.replaceChildren(h("div",{class:"card done-box"},head,h("p",{class:"hint",style:"margin:0"},"A made-up insurer's portal. It uses only what you approved."),frames));const es=new EventSource(`/api/jobs/${jobId}/events`);es.onmessage=ev=>{const e=JSON.parse(ev.data);if(e.type==="portal"){const src=`/api/team/stack/${id}/portal/${String(e.n).padStart(2,"0")}?t=${Date.now()}`;frames.append(h("figure",{},h("img",{class:"zoom",src,alt:e.caption,onclick:()=>zoom(src)}),h("figcaption",{},e.caption)))}if(e.type==="portal_done"){head.textContent=`Saved as ${e.ref}. Stopped for the prescriber's signature.`;es.close()}if(e.type==="error"){head.textContent="The portal stopped it: "+e.text;es.close()}}}
-
 async function route(){await (T||loadState());if(!T){$("#view").textContent="The app isn't answering.";return}const[kind,id]=location.hash.replace(/^#\/?/,"").split("/");try{if(kind==="read")reading(id);else if(kind==="stack")await stack(id);else if(kind==="ui")await uiPlan(id);else if(kind==="job")jobView(id);else if(kind==="swarm")swarmView(id);else home();window.scrollTo(0,0)}catch(e){$("#view").replaceChildren(h("div",{class:"error"},e.message))}}
 addEventListener("hashchange",route);route();
 </script>

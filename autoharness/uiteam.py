@@ -93,10 +93,10 @@ STEP_DOCS = """Each step is one JSON object. Text may use {name} for an input or
 {"do":"key","keys":"Return"}  or "ctrl+a", "Tab" and so on.
 {"do":"wait","seconds":2}
 {"do":"scroll","dy":5}  wheel notches at the middle of the screen, negative is up. Add "target" to scroll over a specific pane.
-{"do":"ensure","question":"Is the Patient Finder table showing, with a row for {last}?","why":"..."}  a yes/no about the current screen. A no stops and asks for help, so use these after anything that changes the screen, before you rely on it.
+{"do":"ensure","question":"Is the results table showing, with a row for {last}?","why":"..."}  a yes/no about the current screen. A no stops and asks for help, so use these after anything that changes the screen, before you rely on it.
 {"do":"dismiss","question":"Is a popup asking about product registration open?","target":"the Ask Again Later button"}  clicks only if the question is yes. Use it for things that appear only sometimes.
-{"do":"read","into":"facts","fields":{"dob":"the date of birth","member_id":"the External ID in parentheses after the name"},"types":{"dob":"date","member_id":"id"}}  reads values off the current screen twice, independently. Types: id, date, number, money, name, code, text. If the two reads disagree it stops.
-{"do":"read_list","into":"rows","item":{"drug":"...","start":"..."},"where":"which rows count and which don't","scroll":3,"max_pages":6}  reads a list that may scroll, page by page, merging rows in code, until a page adds nothing new. Set "scroll":0 if it fits on one screen.
+{"do":"read","into":"facts","fields":{"born":"the date of birth","account":"the ID in parentheses after the name"},"types":{"born":"date","account":"id"}}  reads values off the current screen twice, independently. Types: id, date, number, money, name, code, text. If the two reads disagree it stops.
+{"do":"read_list","into":"rows","item":{"item_name":"...","start":"..."},"where":"which rows count and which don't","scroll":3,"max_pages":6}  reads a list that may scroll, page by page, merging rows in code, until a page adds nothing new. Set "scroll":0 if it fits on one screen.
 {"do":"compare","a":"{facts.name}","b":"{first} {last}","kind":"name"}  plain code; a mismatch stops the run. Use it to confirm you're on the right record.
 {"do":"if","question":"...yes/no...","then":[steps],"else":[steps]}
 {"do":"for_each","list":"{trials}","as":"row","steps":[steps]}
@@ -110,7 +110,7 @@ The small model never sees the plan and has no memory. Code walks the plan. For 
 Below is a record of a capable model using the interface. Learn how the interface really behaves, including what went wrong and what appeared unexpectedly. Don't copy its mistakes, wrong turns or retries. Then write the plan.
 
 Rules for a good plan:
-- Make skills general, with inputs. No value from the record may be baked in: patient names, dates and numbers must be inputs. Prefer several small reusable skills (log_in, open_record, read_record, edit_field) that one skill per job composes with "call".
+- Make skills general, with inputs. No value from the record may be baked in: names, dates and numbers must be inputs. Prefer several small reusable skills (log_in, open_record, read_record, edit_field) that one skill per job composes with "call".
 - Add a "dismiss" for every popup or interruption seen in the record, wherever it can appear.
 - After anything that changes the screen, add an "ensure" that would catch going to the wrong place. Before reading or changing a record, confirm with "read" and "compare" that it's the right one.
 - Keep each target description unmistakable on a single screenshot: its label, its kind and where it is, and how to tell it from look-alikes.
@@ -264,6 +264,12 @@ class Eyes:
         types = types or {}
         frame = enlarge(self.display.shot())
         a, b = self.read_once(fields, frame), self.read_once(fields, team.second_look(frame))
+        if any(not team.normal(a.get(k), types.get(k, "text")) and not team.normal(b.get(k), types.get(k, "text")) for k in fields):
+            # Both reads came back blank on something. Often the page was still drawing, and both looked at the same half-drawn frame, so look at a new one.
+            time.sleep(2)
+            self.display.wait_stable(2.0, quiet=0.4)
+            frame = enlarge(self.display.shot())
+            a, b = self.read_once(fields, frame), self.read_once(fields, team.second_look(frame))
         out = {}
         for key in fields:
             kind = types.get(key, "text")
@@ -374,7 +380,10 @@ class PlanRunner:
                 d.wait_stable(0.8, quiet=0.15)
                 if step.get("secret") or step.get("no_check"):
                     break
-                seen = self.eyes.read_box(d.shot(), spot, target)
+                frame = d.shot()
+                seen = self.eyes.read_box(frame, spot, target)
+                if team.normal(seen) != team.normal(text):  # the close-up can miss, so check the whole screen before retyping
+                    seen = self.eyes.read_once({"value": f"the text now in: {target}"}, enlarge(frame)).get("value") or seen
                 if team.normal(seen) == team.normal(text):
                     break
                 if attempt == 1:
@@ -458,8 +467,16 @@ class PlanRunner:
             rows = self.fill(step["list"], scope)
             if not isinstance(rows, list):
                 raise NeedsHelp(f"for_each expected a list, got {type(rows).__name__}")
+            collected: dict[str, list] = {}
             for row in rows:
-                self.run_steps(step["steps"], {**scope, step["as"]: row})
+                child = {**scope, step["as"]: row}
+                self.run_steps(step["steps"], child)
+                for key, value in child.items():  # what was read for each row is kept with that row, not overwritten by the next
+                    if key not in scope and key != step["as"] and isinstance(value, dict):
+                        collected.setdefault(key, []).append({**(row if isinstance(row, dict) else {"item": row}), **value})
+            for key, values in collected.items():
+                scope[key] = values
+                self.outputs[key] = values
         elif kind == "call":
             inputs = {k: self.fill(v, scope) for k, v in (step.get("with") or {}).items()}
             self.note(step, True, "", t0)
@@ -489,6 +506,12 @@ class PlanRunner:
             frame = enlarge(self.display.shot())
             a = self.eyes.read_once(shape, frame, where).get("rows") or []
             b = self.eyes.read_once(shape, team.second_look(frame), where).get("rows") or []
+            if page == 0 and not a and not b:  # the page may still be drawing
+                time.sleep(2)
+                self.display.wait_stable(2.0, quiet=0.4)
+                frame = enlarge(self.display.shot())
+                a = self.eyes.read_once(shape, frame, where).get("rows") or []
+                b = self.eyes.read_once(shape, team.second_look(frame), where).get("rows") or []
             before = len(rows)
             seen_a = {team.normal(r.get(first_key)): r for r in a if isinstance(r, dict) and r.get(first_key)}
             seen_b = {team.normal(r.get(first_key)): r for r in b if isinstance(r, dict) and r.get(first_key)}
@@ -513,8 +536,12 @@ class PlanRunner:
                         if team.normal(z) not in (team.normal(x.get(k)), team.normal(y.get(k))) or not z:
                             raise NeedsHelp(f"the reads of {name}: {k} disagree: {x.get(k)!r}, {y.get(k)!r}, {z!r}")
                         x = {**x, k: z}
-                if name in rows and any(team.normal(rows[name].get(k)) != team.normal(x.get(k)) for k in item):
-                    raise NeedsHelp(f"{name} read differently on two pages")
+                if name in rows:
+                    # A row cut off at the edge of one page is blank there, not different. Only two real values can contradict.
+                    clash = [k for k in item if team.normal(rows[name].get(k)) and team.normal(x.get(k)) and team.normal(rows[name].get(k)) != team.normal(x.get(k))]
+                    if clash:
+                        raise NeedsHelp(f"{name} read differently on two pages: {clash[0]} is {rows[name].get(clash[0])!r} and {x.get(clash[0])!r}")
+                    x = {k: x.get(k) if team.normal(x.get(k)) else rows[name].get(k) for k in item}
                 rows[name] = x
             if not scroll or (page > 0 and len(rows) == before):
                 break

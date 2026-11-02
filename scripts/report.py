@@ -12,8 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 UI = [json.loads(x) for x in (ROOT / "docs" / "uiteam.jsonl").read_text().splitlines()]
 PAPER = [json.loads(x) for x in (ROOT / "docs" / "paperwork.jsonl").read_text().splitlines()]
 NAMES = {("portal", "save_request"): "A made-up insurer's portal: fill and save a five-step request", ("openemr", "read_dob"): "OpenEMR: find a patient, read their birth date", ("openemr", "set_phone"): "OpenEMR: change a patient's phone number",
-         ("openemr", "read_chart"): "OpenEMR: read a whole chart", ("backoffice", "ship_order"): "Django admin: mark an order shipped", ("backoffice", "read_order"): "Django admin: read an order", ("calculator", "calculate"): "GNOME Calculator, a native desktop app"}
-OLD = {("openemr", "read_dob"): "Glimmer + generated program: 0 of 1", ("openemr", "set_phone"): "Glimmer + generated program: 0 of 1", ("openemr", "read_chart"): "Glimmer + written guide: 0 of 6", ("portal", "save_request"): "Generated programs: 0 of 2"}
+         ("openemr-chart", "read_chart"): "OpenEMR: read a whole chart", ("backoffice", "ship_order"): "Django admin: mark an order shipped", ("backoffice", "read_order"): "Django admin: read an order", ("calculator", "calculate"): "GNOME Calculator, a native desktop app"}
+OLD = {("openemr", "read_dob"): "Glimmer + generated program: 0 of 1", ("openemr", "set_phone"): "Glimmer + generated program: 0 of 1", ("openemr-chart", "read_chart"): "Glimmer + written guide: 0 of 6", ("portal", "save_request"): "Generated programs: 0 of 2"}
 
 
 def med(rows, key):
@@ -29,7 +29,7 @@ def ui_rows() -> list[dict]:
     for key, name in NAMES.items():
         runs = labels.get(key) or {}
         spark = [r for r in UI if r.get("run") == "spark" and (r["app"], r["job"]) == key]
-        final = runs.get("proof2") or runs.get("proof") or []
+        final = runs.get("proof3") or runs.get("proof2") or runs.get("proof") or []
         out.append(dict(key=key, name=name, attempts={k: f"{sum(x['ok'] for x in v)}/{len(v)}" for k, v in runs.items()}, passes=sum(r["ok"] for r in final), runs=len(final), wrong=sum(bool(r["wrong_saved"]) for r in final), seconds=med(final, "seconds"), questions=med(final, "questions"),
                         spark_pass=sum(r["ok"] for r in spark), spark_runs=len(spark), spark_seconds=med(spark, "seconds"), spark_usd=med(spark, "usd"), spark_bytes=med(spark, "bytes_sent"), old=OLD.get(key, "")))
     return out

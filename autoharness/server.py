@@ -425,9 +425,7 @@ def team_state() -> dict:
 
 
 def stack_view(stack_id: str) -> dict:
-    out = team_app.read_result(stack_id)
-    portal = team_app.stack_dir(stack_id) / "portal.json"
-    return {**out, "portal": json.loads(portal.read_text()) if portal.exists() else None}
+    return team_app.read_result(stack_id)
 
 
 def _uploaded(paths: list) -> list[Path]:
@@ -535,9 +533,6 @@ class Handler(BaseHTTPRequestHandler):
             m = re.fullmatch(r"/api/team/stack/([0-9a-f]+)/page/(\d+)", path)
             if m:
                 return self._file(team_app.page_files(m.group(1))[int(m.group(2))], "image/jpeg")
-            m = re.fullmatch(r"/api/team/stack/([0-9a-f]+)/portal/(\d\d)", path)
-            if m:
-                return self._file(team_app.stack_dir(m.group(1)) / "portal" / f"{m.group(2)}.jpg", "image/jpeg")
             m = re.fullmatch(r"/api/team/stack/([0-9a-f]+)/approved.json", path)
             if m:
                 return self._file(team_app.stack_dir(m.group(1)) / "decision.json", "application/json")
@@ -622,8 +617,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(team_app.decide(m.group(1), body))
             m = re.fullmatch(r"/api/team/stack/([0-9a-f]+)/portal", path)
             if m:
-                stack_id = m.group(1)
-                return self._json(_start("portal", "Filling the portal", None, lambda job: team_app.fill_portal(job, stack_id)).brief())
+                interface, skill, inputs = team_app.hand_off_inputs(m.group(1))
+                return self._json(start_ui_run(interface, skill, inputs).brief())
             if path == "/api/teach":
                 job = start_teach(str(body.get("target", "")), str(body.get("goal", "")), float(body.get("limit", 4)), body.get("params"))
                 return self._json(job.brief())

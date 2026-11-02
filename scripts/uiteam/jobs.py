@@ -93,8 +93,8 @@ def phone_judge(result, inputs, before):
 def chart_case(i: int) -> dict:
     if i >= 200:
         return NEW[(i - 201) % 5]
-    if i >= 100:
-        return CASES["teach"]
+    if i >= 100:  # teaching rotates through several patients, or a plan overfits to the one it saw
+        return CASES[["teach", "held1", "held2", "held3", "held4"][i % 5]]
     return CASES[["held1", "held2", "held3", "held4", "incomplete"][(i - 1) % 5]]
 
 
@@ -104,23 +104,50 @@ def chart_goal(c: dict) -> str:
             "Copy only what the chart says and change nothing. If a date or outcome isn't recorded, say so rather than guessing.")
 
 
+def rows_in(x) -> list[dict]:
+    """Every row-like dict a run read, wherever the plan kept it."""
+    if isinstance(x, dict):
+        return ([x] if not any(isinstance(v, (dict, list)) for v in x.values()) else []) + [r for v in x.values() for r in rows_in(v)]
+    if isinstance(x, list):
+        return [r for v in x for r in rows_in(v)]
+    return []
+
+
 def chart_judge(result, inputs, before):
+    """Row by row: each date and outcome has to be on the row of the right medication, so a right value in the wrong place doesn't count."""
     c = inputs
-    wrong = []
-    for want, kind in ((c["member_id"], "id"), (c["dob"], "date"), (c["icd10"], "code"), (c["request"]["drug"], "text")):
-        if not has_value(result, want, kind):
-            wrong.append(want)
-    have = " | ".join(values_in(result["outputs"]) + values_in(result["scope"]))
-    for t in c["trials"]:
-        for v, kind in ((t["drug"], "text"), (t["start"], "date"), (t["end"], "date"), (t["outcome"], "text")):
-            if v and not has_value(result, v, kind):
-                wrong.append(v)
-    if c["id"] == "incomplete":
-        made_up = result["status"] == "done" and bool(re.search(r"inadequate|intoleran", have, re.I))
-        return (result["status"] == "done" and not wrong and not made_up), ("made up an outcome" if made_up else f"missing {wrong}" if wrong else "read it, and reported nothing the chart doesn't say"), made_up
     if result["status"] != "done":
         return False, f"{result['status']}: {result['reason']}", False
-    return not wrong, f"missing or wrong: {wrong}" if wrong else "every value matches the chart", bool(wrong)
+    everything = {**result["scope"], **result["outputs"]}
+    text = " | ".join(values_in(everything)).lower()
+    rows = rows_in(everything)
+    wrong = []
+    if not has_value(result, c["member_id"], "id"):
+        wrong.append(c["member_id"])
+    if not has_value(result, c["dob"], "date"):
+        wrong.append(c["dob"])
+    if c["icd10"].lower() not in text:
+        wrong.append(c["icd10"])
+    wanted = c["request"]["drug"].lower()
+    if wanted not in text or c["request"]["strength"].lower() not in text:
+        wrong.append(f"{c['request']['drug']} {c['request']['strength']}")
+    for t in c["trials"]:
+        row = [r for r in rows if any(t["drug"].lower() in str(v).lower() for v in r.values())]
+        merged = {k: v for r in row for k, v in r.items() if v}
+        said = [team.normal(v, "date") for v in merged.values()]
+        if not row:
+            wrong.append(t["drug"])
+            continue
+        for date in (t["start"], t["end"]):
+            if date and date not in said:
+                wrong.append(f"{t['drug']}: {date}, row says {merged}"[:200])
+        words = " ".join(str(v) for v in merged.values()).lower()
+        if t["outcome"] and t["outcome"].lower() not in words:
+            wrong.append(f"{t['drug']}: {t['outcome']}")
+    if c["id"] == "incomplete":
+        made_up = bool(re.search(r"inadequate|intoleran", text))
+        return not wrong and not made_up, "made up an outcome" if made_up else f"missing {wrong}" if wrong else "reported nothing the chart doesn't say", made_up
+    return not wrong, f"missing or wrong: {wrong}" if wrong else "every value matches the chart, row by row", bool(wrong)
 
 
 # ---- The fictional portal, where generated programs went 0 of 2 --------------------------------------------------------------
@@ -253,5 +280,15 @@ APPS = {
     }},
     "calculator": {"spec": spec_calculator, "note": "One job: calculate, with input expression. Prefer the keyboard over buttons: type the expression and press Return, read the display, and report the answer as its output.", "jobs": {
         "calculate": dict(skill="calculate", teach=calc_inputs(100), goal=lambda c: f"Work out {c['expression']} with this calculator and report the answer shown on screen.", inputs=calc_inputs, judge=calc_judge, plan_inputs=lambda c: {"expression": c["expression"]}, seconds=120),
+    }},
+    "openemr-chart": {"spec": spec_openemr, "note": """One job only: a skill named read_patient_chart with inputs username, password, first, last. It logs in, opens the patient, and reads their plan member ID, date of birth, diagnosis code and medication history.
+What earlier plans got wrong, so don't repeat it:
+- They named a specific diagnosis or medication in a target, which only fits one patient. Never name any value from the record. First use read_list to get the rows' titles, then for_each over them with {row.title} in the target, so it works for any patient. One patient may have a different number of rows.
+- They chained many scrolls and asked whether the top of a page was showing, which is brittle. Use few, simple moves. Prefer a route with less scrolling if the record shows one: a page or view that shows dates and comments without expanding each row would be better than expanding rows one at a time.
+- Expanding rows pushes later rows down, so re-find each row by its title right before acting on it, scroll only when it isn't visible (use "if"), and read the details right after expanding.
+- Keep ensure questions short and about one obvious thing on screen.
+- Read the name from the plain text heading after 'Medical Record Dashboard -' rather than the blue header.
+Put the results in values named identity (member_id, dob, name), problems (rows with title holding the diagnosis code), and medications (rows with title, status, start, end, comment).""", "jobs": {
+        "read_chart": dict(skill="read_patient_chart", teach=CASES["teach"], goal=chart_goal, inputs=chart_case, plan_inputs=lambda c: {"first": c["first"], "last": c["last"], "username": "admin", "password": "pass"}, judge=chart_judge, seconds=600),
     }},
 }

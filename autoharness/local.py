@@ -25,6 +25,13 @@ def _data_url(frame: np.ndarray) -> str:
     return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
+def _jpeg_url(frame: np.ndarray) -> str:
+    """Much smaller than PNG on scans and photos, which is most of what slows a request that isn't waiting on the model."""
+    buf = io.BytesIO()
+    Image.fromarray(frame).save(buf, "JPEG", quality=92)
+    return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
 def extract_json(text: str):
     """The first JSON value in a reply, tolerating code fences and stray words around it."""
     text = text.strip()
@@ -80,7 +87,7 @@ class Glimmer:
         """Copying from a page, without the reasoning step: the reply starts as the JSON itself. Measured at 4.8 s against 12 s, because most of a normal read is thinking."""
         prompt = question + "\n\nReply with only a JSON object matching this shape, no other text:\n" + json.dumps(schema)
         body = {"model": self.model, "temperature": 0, "max_tokens": max_tokens, "add_generation_prompt": False, "continue_final_message": True,
-                "messages": [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": _data_url(image)}}, {"type": "text", "text": prompt}]}, {"role": "assistant", "content": "{"}]}
+                "messages": [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": _jpeg_url(image)}}, {"type": "text", "text": prompt}]}, {"role": "assistant", "content": "{"}]}
         req = urllib.request.Request(self.url + "/chat/completions", data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
         t0 = time.time()
         try:
