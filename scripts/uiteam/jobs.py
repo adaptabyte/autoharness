@@ -164,9 +164,9 @@ def spec_portal() -> dict:
 
 APPS = {
     "openemr": {"spec": spec_openemr, "note": "Make small general skills: log_in, open_patient by first and last name, read_chart, set_home_phone. Keep the outputs of a read in the values it names. The chart's expanded rows can run past one screen.", "jobs": {
-        "read_dob": dict(teach=dob_person(100), goal=lambda p: OEM_LOGIN + f"Find the patient {p['first']} {p['last']} and report their date of birth.", inputs=dob_person, judge=dob_judge, seconds=300),
-        "set_phone": dict(teach=phone_person(100), goal=lambda p: OEM_LOGIN + f"Open the patient {p['first']} {p['last']} and set their home phone number to {p['phone']}, then save.", inputs=phone_person, before=phone_before, judge=phone_judge, seconds=400, plan_inputs=lambda p: p),
-        "read_chart": dict(teach=CASES["teach"], goal=chart_goal, inputs=chart_case, plan_inputs=lambda c: {"first": c["first"], "last": c["last"]}, judge=chart_judge, seconds=600, limit=0.9),
+        "read_dob": dict(skill="report_patient_dob", plan_inputs=lambda p: {**p, "username": "admin", "password": "pass"}, teach=dob_person(100), goal=lambda p: OEM_LOGIN + f"Find the patient {p['first']} {p['last']} and report their date of birth.", inputs=dob_person, judge=dob_judge, seconds=300),
+        "set_phone": dict(skill="update_patient_home_phone", teach=phone_person(100), goal=lambda p: OEM_LOGIN + f"Open the patient {p['first']} {p['last']} and set their home phone number to {p['phone']}, then save.", inputs=phone_person, before=phone_before, judge=phone_judge, seconds=400, plan_inputs=lambda p: {**p, "username": "admin", "password": "pass"}),
+        "read_chart": dict(skill="read_patient_chart", teach=CASES["teach"], goal=chart_goal, inputs=chart_case, plan_inputs=lambda c: {"first": c["first"], "last": c["last"], "username": "admin", "password": "pass"}, judge=chart_judge, seconds=600, limit=0.9),
     }},
     "portal": {"spec": spec_portal, "note": "One job: save_request, which fills the whole form from its inputs (member_id, dob, drug, strength, quantity, days, icd10, trials, username, password) and stops for the prescriber's signature. Each item of trials has drug, start, end, outcome.", "jobs": {
         "save_request": dict(teach=CASES["teach"], goal=portal_goal, inputs=portal_case, plan_inputs=portal_inputs, before=portal_before, judge=portal_judge, seconds=500),

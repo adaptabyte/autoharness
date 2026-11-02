@@ -21,7 +21,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from . import __version__, config, library, targets, team_app
+from . import __version__, config, library, targets, team_app, uiteam
 from .cloud import Ledger
 from .desktop import Display
 from .local import Glimmer
@@ -322,8 +322,65 @@ def state() -> dict:
             "glimmer": _status["glimmer"], "has_key": bool(config.api_key()), "benchmark": benchmark_summary()}
 
 
+def ui_results() -> dict:
+    """Proof runs from the raw records, so no number is typed in."""
+    file = config.REPO / "docs" / "uiteam.jsonl"
+    out: dict = {}
+    if file.exists():
+        for line in file.read_text().splitlines():
+            r = json.loads(line)
+            if r.get("run") == "proof":
+                out.setdefault(r["app"], {}).setdefault(r["job"], []).append(r)
+    return {app: {job: {"passes": sum(x["ok"] for x in rows), "runs": len(rows), "wrong": sum(bool(x["wrong_saved"]) for x in rows), "seconds": round(statistics.median(x["seconds"] for x in rows))} for job, rows in jobs.items()} for app, jobs in out.items()}
+
+
+def start_ui_run(app_id: str, skill: str, inputs: dict) -> Job:
+    plan = uiteam.saved_plans().get(app_id)
+    if not plan:
+        raise KeyError(app_id)
+    spec = plan.get("target") or _resolve_target(app_id)
+    if skill not in {s["name"] for s in plan["skills"]}:
+        raise ValueError("that plan has no such skill")
+
+    def body(job: Job):
+        display = Display(*spec.get("size", (1280, 800))).start()
+        job.displays["main"] = display
+        tgt = targets.Target(spec, display)
+        try:
+            job.emit({"type": "stage", "stage": "run", "text": "Opening the interface."})
+            tgt.reset()
+            runner = uiteam.PlanRunner(plan, display, emit=job.emit, stop=job.stop)
+            job.emit({"type": "stage", "stage": "run", "text": "Muse Glimmer is running the plan, with no cloud."})
+            result = runner.run(skill, inputs)
+            job.emit({"type": "result", **{k: v for k, v in result.items() if k in ("status", "reason", "outputs", "seconds", "questions", "steps", "writes")}})
+        finally:
+            tgt.stop()
+
+    return _start("ui_run", f"Running {plan.get('app') or app_id}", None, body)
+
+
+def start_ui_teach(target_text: str, goal: str, inputs: dict) -> Job:
+    spec = _resolve_target(target_text)
+    goal = goal.strip() or spec.get("suggested_goal", "")
+    if not goal:
+        raise ValueError("say what it should learn to do")
+    app_id = re.sub(r"[^a-z0-9]+", "-", str(spec.get("name", target_text)).lower()).strip("-")[:40] or "app"
+
+    def body(job: Job):
+        display = Display(*spec.get("size", (1280, 800))).start()
+        job.displays["main"] = display
+        tgt = targets.Target(spec, display)
+        try:
+            out = uiteam.teach(app_id, spec, goal, inputs, display, tgt, job.emit, job.stop)
+            job.finish("done" if out["ok"] else "failed")
+        finally:
+            tgt.stop()
+
+    return _start("ui_teach", f"Teaching {spec.get('name', target_text)}", None, body)
+
+
 def team_state() -> dict:
-    return {"plans": [team_app.plan_brief(p) for p in team_app.all_plans().values()], "samples": team_app.all_samples(), "internet": _status["internet"], "glimmer": _status["glimmer"],
+    return {"interfaces": [uiteam.plan_brief(p) for p in uiteam.saved_plans().values()], "ui_results": ui_results(), "targets": [{k: s.get(k) for k in ("id", "name", "blurb", "suggested_goal")} for s in targets.catalog()], "has_key": bool(config.api_key()), "plans": [team_app.plan_brief(p) for p in team_app.all_plans().values()], "samples": team_app.all_samples(), "internet": _status["internet"], "glimmer": _status["glimmer"],
             "spent_usd": Ledger.read()["spent_usd"], "budget_usd": config.BUDGET_USD, "proof": team_app.proof()}
 
 
@@ -498,6 +555,10 @@ class Handler(BaseHTTPRequestHandler):
                 dest.write_bytes(self.rfile.read(n))
                 return self._json({"path": str(dest), "name": name})
             body = self._body()
+            if path == "/api/ui/run":
+                return self._json(start_ui_run(str(body["id"]), str(body["skill"]), body.get("inputs") or {}).brief())
+            if path == "/api/ui/teach":
+                return self._json(start_ui_teach(str(body.get("target", "")), str(body.get("goal", "")), body.get("inputs") or {}).brief())
             if path == "/api/team/read":
                 return self._json(start_team_read(body).brief())
             if path == "/api/team/design":

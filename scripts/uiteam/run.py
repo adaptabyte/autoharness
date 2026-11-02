@@ -76,7 +76,7 @@ def do_compile(app: str) -> None:
 def one_run(app: str, job: str, i: int, plan: dict, label: str) -> dict:
     info = J.APPS[app]["jobs"][job]
     inputs = info["inputs"](i)
-    skill = plan.get("jobs", {}).get(job) or job
+    skill = info.get("skill") or plan.get("jobs", {}).get(job) or job
 
     def body(display, target):
         before = info["before"](inputs) if info.get("before") else None
@@ -120,7 +120,7 @@ def do_teach(app: str, job: str, rounds: int = 6, cap: float = 2.0) -> None:
         if meter.usd >= cap:
             print(f"{job}: repair money for this job is gone, ${meter.usd:.3f}", flush=True)
             return
-        failure = {"job": job, "skill": plan.get("jobs", {}).get(job) or job, "status": out["result"]["status"], "reason": out["result"]["reason"], "checker": out["detail"], "trace": out["result"]["trace"][-40:]}
+        failure = {"job": job, "skill": J.APPS[app]["jobs"][job].get("skill") or plan.get("jobs", {}).get(job) or job, "status": out["result"]["status"], "reason": out["result"]["reason"], "checker": out["detail"], "trace": out["result"]["trace"][-40:]}
         try:
             plan = uiteam.repair_plan(plan, failure, out["frames"], meter=meter)
         except (ValueError, CloudError, BudgetExceeded) as e:

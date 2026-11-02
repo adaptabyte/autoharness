@@ -225,7 +225,14 @@ class Eyes:
         return str(a.get("answer")).lower() == "true"
 
     def read_once(self, fields: dict, frame: np.ndarray, where: str = "") -> dict:
-        return self._ask(f"This is a screenshot. Copy these values exactly as shown, and never guess. Use null for anything not visible. {where}", frame, fields, 500)
+        """Descriptions go in the question and the answer slots stay empty: given a description in a slot, the model sometimes copies it back as the answer."""
+        rows = isinstance(fields.get("rows"), list)
+        spec = fields["rows"][0] if rows else fields
+        wanted = "\n".join(f"- {k}: {v}" for k, v in spec.items())
+        blank = {k: None for k in spec}
+        shape = {"rows": [blank]} if rows else blank
+        ask = "Copy every matching row." if rows else "Copy these values."
+        return self._ask(f"This is a screenshot. {ask} Copy exactly what the screen shows, and never guess. Use null for anything not visible. {where}\n{wanted}", frame, shape, 900 if rows else 300)
 
     def read(self, fields: dict, types: dict | None = None) -> dict:
         """Two looks. A value only counts if they match; a third look may settle one split, and otherwise it stops."""
@@ -409,9 +416,10 @@ class PlanRunner:
                 if k not in scope and k not in inputs:
                     scope[k] = v
         elif kind == "stop_for_person":
-            self.note(step, True, str(step["message"]), t0)
-            self.outputs["_stopped_for_person"] = str(self.fill(step["message"], scope))
-            raise StopForPerson(step["message"])
+            message = str(self.fill(step["message"], scope))
+            self.note(step, True, message, t0)
+            self.outputs["_stopped_for_person"] = message
+            raise StopForPerson(message)
         else:
             raise NeedsHelp(f"unknown step {kind}")
 
@@ -475,3 +483,80 @@ class PlanRunner:
 
 class StopForPerson(Exception):
     pass
+
+
+# ---- A library of compiled interfaces, and the whole lesson in one call -------------------------------------------------------
+
+def _plans_dirs():
+    return [config.HOME / "uiteam", config.REPO / "plans" / "ui"]
+
+
+def saved_plans() -> dict[str, dict]:
+    """Plans learned on this machine, then the ones the repo ships with."""
+    out: dict[str, dict] = {}
+    for f in sorted((config.HOME / "uiteam").glob("*/plan.json")):
+        try:
+            out.setdefault(f.parent.name, {**check_plan(json.loads(f.read_text())), "id": f.parent.name})
+        except ValueError:
+            continue
+    folder = config.REPO / "plans" / "ui"
+    for f in sorted(folder.glob("*.json")) if folder.exists() else []:
+        try:
+            out.setdefault(f.stem, {**check_plan(json.loads(f.read_text())), "id": f.stem})
+        except ValueError:
+            continue
+    return out
+
+
+def plan_brief(p: dict) -> dict:
+    return {"id": p["id"], "app": p.get("app") or p["id"], "how": p.get("how_it_behaves", ""), "target": p.get("target"), "cost": p.get("compile_usd"), "repairs": p.get("repairs", 0), "samples": p.get("samples") or {},
+            "skills": [{"name": s["name"], "does": s.get("does", ""), "inputs": s.get("inputs") or {}, "size": count_steps(s["steps"])} for s in p["skills"]], "jobs": p.get("jobs") or {}}
+
+
+def count_steps(steps: list) -> int:
+    return sum(1 + count_steps(s.get("steps") or []) + count_steps(s.get("then") or []) + count_steps(s.get("else") or []) for s in steps)
+
+
+def teach(app_id: str, spec: dict, goal: str, inputs: dict, display: Display, target, emit: Emit, stop: threading.Event, repairs: int = 4, limit_usd: float = 4.0) -> dict:
+    """Explore, compile, prove, repair. Passing here means the plan finished and a separate model, shown only the final screen, agrees."""
+    from .teacher import judge_final_screen
+
+    folder = config.HOME / "uiteam" / app_id
+    folder.mkdir(parents=True, exist_ok=True)
+    meter = Meter()
+    full_goal = goal + (f"\nInputs: {json.dumps(inputs)}" if inputs else "")
+    emit({"type": "stage", "stage": "explore", "text": "Muse Spark is using the interface for the first time."})
+    record = explore(display, target, full_goal, meter, limit_usd=min(1.0, limit_usd), emit=lambda e: emit({**e, "usd": round(meter.usd, 4)}), stop=stop)
+    emit({"type": "stage", "stage": "compile", "text": "Muse Wonder is writing the plan.", "usd": round(meter.usd, 4)})
+    note = f"Name the job's skill run_job, with these inputs: {json.dumps(sorted(inputs))}." if inputs else "Name the job's skill run_job."
+    plan = compile_plan([record], note, meter=meter, limit_usd=min(1.5, limit_usd))
+    plan.update(target=spec, samples={"run_job": inputs}, repairs=0, goal=goal)
+    emit({"type": "plan", "plan": plan_brief({**plan, "id": app_id}), "usd": round(meter.usd, 4)})
+    frames: list[np.ndarray] = []
+    for attempt in range(repairs + 1):
+        if stop.is_set():
+            break
+        emit({"type": "stage", "stage": "prove", "text": "Muse Glimmer is running the plan on its own.", "usd": round(meter.usd, 4)})
+        target.reset()
+        runner = PlanRunner(plan, display, emit=emit, stop=stop)
+        result = runner.run("run_job" if "run_job" in runner.skills else plan["skills"][-1]["name"], inputs)
+        frames = runner.frames
+        verdict = {"achieved": False, "why": result["reason"]}
+        if result["status"] in ("done", "stopped_for_person"):
+            verdict = judge_final_screen(Cloud(meter=meter, limit_usd=limit_usd), full_goal, display.shot(), summary=json.dumps(result["outputs"])[:800])
+        emit({"type": "proof", "attempt": attempt + 1, "status": result["status"], "achieved": verdict["achieved"], "why": verdict["why"], "seconds": result["seconds"], "questions": result["questions"], "usd": round(meter.usd, 4)})
+        if verdict["achieved"]:
+            plan.update(compile_usd=round(meter.usd, 4))
+            (folder / "plan.json").write_text(json.dumps(plan, indent=1))
+            emit({"type": "learned", "id": app_id, "usd": round(meter.usd, 4)})
+            return {"ok": True, "plan": plan, "usd": meter.usd}
+        if attempt == repairs or meter.usd >= limit_usd:
+            break
+        emit({"type": "stage", "stage": "repair", "text": "Muse Wonder is fixing the plan from what went wrong.", "usd": round(meter.usd, 4)})
+        failure = {"status": result["status"], "reason": result["reason"], "judge": verdict["why"], "trace": result["trace"][-40:]}
+        try:
+            plan = {**repair_plan(plan, failure, frames, meter=meter), "target": spec, "samples": {"run_job": inputs}, "goal": goal, "repairs": attempt + 1}
+        except (ValueError, CloudError) as e:
+            emit({"type": "log", "text": f"The repair didn't work: {e}"[:300]})
+    emit({"type": "not_learned", "why": "It didn't pass within its repair limit, so nothing was saved.", "usd": round(meter.usd, 4)})
+    return {"ok": False, "usd": meter.usd}
