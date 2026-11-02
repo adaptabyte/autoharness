@@ -2,147 +2,122 @@
 
 **Stop paying a genius to click buttons.**
 
-Every app on earth was built for human eyes and hands, and nobody is going to rebuild them all. Today's AI agents
-cope by sending a frontier model a screenshot at nearly every step, which is slow, expensive, and sends everything on
-your screen to the cloud.
+Every interface on earth was built for human eyes and hands, and nobody is going to rebuild them all. Today's AI agents cope by sending a frontier model a screenshot at nearly every step, which is slow, expensive, and sends everything on your screen to the cloud.
 
-Autoharness has Meta's models learn an app once and build the interface they wish the app had. After that, the app runs
-on your own computer, with no cloud at all.
+Autoharness compiles an interface instead. Give it any app, website or stack of paperwork. Meta's strongest models learn it once and write a plan. After that, a small open model on your own computer runs the plan, with no cloud at all.
 
 > Computer use becomes the compiler, not the runtime. For the models, by the models.
 
-## Measured against plain computer use
+## Measured
 
-Same jobs, new inputs each run, with passes checked by evidence: OpenEMR's saved record read through a separate login, Calculator's answer checked by arithmetic, and a separate model judging every final screen. Runs passed, median time, cloud cost per run:
+Each job ran on inputs that weren't used in teaching. Results were checked against the app's own data, never the run's own claim. The pass bars were committed to git before the first run.
 
-| | OpenEMR, a records system | Calculator | Minesweeper |
-|---|---|---|---|
-| Spark, a screenshot every step | 5/5, 286 s, $0.16 | 4/5, 24 s, $0.022 | 0/2, 422 s, $0.41 |
-| Spark + written guide | 5/5, 253 s, $0.18 | 5/5, 13 s, $0.016 | 0/1, 583 s, $0.40 |
-| Glimmer, screenshots | 3/5, 395 s, $0 | 4/5, 283 s, $0 | 0/3, 1203 s, $0 |
-| Glimmer + written guide | 5/5, 165 s, $0 | 5/5, 82 s, $0 | 0/3, 1210 s, $0 |
-| The program alone | 4/5, 81 s, $0 | 5/5, 3 s, $0 | 4/5, 46 s, $0 |
-| **Glimmer + the program** | **5/5, 111 s, $0** | **5/5, 15 s, $0** | **5/5, 48 s, $0** |
+<!-- proof -->
+| Job | Glimmer + compiled plan | Median time | Cloud per run | Muse Spark, a screenshot every step |
+|---|---|---|---|---|
+| A made-up insurer's portal: fill and save a five-step request | **5/5** | 122 s | $0 | 3/3, 556 s, $0.172 |
+| OpenEMR: find a patient, read their birth date | **5/5** | 47 s | $0 | 3/3, 84 s, $0.036 |
+| OpenEMR: change a patient's phone number | **5/5** | 83 s | $0 | 3/3, 293 s, $0.095 |
+| OpenEMR: read a whole chart | **5/5** | 167 s | $0 | 3/3, 218 s, $0.091 |
+| Django admin: mark an order shipped | **5/5** | 89 s | $0 | 3/3, 74 s, $0.024 |
+| Django admin: read an order | **5/5** | 47 s | $0 | 3/3, 52 s, $0.016 |
+| GNOME Calculator, a native desktop app | **5/5** | 15 s | $0 | 3/3, 24 s, $0.009 |
+<!-- /proof -->
 
-Teaching cost $1.02, $1.04 and $1.56, once. These are small samples. Spark's Minesweeper runs were stopped at my $0.40 limit, and it has won with more money ($0.28 in one earlier race). Full report, including every failure: [docs/BENCHMARK.md](docs/BENCHMARK.md).
-
-**Couldn't this just be a markdown skill?** On form apps, largely yes. A written guide took Glimmer to 5 of 5 on OpenEMR and Calculator, and it is far cheaper to make. The program is faster and handled the game that takes real logic, where the guide went 0 of 3. A program also gives any model a typed interface, and a place for a sandbox and proof runs.
+No run in this table saved a wrong result, though earlier plans did. A run either finished verified, or it stopped and asked for help. Samples are small. Every proof round, including the ones that missed the bar, is in [docs/PROOF.md](docs/PROOF.md).
 
 ## How it works
 
 | | Who | What happens | Cost |
 |---|---|---|---|
-| **Explore** | Muse Spark, SAM 3.1 | Uses the app through computer use, with no instructions and no API, and works out how it behaves | Cloud, once |
-| **Compile** | Muse Wonder | Writes a program that gives models the app as compact state and typed verbs, tests it on recordings and on the live app | Cloud, once |
-| **Verify** | The program alone, then an independent judge | Must pass on fresh copies with no cloud. Muse Spark, a different model that never saw the code, judges each final screen | Cloud, once |
-| **Prove the interface** | Glimmer alone, then the judge | Glimmer must reach the goal using only the state and verbs, with no screenshot, and the judge checks the real screen | Local, plus the judge |
-| **Run** | Code, then Muse Glimmer | Code does the routine steps. Glimmer, on your machine, makes judgment calls and clears surprises | Local, no cloud |
-| **Repair** | Muse Wonder, only if needed | If the app changes and local recovery fails, the teacher is called back once to fix the program | Cloud, rarely, and can be switched off |
+| **Explore** | Muse Spark | Uses the interface through computer use, once, and everything it sees and does is recorded | Cloud, once |
+| **Compile** | Muse Wonder | Turns that record into a plan: general skills made of small steps | Cloud, once |
+| **Prove and repair** | Muse Glimmer, then Muse Wonder | Glimmer has to run the plan alone on new inputs. Each failure goes back to Wonder with its screenshots | Cloud, once |
+| **Run** | Muse Glimmer and plain code | Code walks the plan and holds all the memory. Glimmer answers one narrow question per screen | Your computer, no cloud |
 
-The output is a plain folder that exports as one shareable `.harness` file:
+The key finding is about how to use a small model. Given a whole job and a screenshot, Glimmer gets lost: it went 0 of 6 reading a chart this way. Given one narrow question at a time, the same model reads the whole chart. So the frontier model does all the deciding in advance, and the small model never has to plan or remember.
 
-```python
-from sdk import verb
+A plan is data, never code. Here's a real step sequence Wonder wrote:
 
-def observe(app) -> dict:
-    """The app's state as compact JSON: the fewest tokens from which a model could decide what to do."""
-
-@verb
-def reveal_cell(app, row: int, col: int):
-    """One whole operation, with typed arguments. Not a click."""
-
-def run(app):
-    """Reach the goal end to end, on top of the verbs."""
+```json
+[{"do": "ensure", "question": "Is 'Medical Issues' heading showing?"},
+ {"do": "read_list", "into": "medication_rows", "item": {"title": "the blue linked medication title text", "status": "the status word in parentheses"}, "where": "Only rows under the 'Medications' heading", "scroll": 3},
+ {"do": "for_each", "list": "{medication_rows}", "as": "row", "steps": [
+   {"do": "click", "target": "the small '>' expand arrow at the far left of the medication row titled '{row.title}'"},
+   {"do": "read", "into": "medication_detail", "fields": {"start": "the date on the start date line in the expanded detail block"}, "types": {"start": "date"}}]}]
 ```
 
-No person writes this, and the repo holds no code specific to any app. `tests/test_engine.py` fails the build if the
-engine mentions one. The whole thing is a test of the idea that harnesses should be generated rather than crafted.
+## No silent errors
 
-## Three ways to use what it learns
+"Error-free" isn't something any model can promise. This is what the code enforces instead, and `tests/test_uiteam.py` and `tests/test_team.py` check it:
 
-- **Run it.** The whole job, end to end, usually with no model at all.
-- **Ask Glimmer.** In plain words. Glimmer works from `observe()` and the verbs, and never gets a screenshot.
-- **Connect any agent.** Each app is an [MCP](https://modelcontextprotocol.io) server at `http://localhost:4140/mcp/<app>`.
+- Everything typed is read back, from a close-up of the box that was clicked. A mismatch gets one retry, then the run stops.
+- Everything read is read twice, from two different views of the screen, and a split gets one more look.
+- Before changing a record, it reads who the record belongs to and compares that in plain code.
+- If it can't find something, it stops rather than clicking somewhere nearby.
+- Anything a person must do, like signing, is a hard stop in the plan. The demo portal also enforces this on its server.
 
-## Quick start
+## A swarm, on one small model
 
-Linux with X11 libraries. Glimmer needs a GPU, or an OpenAI-compatible endpoint elsewhere.
+Each copy of the interface gets its own screen and its own memory. They all share one served Glimmer, because code does the remembering. Reads flatten at about 8 at once on four 16 GB GPUs, so that's the size used here.
+
+<!-- swarm -->
+<!-- /swarm -->
+
+## Paperwork is an interface too
+
+A stack of pages is a read-only interface, so the same idea applies. Wonder sees one sample and writes the reading plan. Glimmer reads every page. Plain code merges the reads, compares the pages with each other, and sends every gap and contradiction to a person, side by side. Approved values then go to a compiled interface, so nothing needs a hand-written connector.
+
+Results are in [docs/PROOF.md](docs/PROOF.md). The test pages are made up: typed scans, handwriting-style fonts, simulated faxes and phone photos. They are not real faxes or real handwriting.
+
+One honest finding: more readers mattered less than I expected. On one 30-packet set, one reader per page matched the four-reader team. On the other, one reader saved a wrong value and the team didn't. The code checks and the pages checking each other do most of the work.
+
+## The questions you'd ask
+
+**Couldn't this just be a markdown skill?** On simple form apps, largely. A written guide took Glimmer to 5 of 5 on registering a patient in OpenEMR. But the same guide approach went 0 of 6 reading a chart, because a guide still asks the small model to plan and remember. A plan doesn't.
+
+**Why not just use Muse Spark?** On one-off or unfamiliar jobs, do. It's flexible, and on small jobs it costs only cents. A plan only knows what it was taught. The compiled route wins when a job repeats, when it's long, or when the data can't leave your machine.
+
+**What does teaching cost?** See the table in [docs/PROOF.md](docs/PROOF.md). The portal cost about $1.34 once, against about $0.17 for each Spark run, so it pays for itself in about 8 runs.
+
+**Does it replace computer use?** No. The learning phase is computer use.
+
+## What failed
+
+Keeping these is the point. Every run is in the logs.
+
+- Patching a plan again and again made it worse. The chart plan bloated, overfit to one patient, and went 0 of 5 on new ones. It needed recompiling and teaching on several patients.
+- Interface repairs that teach on one input don't generalize. Rotating the teaching inputs did.
+- The first paperwork test failed its bar with a wrong save, caused by my own code skipping a date check when a date couldn't be parsed. The final unseen run still missed my 30 s speed bar by 1.3 s.
+- My first design was a generated Python harness with OCR. It works and it's still here (see below), but it can't handle jobs it wasn't taught, and its medication-request programs went 0 of 2.
+- A request to grow a harness with new verbs failed twice ([docs/GROW.md](docs/GROW.md)).
+
+## Limits
+
+- It isn't ready for real patients or real records, and nothing here has had clinical or legal review. All test data is made up.
+- Every app tested is on one machine, and the samples are small.
+- Teaching sends screenshots to Meta's API. Run time doesn't. Don't teach it on real records.
+- A plan can't do a job that needs real reasoning at each step, like a game. For those, the generated program route below went 5 of 5 on Minesweeper where guides went 0 of 3 ([docs/BENCHMARK.md](docs/BENCHMARK.md)).
+
+## Run it
 
 ```bash
-uv venv .venv-app --python 3.12 && uv pip install -p .venv-app/bin/python -e ".[dev]"
-source .venv-app/bin/activate
-scripts/setup_desktop.sh                     # the virtual screen, sample apps and a browser; sudo is optional
-echo "MODEL_API_KEY=..." > .env              # from dev.meta.ai; a key stored by Muse Code also works
-python -m autoharness serve                  # http://127.0.0.1:4140
+python3 -m venv .venv-app && .venv-app/bin/pip install -e '.[dev]'
+.venv-app/bin/playwright install chromium
+bash scripts/setup_desktop.sh           # a virtual desktop, no root needed
+bash serve/serve_glimmer.sh             # Muse Glimmer on :8001, or set GLIMMER_URL to your own server
+.venv-app/bin/python scripts/priorauth/portal.py &   # the made-up portal on :8310
+.venv-app/bin/python -m autoharness serve            # http://127.0.0.1:4140
 ```
 
-Serve Glimmer with any of these, and point `GLIMMER_URL` at it if it isn't on `127.0.0.1:8001`:
+Set `MODEL_API_KEY` to teach new interfaces. `AUTOHARNESS_BUDGET` is a hard stop on Meta API spend, enforced in code.
 
-```bash
-bash serve/serve_glimmer.sh                                                  # vLLM, NVFP4, four 16 GB GPUs
-llama serve -hf meta-models/Muse-Glimmer-30B-GGUF \
-  --hf-file Muse-Glimmer-30B-KQuant-17GB-Q4_K_M.gguf -a muse-glimmer \
-  -ngl 99 -c 131072 --port 8001                                              # llama.cpp, about 19 GB of VRAM
-```
+Reproduce the results with `scripts/uiteam/run.py` and `scripts/paperwork/evaluate.py`. `scripts/report.py` rebuilds the tables from the raw logs.
 
-Scripted use: `python -m autoharness teach <target> "<goal>"`, `run <id>`, `baseline <id>`, `list`.
-`python scripts/gauntlet.py` teaches every app in `targets/` from nothing and writes one table of results.
+## Program mode
 
-## Safety
+The first version of this idea generates a Python program for an app, with typed verbs and OCR. It's still in the app under "Program mode" and is the better tool for logic-heavy jobs. Its benchmark against plain computer use is in [docs/BENCHMARK.md](docs/BENCHMARK.md).
 
-The program that runs was written by a model, so it is treated as hostile. `tests/test_sandbox.py` attacks it from the inside.
+## How this was built
 
-- **Sandboxed by the kernel.** Landlock and seccomp, applied before generated code is imported. No network, no other
-  files, no starting programs, no signalling other processes. If the lockdown fails, the code doesn't run.
-- **No secrets, no display.** It runs with an empty environment and never holds the API key. It can only ask its parent
-  process to act, over a pipe.
-- **A person approves the irreversible.** Harnesses are told to call `app.confirm()` before anything like submit, send
-  or delete. Nothing enforces this yet: the OpenEMR harness creates a patient without asking. Review the code before trusting
-  it with anything that matters.
-- **A failed repair can't replace proven code.** A repair only stays if it finishes the job. Otherwise the last proven
-  version comes back, and a test holds it to that.
-- **Treat what you teach it as public to the program.** Logins in a goal can end up inside the generated code, so teach
-  with test accounts only.
-- **Spending has a hard stop.** Every Meta API call goes through one module that keeps a ledger on disk: $4 per lesson,
-  $25 overall, both configurable.
-- **Local-only mode.** The one module that can reach the Meta API refuses every call during such a run.
-- **The app binds to localhost.** On any other address it requires a generated token.
-- **"Local" was measured, not assumed.** Watching the process's real sockets showed the OCR library's runtime (ONNX
-  Runtime) connecting to Microsoft's telemetry service on its own, even with its off switch used. So OCR now runs in a
-  process that gives up the ability to open sockets before that library loads, and a test holds it to that. vLLM's
-  usage stats are off, and its GPU workers talk over loopback, so unplugging the network can't take the model down.
-
-Learning sends screenshots to Meta's cloud, so **teach on synthetic data**. Nothing here has had clinical, legal or
-compliance review, and it isn't intended for real patient data as it stands.
-
-## What it can't do
-
-It works for software that waits for you: games with turns, forms, records systems, and desktop tools. It isn't for
-twitch games, since a harness reacts in tenths of a second at best. CAPTCHAs and anti-bot systems will stop it, and
-you shouldn't automate software whose terms forbid it. Linux and X11 only so far. Teaching can fail, and when it does,
-the app says so rather than shipping something unproven.
-
-It only knows what it was taught. On OpenEMR jobs it was never taught, Glimmer + the program went 0 of 3 and said so, where Spark went 3 of 3. Two more things I tried and failed, with the runs kept:
-
-- **A clinic job spanning two apps.** Reading a made-up chart and filling a fictional prior-authorization portal failed its bar, 0 of 6 with Glimmer and written guides. It got stuck holding facts across several screens. Nothing wrong was ever saved. [docs/PRIORAUTH.md](docs/PRIORAUTH.md)
-- **Growing a program on request.** Two attempts to have the teacher add verbs for those untaught jobs added none. [docs/GROW.md](docs/GROW.md)
-
-Lessons can also fail on their own. Solitaire, xcalc and 2048 haven't been proven. [docs/RESULTS.md](docs/RESULTS.md) has every app's numbers.
-
-## Built during the hackathon
-
-Everything in this repository was written during the Meta Global AI Developer Hackathon (Oct 27 to Nov 4, 2026), as the
-commit history shows. It started from a small prototype written with Muse Code on Oct 28, and the rebuild was written
-with Claude Code, directed by the author. Harnesses themselves are written by Meta's models at runtime.
-
-Things found by testing that differ from the docs at the time: `muse-wonder-1.0` rejects the native computer tool, though it accepts
-screenshots and function tools, so Spark explores and judges while Wonder writes and repairs the code. Minesweeper and Calculator were taught
-before this split, with Spark doing all of it. Computer-use conversations accept images only in their first request, so compiling is a separate
-conversation. They were also refused after exactly 29 turns, twice (the docs give that limit for stateless replay), so
-exploring is capped below that and the comparison baseline starts a new conversation when it happens. Stored responses
-can expire mid-chain, so the teacher can rebuild a conversation from disk. Spark can
-believe the computer tool uses a 0 to 1000 grid. It uses pixels, as the docs say, so the prompts now say so outright. Glimmer is the opposite: it clicks on a 0 to 1000 grid even when told pixels. Missing that gave my benchmark a bug that made it look like Glimmer couldn't use a screen at all, and the report says so.
-
-## License
-
-Apache-2.0.
+Built during the Meta Global AI Developer Hackathon by one person, a psychiatrist, directing Claude Code, which wrote most of the code. The idea, the product decisions and the direction are mine. All of the code in this repo is from the event. Meta's models power the product: Muse Spark, Muse Wonder and Muse Glimmer. No Claude model runs in the product.

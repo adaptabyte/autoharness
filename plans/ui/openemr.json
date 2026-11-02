@@ -1,0 +1,1122 @@
+{
+ "app": "OpenEMR",
+ "how_it_behaves": "Login may be followed by both a browser 'Save password?' panel and an OpenEMR Product Registration modal. The top-right global demographics search and entering 'First Last' in Patient Finder often return 'No matching records found' because patients are stored as 'Last, First' and the global search leaves a hidden filter; opening Finder from the top menu and searching the table by last name only is reliable. Similar names and even exact duplicate names can appear; when more than one row shows the exact same 'Last, First' name, open the first, topmost exact-matching row in the table so the choice is deterministic, and do not open a similar or look-alike name. Clicking a Patient Finder name can refresh back to an empty list, requiring the same exact name in the first matching row to be clicked again. Patient charts open on Dashboard; Demographics is below the fold and its External ID is the plan member ID. The blue patient name in the chart header is immediately followed by a parenthesised ID and a close 'x', which can make that name hard to read in isolation; the same patient name is repeated in plain black text after 'Medical Record Dashboard -' below the chart tabs, and that heading text is the reliable place to read the name from. The Issues page lists Medical Problems and Medications as collapsed rows with a '>' expander; expanded dates and comments can run past one screen. Reading the Issues list scrolls the page page by page, so when that read finishes the page is left scrolled toward its last page and rows collected from earlier pages are above the top of the screen and cannot be clicked from that screenshot; return to the top of the Issues page before expanding any row, then expand rows in the top-to-bottom order they were read, scrolling down a little at a time until each named title link and its '>' expander are both fully visible before clicking that expander, because expanding earlier rows also pushes later rows further down. The Medical Issues page opens as its own 'Patient Issues' tab and does not show the Dashboard, History, Issues chart navigation row that is visible on the Dashboard, so there is no 'Dashboard' link to click to get back from Issues, at any scroll position; the large blue patient name at the top-left of the header, beside the grey avatar icon and immediately before the parenthesised ID, remains visible on the Issues page and is the route back to that patient's Medical Record Dashboard. An expanded Issues block may show only 'Last Modified' and 'Comments' detail rows, with no begin, start or end date labels at all; such a block is still a fully expanded block and must be counted, with any date or other detail that is not shown recorded as not recorded rather than the whole block being discarded. Editing a phone requires the Demographics pencil, then the Contact tab in Edit Current Patient, then Save, after which the saved value must be re-read on the Dashboard Contact tab. The Demographics panel heading and its pencil are above the panel's detail rows: a large scroll from the top of the Dashboard can scroll the heading itself above the top of the screen while leaving the detail rows visible, so scroll part-way toward Demographics, check whether the heading is in view, and only scroll further if it is not yet visible. The Demographics Who, Contact, Choices tab bar and heading are likewise above the Who detail rows: a large scroll from the top of the Dashboard can scroll that heading and tab bar above the top of the screen while leaving the Who detail rows such as DOB, Birth Sex and External ID visible and readable, so when reading Demographics scroll only part-way, check whether those detail rows themselves are in view, scroll further only if they are not yet visible, and do not require the heading or tab bar to be visible before reading detail rows that are already showing. On the Dashboard Contact tab, Home Phone is the top row above Mobile Phone: scrolling down after opening that tab can push Home Phone itself above the top of the screen while Mobile Phone stays visible at the top edge, so do not scroll after opening Contact; check that Home Phone is in view, and scroll back up if Mobile Phone shows without Home Phone above it, before reading the saved value. In the Edit Current Patient Contact form, Home Phone and Work Phone are on the same horizontal row, with the Home Phone input in the left-hand column and the Work Phone input in the right-hand column on that same row; the automatic read-back after typing can mistake the empty right-hand Work Phone box for the Home Phone box and report the entered value as empty even when the typed value is visibly present in the left-hand Home Phone box, so that read-back must not be relied on for this field: type with the read-back check skipped, explicitly target the left-hand box, and verify the shown value in that left-hand box with a separate check before saving. The Patient Finder table 'Search:' box at the top-right, to the right of the 'Show entries' control and above the 'Search by External ID' column box, filters the table as text is entered; its automatic read-back after typing with Enter can report the entered text as empty or missing even when the text is visibly present in that Search box and the table below has correctly filtered to matching rows, so that read-back must not be relied on for this field: type the last name with the read-back check skipped, then verify the shown value in that Search box and the filtered table with separate checks before opening any row. On the Issues page each Medical Problems or Medications title link is followed by a status word shown inside parentheses; that status must always be read as only the word inside the parentheses, with the parentheses themselves omitted, otherwise independent reads of the same row can disagree by returning the word alone, the word still wrapped in parentheses, or nothing. Clicking an Issues row's '>' expander flips that expander to a down-pointing arrow in a box, which itself shows the row is expanded, but when the row sits near the bottom of the screen its expanded detail is pushed below the bottom edge and is not visible on that same screenshot; after expanding, scroll down a little at a time to bring the detail into view before judging, and accept the flipped down-pointing expander as proof of expansion if the detail is still below the fold. A read_list that advances by a large scroll between screenshots can leap straight over one or more Issues rows or whole expanded Issues blocks, so those rows never appear fully on any single screenshot and are silently missing from the merged result even though the run otherwise completes; this is especially easy for closely packed collapsed Medications rows, including older inactive medication rows listed below the current medication, and for expanded blocks whose title must be seen together with its detail. Read both Issues lists with small, overlapping scroll steps and enough pages to reach the bottom, count every Medical Problems and Medications row whatever its parenthesised status, and do not stop at the first or current medication. The first, collapsed Issues pass asks too much of a single screenshot if it tries to read each row's parenthesised status as well as its title: a row that is fully readable on one scrolled page can be cut off at the top or bottom edge on an overlapping page, so its status, the 'Occurrence Unknown or N/A' text at the far right of the same line, or the parentheses around the status can be read differently from page to page and the same medication can disagree between pages even though its blue title is identical. So in that first collapsed pass identify each row only by its section and the exact blue title link text, ignoring the parenthesised status word and the far-right Occurrence text entirely; the status is read only later, in the expanded pass, from a block whose title row is completely on screen. Likewise, a collapsed row that is cut off at an edge is not a separate row and must not be entered with a guessed or partial title; it is entered once, under exactly the same title text, on the page where it is fully visible. The section heading above an Issues row can itself scroll off the top of the screen on an overlapping page while that same row is still fully visible, so if a list pass also asks for the section heading, the same row can be read with its section on one page and with no section, or a guessed different section, on the next page and the merged list then reports that row as read differently on two pages even though its blue title never changed. So in both Issues list passes identify and merge each row or expanded block by its exact blue title-link text alone and do not read a section field at all in either pass; whether a title belongs to Medical Problems or Medications is not needed to expand it or to merge it, and the expanded block's own detail and code distinguish a problem from a medication. In the collapsed pass the title is only the text shown in blue: the parenthesised status after it is shown in black, is not part of the blue link, and must never be appended to the title on any page. The expanded Issues pass likewise asks too much of a single screenshot if, as well as copying the visible title, status, labelled dates and comment, it also asks for separate fields derived or parsed out of that same visible text, such as a code re-extracted from inside the blue title or a quantity and days-supply re-extracted from inside the comment prose: on one overlapping page that derived value can be copied in full, on another page where the same block is partly lower on the screen it can be shortened, reformatted or recorded as not recorded, and the merged list then reports the same block as read differently on two pages even though its blue title never changed. Those derived values are already preserved verbatim in the copied title and comment, so the expanded pass must not record them as separate fields at all. An expanded block also counts as cut off, and must be skipped on that page, whenever any part of its expanded detail runs below the bottom edge or is clipped, even if its title row and status are completely visible: such a block can have its comment, or its last detail line, read in full on one page and truncated or as not recorded on another. It is entered once, with exactly the same title, on the overlapping page where its title row and its whole expanded detail, down to the end of its final detail or comment line, are completely visible above the bottom edge.",
+ "skills": [
+  {
+   "name": "log_in",
+   "does": "Log in and clear the popups that can block the main OpenEMR screen.",
+   "inputs": {
+    "username": "the login username",
+    "password": "the login password"
+   },
+   "outputs": [],
+   "steps": [
+    {
+     "do": "ensure",
+     "question": "Is the OpenEMR login form showing, with Username and Password fields and a blue Login button?",
+     "why": "Start only from the known login screen."
+    },
+    {
+     "do": "type",
+     "target": "the Username text box in the centre login form, labelled 'Username' to its left and above the Password box",
+     "text": "{username}"
+    },
+    {
+     "do": "type",
+     "target": "the Password text box in the centre login form, labelled 'Password' to its left, below Username and with an eye icon at its right end",
+     "text": "{password}",
+     "secret": true
+    },
+    {
+     "do": "click",
+     "target": "the blue Login button at the bottom of the centre login form, below the Language dropdown"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "dismiss",
+     "question": "Is a browser 'Save password?' panel open on the right side of the screen?",
+     "target": "the 'Not now' button at the bottom of the 'Save password?' panel on the right, left of the blue Save button"
+    },
+    {
+     "do": "dismiss",
+     "question": "Is an 'OpenEMR Product Registration' modal open in the centre of the screen?",
+     "target": "the 'Ask again later' button at the bottom-right of the OpenEMR Product Registration modal, to the right of the blue Submit button"
+    },
+    {
+     "do": "dismiss",
+     "question": "Is a browser 'Save password?' panel still open on the right side of the screen?",
+     "target": "the X close button at the top-right corner of the 'Save password?' panel on the right"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the main OpenEMR screen showing, with the top menu starting Calendar, Finder, Flow and a Calendar or Message Center tab?",
+     "why": "Confirm login reached the main interface and no popup still blocks it."
+    }
+   ]
+  },
+  {
+   "name": "open_patient",
+   "does": "Open the chart of the patient whose name exactly matches the given first and last name, opening the first topmost exact-matching row if duplicates share that exact name.",
+   "inputs": {
+    "first": "the patient's first name",
+    "last": "the patient's last name"
+   },
+   "outputs": [
+    "candidates",
+    "header"
+   ],
+   "steps": [
+    {
+     "do": "dismiss",
+     "question": "Is a browser 'Save password?' panel open on the right side of the screen?",
+     "target": "the 'Not now' button at the bottom of the 'Save password?' panel on the right, left of the blue Save button"
+    },
+    {
+     "do": "dismiss",
+     "question": "Is an 'OpenEMR Product Registration' modal open in the centre of the screen?",
+     "target": "the 'Ask again later' button at the bottom-right of the OpenEMR Product Registration modal, to the right of the blue Submit button"
+    },
+    {
+     "do": "click",
+     "target": "the 'Finder' menu item in the top black navigation bar, second item from the left between 'Calendar' and 'Flow', not the 'Patient' menu item and not the top-right search box"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "dismiss",
+     "question": "Is an 'OpenEMR Product Registration' modal open in the centre of the screen?",
+     "target": "the 'Ask again later' button at the bottom-right of the OpenEMR Product Registration modal, to the right of the blue Submit button"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the Patient Finder page showing, with a patient table headed Full Name, Home Phone, SSN, Date of Birth and External ID?",
+     "why": "Confirm Finder opened before searching; do not use the top-right global demographics search, which can leave the list filtered to no records."
+    },
+    {
+     "do": "type",
+     "target": "the 'Search:' text box at the top-right of the Patient Finder table, the input box immediately to the right of the 'Search:' label on the same line as 'Show 10 entries' and above the 'Search by External ID' column box; not the top-right global 'Search by any demographics' box in the black navigation bar and not any 'Search by...' column box in the row below it",
+     "text": "{last}",
+     "enter": true,
+     "no_check": true
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "ensure",
+     "question": "Does the input box immediately to the right of the 'Search:' label at the top-right of the Patient Finder table, above the 'Search by External ID' column box, show the value '{last}'?",
+     "why": "The type step's automatic read-back for this Search box can report the entered last name as missing even when it is visibly present and the table has filtered, so the read-back is skipped and the box is verified directly from the screen before relying on the filtered results."
+    },
+    {
+     "do": "ensure",
+     "question": "Is the Patient Finder table showing at least one row under the Full Name heading, rather than 'No matching records found'?",
+     "why": "A last-name table search should return candidate rows; stop rather than searching with the full 'First Last' form that this table does not match."
+    },
+    {
+     "do": "ensure",
+     "question": "Is there at least one Patient Finder row in the whole table whose Full Name column shows exactly '{last}, {first}'?",
+     "why": "Similar names can occur; do not open a look-alike. Exact duplicate rows with this same name are allowed and are handled by opening the first topmost exact-matching row, so this check only requires at least one exact match, not exactly one."
+    },
+    {
+     "do": "read_list",
+     "into": "candidates",
+     "item": {
+      "full_name": "the blue name text in the Full Name column of this row, shown as Last, First",
+      "dob": "the date in the Date of Birth column of this same row",
+      "external_id": "the value in the External ID column of this same row, at the far right"
+     },
+     "where": "Only patient rows in the Patient Finder results table under the Full Name, Date of Birth and External ID headings; do not count the heading row or a 'No matching records found' line. If several rows have the same full name, keep each as its own row told apart by its Date of Birth and External ID on that same line.",
+     "scroll": 0
+    },
+    {
+     "do": "click",
+     "target": "the blue '{last}, {first}' link in the Full Name column of the first, topmost Patient Finder results row whose Full Name shows exactly '{last}, {first}', in the row whose Date of Birth and External ID are on the same line; not a similar surname, not a later duplicate row, and not the Search box"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "dismiss",
+     "question": "Is an 'OpenEMR Product Registration' modal open in the centre of the screen?",
+     "target": "the 'Ask again later' button at the bottom-right of the OpenEMR Product Registration modal, to the right of the blue Submit button"
+    },
+    {
+     "do": "if",
+     "question": "Is the Patient Finder table still showing instead of a patient Medical Record Dashboard?",
+     "then": [
+      {
+       "do": "ensure",
+       "question": "Is there at least one Patient Finder row whose Full Name column shows exactly '{last}, {first}'?",
+       "why": "The list is known to refresh and lose an opened result; re-check that an exact match is present before clicking again."
+      },
+      {
+       "do": "click",
+       "target": "the blue '{last}, {first}' link in the Full Name column of the first, topmost Patient Finder results row whose Full Name shows exactly '{last}, {first}', in the row whose Date of Birth and External ID are on the same line; not a similar surname, not a later duplicate row, and not the Search box"
+      },
+      {
+       "do": "wait",
+       "seconds": 2
+      }
+     ],
+     "else": []
+    },
+    {
+     "do": "ensure",
+     "question": "Is a Medical Record Dashboard showing for a patient, with Dashboard, History, Issues and other chart links below the patient name?",
+     "why": "Confirm a patient chart opened before reading or changing it."
+    },
+    {
+     "do": "wait",
+     "seconds": 1
+    },
+    {
+     "do": "ensure",
+     "question": "Is a heading beginning 'Medical Record Dashboard -' visible below the chart tabs, with a patient name written after the hyphen?",
+     "why": "The patient name is repeated in plain text in this heading; confirm that readable heading is present before reading the header, rather than relying only on the blue header name that is followed by a parenthesised ID and a close x."
+    },
+    {
+     "do": "read",
+     "into": "header",
+     "fields": {
+      "name": "the patient name written in plain black text immediately after 'Medical Record Dashboard -' in the heading below the chart tabs, on the left side of the screen; copy only the person's name words from after the hyphen, with no ID, number or punctuation added",
+      "external_id": "the ID inside parentheses immediately after the large blue patient name at the top-left, beside the grey avatar icon and not the Select Encounter control on the right",
+      "dob": "the date after 'DOB:' on the line directly below the large blue patient name at the top-left, before 'Age:'"
+     },
+     "types": {
+      "name": "name",
+      "external_id": "id",
+      "dob": "date"
+     }
+    },
+    {
+     "do": "compare",
+     "a": "{header.name}",
+     "b": "{first} {last}",
+     "kind": "name"
+    }
+   ]
+  },
+  {
+   "name": "read_chart",
+   "does": "Read and verify the opened patient's member ID, date of birth, diagnosis and expanded Issues medication history without changing anything.",
+   "inputs": {
+    "first": "the patient's first name",
+    "last": "the patient's last name"
+   },
+   "outputs": [
+    "header",
+    "demographics",
+    "issue_rows",
+    "issues_expanded",
+    "header_final"
+   ],
+   "steps": [
+    {
+     "do": "ensure",
+     "question": "Is a Medical Record Dashboard showing, with the patient name and DOB at the top-left?",
+     "why": "Read the chart only after open_patient has opened a dashboard."
+    },
+    {
+     "do": "ensure",
+     "question": "Is a heading beginning 'Medical Record Dashboard -' visible below the chart tabs, with a patient name written after the hyphen?",
+     "why": "The patient name is repeated in plain text in this heading; confirm that readable heading is present before reading the header, rather than relying only on the blue header name that is followed by a parenthesised ID and a close x."
+    },
+    {
+     "do": "read",
+     "into": "header",
+     "fields": {
+      "name": "the patient name written in plain black text immediately after 'Medical Record Dashboard -' in the heading below the chart tabs, on the left side of the screen; copy only the person's name words from after the hyphen, with no ID, number or punctuation added",
+      "external_id": "the ID inside parentheses immediately after the large blue patient name at the top-left, beside the grey avatar icon and not the Select Encounter control on the right",
+      "dob": "the date after 'DOB:' on the line directly below the large blue patient name at the top-left, before 'Age:'"
+     },
+     "types": {
+      "name": "name",
+      "external_id": "id",
+      "dob": "date"
+     }
+    },
+    {
+     "do": "compare",
+     "a": "{header.name}",
+     "b": "{first} {last}",
+     "kind": "name"
+    },
+    {
+     "do": "scroll",
+     "dy": 3
+    },
+    {
+     "do": "if",
+     "question": "Are Demographics Who detail rows labelled 'DOB:', 'Birth Sex:' and 'External ID:' visible on the screen?",
+     "then": [],
+     "else": [
+      {
+       "do": "if",
+       "question": "Are lower Dashboard panels such as Billing or Insurance visible, even though no Demographics Who detail rows are visible?",
+       "then": [
+        {
+         "do": "scroll",
+         "dy": -2
+        },
+        {
+         "do": "wait",
+         "seconds": 1
+        }
+       ],
+       "else": [
+        {
+         "do": "scroll",
+         "dy": 2
+        },
+        {
+         "do": "wait",
+         "seconds": 1
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "do": "if",
+     "question": "Are Demographics Who detail rows labelled 'DOB:', 'Birth Sex:' and 'External ID:' visible on the screen?",
+     "then": [],
+     "else": [
+      {
+       "do": "scroll",
+       "dy": -2
+      },
+      {
+       "do": "wait",
+       "seconds": 1
+      },
+      {
+       "do": "if",
+       "question": "Are Demographics Who detail rows labelled 'DOB:', 'Birth Sex:' and 'External ID:' visible on the screen?",
+       "then": [],
+       "else": [
+        {
+         "do": "scroll",
+         "dy": 4
+        },
+        {
+         "do": "wait",
+         "seconds": 1
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "do": "ensure",
+     "question": "Are Demographics Who detail rows labelled 'DOB:', 'Birth Sex:' and 'External ID:' visible on the screen?",
+     "why": "Demographics is below the first dashboard screen, but its heading and Who, Contact, Choices tab bar sit above those detail rows and a large scroll can push the heading and tab bar off the top while the detail rows remain visible and readable; scroll only part-way, adjust up or down based on what is showing, and confirm the detail rows themselves rather than requiring the heading or tab bar, before reading them."
+    },
+    {
+     "do": "read",
+     "into": "demographics",
+     "fields": {
+      "dob": "the date to the right of the 'DOB:' label in the Demographics Who panel, in the left-hand details column",
+      "member_id": "the value to the right of the 'External ID:' label in the Demographics Who panel; this External ID is the plan member ID, and it is not the S.S. or License/ID value",
+      "birth_sex": "the value to the right of the 'Birth Sex:' label in the Demographics Who panel, to the right of the DOB value"
+     },
+     "types": {
+      "dob": "date",
+      "member_id": "id",
+      "birth_sex": "text"
+     }
+    },
+    {
+     "do": "compare",
+     "a": "{demographics.dob}",
+     "b": "{header.dob}",
+     "kind": "date"
+    },
+    {
+     "do": "compare",
+     "a": "{demographics.member_id}",
+     "b": "{header.external_id}",
+     "kind": "id"
+    },
+    {
+     "do": "scroll",
+     "dy": -5
+    },
+    {
+     "do": "ensure",
+     "question": "Are the chart links Dashboard, History, Assessments, Report, Documents, Transactions, Issues, Ledger and External Data visible below the patient header?",
+     "why": "Scroll back to the chart navigation before opening Issues."
+    },
+    {
+     "do": "click",
+     "target": "the 'Issues' text link in the chart navigation row below the patient header, between 'Transactions' and 'Ledger', not the top main menu"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "dismiss",
+     "question": "Is an 'OpenEMR Product Registration' modal open in the centre of the screen?",
+     "target": "the 'Ask again later' button at the bottom-right of the OpenEMR Product Registration modal, to the right of the blue Submit button"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the Medical Issues page showing, with Medical Problems and Medications sections?",
+     "why": "Confirm the Issues tab opened for this patient."
+    },
+    {
+     "do": "read_list",
+     "into": "issue_rows",
+     "item": {
+      "title": "the full text shown in blue only for this issue or medication link, including any code in parentheses or strength that is itself shown in blue as part of that link; stop exactly where the blue text ends and do not include the black parenthesised status word after the blue text, the far-right 'Occurrence' text on the same line, or anything else from that line"
+     },
+     "where": "Only fully visible blue-linked rows under the Medical Problems and Medications headings, counting every such row whatever the parenthesised status word after its link, including any inactive, stopped or otherwise non-current Medications rows listed below the current medication as well as the current one; do not count Health Concerns or Allergies rows, 'None' rows, section headings, Add/Delete controls, or a row cut off at the bottom or top edge of the screen whose blue link is only partly visible - such a cut-off row will be read in full, under exactly the same blue title text, on the next closely overlapping scrolled page instead. Identify and merge each row by this exact blue title text alone: do not read, record, guess, or attach its section heading, its parenthesised status, or its far-right Occurrence text in this pass, because the section heading can scroll off the top of a later overlapping page while the row itself is still visible and that must not make the same blue title read differently between pages. The same row must be entered with exactly the same blue-only title on every page where it appears fully. Keep each distinct blue-linked title as its own row, even when several medication rows are closely packed together.",
+     "scroll": 1,
+     "max_pages": 12
+    },
+    {
+     "do": "scroll",
+     "dy": -5
+    },
+    {
+     "do": "scroll",
+     "dy": -5
+    },
+    {
+     "do": "wait",
+     "seconds": 1
+    },
+    {
+     "do": "ensure",
+     "question": "Is the top of the Medical Issues page visible again, starting with the Medical Problems section?",
+     "why": "Reading the Issues list scrolled the page toward its last page, leaving earlier rows such as the first Medical Problems rows above the top of the screen where their expanders cannot be clicked; return to the top before expanding any row, then work down in the order the rows were read."
+    },
+    {
+     "do": "for_each",
+     "list": "{issue_rows}",
+     "as": "row",
+     "steps": [
+      {
+       "do": "if",
+       "question": "Is the blue '{row.title}' link fully visible on the screen, with a small '>' expander arrow immediately to its left also fully visible?",
+       "then": [],
+       "else": [
+        {
+         "do": "scroll",
+         "dy": 2
+        },
+        {
+         "do": "wait",
+         "seconds": 1
+        }
+       ]
+      },
+      {
+       "do": "if",
+       "question": "Is the blue '{row.title}' link fully visible on the screen, with a small '>' expander arrow immediately to its left also fully visible?",
+       "then": [],
+       "else": [
+        {
+         "do": "scroll",
+         "dy": 2
+        },
+        {
+         "do": "wait",
+         "seconds": 1
+        }
+       ]
+      },
+      {
+       "do": "if",
+       "question": "Is the blue '{row.title}' link fully visible on the screen, with a small '>' expander arrow immediately to its left also fully visible?",
+       "then": [],
+       "else": [
+        {
+         "do": "scroll",
+         "dy": 2
+        },
+        {
+         "do": "wait",
+         "seconds": 1
+        }
+       ]
+      },
+      {
+       "do": "if",
+       "question": "Is the blue '{row.title}' link fully visible on the screen, with a small '>' expander arrow immediately to its left also fully visible?",
+       "then": [],
+       "else": [
+        {
+         "do": "scroll",
+         "dy": 2
+        },
+        {
+         "do": "wait",
+         "seconds": 1
+        }
+       ]
+      },
+      {
+       "do": "if",
+       "question": "Is the blue '{row.title}' link fully visible on the screen, with a small '>' expander arrow immediately to its left also fully visible?",
+       "then": [],
+       "else": [
+        {
+         "do": "scroll",
+         "dy": 2
+        },
+        {
+         "do": "wait",
+         "seconds": 1
+        }
+       ]
+      },
+      {
+       "do": "if",
+       "question": "Is the blue '{row.title}' link fully visible on the screen, with a small '>' expander arrow immediately to its left also fully visible?",
+       "then": [],
+       "else": [
+        {
+         "do": "scroll",
+         "dy": -2
+        },
+        {
+         "do": "wait",
+         "seconds": 1
+        }
+       ]
+      },
+      {
+       "do": "ensure",
+       "question": "Is the blue '{row.title}' link fully visible on the screen, with a small '>' expander arrow immediately to its left also fully visible?",
+       "why": "An expander for a row that has scrolled above or below the visible screen cannot be found or clicked from a single screenshot; starting from the top of the Issues page and scrolling down in small steps as rows are expanded in read order must bring this row fully into view before its expander is clicked."
+      },
+      {
+       "do": "click",
+       "target": "the small right-pointing '>' expander arrow immediately to the left of the blue '{row.title}' link in its Medical Problems or Medications row, left of the link text and not the blue link itself and not the section heading drag handle"
+      },
+      {
+       "do": "wait",
+       "seconds": 1
+      },
+      {
+       "do": "if",
+       "question": "Is an expanded detail area visible directly below the row for '{row.title}', showing detail labels or a comment under that same row?",
+       "then": [],
+       "else": [
+        {
+         "do": "if",
+         "question": "Does the expander immediately to the left of the blue '{row.title}' link now point down, shown as a down arrow in a small box instead of a right-pointing '>'?",
+         "then": [
+          {
+           "do": "scroll",
+           "dy": 2
+          },
+          {
+           "do": "wait",
+           "seconds": 1
+          }
+         ],
+         "else": []
+        }
+       ]
+      },
+      {
+       "do": "if",
+       "question": "Is an expanded detail area visible directly below the row for '{row.title}', showing detail labels or a comment under that same row?",
+       "then": [],
+       "else": [
+        {
+         "do": "if",
+         "question": "Does the expander immediately to the left of the blue '{row.title}' link now point down, shown as a down arrow in a small box instead of a right-pointing '>'?",
+         "then": [
+          {
+           "do": "scroll",
+           "dy": 2
+          },
+          {
+           "do": "wait",
+           "seconds": 1
+          }
+         ],
+         "else": []
+        }
+       ]
+      },
+      {
+       "do": "ensure",
+       "question": "Is the row for '{row.title}' expanded, shown either by expanded detail text visible directly below that row or by the expander immediately to its left now pointing down as a down arrow in a small box instead of a right-pointing '>'?",
+       "why": "Each row must be expanded before its dates and comments can be read, but a row near the bottom of the screen pushes its new detail below the bottom edge so the detail alone cannot be judged from that one screenshot; the flipped down-pointing expander is reliable proof of expansion, and scrolling down after expanding brings the detail itself into view for the later expanded read. Stop only if neither the detail nor the flipped expander is present."
+      }
+     ]
+    },
+    {
+     "do": "scroll",
+     "dy": -5
+    },
+    {
+     "do": "scroll",
+     "dy": -5
+    },
+    {
+     "do": "ensure",
+     "question": "Is the top of the Medical Issues page visible again, starting with the Medical Problems section?",
+     "why": "Expanded rows run past one screen, so return to the top before reading the expanded list page by page."
+    },
+    {
+     "do": "ensure",
+     "question": "Is at least one expanded Medical Problems or Medications block visible on the screen, with a blue title link, its parenthesised status word, and detail text such as Last Modified or Comments directly below it?",
+     "why": "The expanded read that follows must have at least one expanded block in view to count; an expanded block counts even when its detail shows only Last Modified and Comments and no begin, start or end date labels."
+    },
+    {
+     "do": "read_list",
+     "into": "issues_expanded",
+     "item": {
+      "title": "the full blue link text at the top of this expanded block, including any diagnosis code in parentheses for a medical problem or strength for a medication that is itself part of the blue link, but not including the separate black parenthesised status word that follows the blue link; copy this blue text exactly and do not extract, repeat or reformat any code or strength inside it as a separate field",
+      "status": "only the single status word inside the separate parentheses immediately after the blue title link, not any code parentheses inside the link itself and not the far-right 'Occurrence' text on the same line; copy that word alone exactly as written, with no parentheses, brackets or other punctuation around it, and never leave it blank when those status parentheses are fully visible on that same title row; if the title row is cut off so those status parentheses are not fully visible, do not guess it here - that block will be read on the next page instead",
+      "start_date": "the begin or start date shown in the expanded detail directly below this title, beside its begin/start date label; if no begin or start date label is shown anywhere in this block's fully visible detail, say not recorded - a Last Modified date is not a begin or start date and a date from the next block below is not this block's date",
+      "end_date": "the end date shown in the expanded detail directly below this title, beside its end date label; if no end date label is shown anywhere in this block's fully visible detail, say not recorded - a Last Modified date is not an end date and a date from the next block below is not this block's date",
+      "comment": "the full comment text shown in the expanded detail directly below this title, beside a Comments label or in the Comments column, copied exactly and verbatim including any wording about a new order, quantities, supply or stopping; if no comment is shown in this block's fully visible detail, say not recorded. Do not parse, extract or summarise any number or phrase out of this comment into a separate field - the verbatim comment itself is the record"
+     },
+     "where": "Only expanded blocks under Medical Problems and Medications whose title row, including its blue link and the parenthesised status word after it, is completely on screen AND whose entire expanded detail directly below it is completely visible above the bottom edge of the screen, down to the end of its final detail or comment line, even if that detail shows only Last Modified and Comments with no begin, start or end date labels - in that case still count the block and record the missing dates as not recorded. Identify and merge each block by its exact blue title text alone; do not read or record a section heading for the block, because that heading can scroll off the top of an overlapping page while the block is still visible and must not make the same block read differently between pages, and do not record any separate field derived from the title or comment, such as a code extracted from the title or a quantity or days-supply extracted from the comment, because those are already preserved verbatim in the title and comment and deriving them can differ between pages. Count every such fully visible expanded block whatever its status, including any inactive, stopped or otherwise non-current medication blocks below the current medication, and keep each distinct title as its own block. Do not count Health Concerns, Allergies, 'None' rows, collapsed rows with no detail below them, or a block cut off at the bottom or top edge whose title, status, detail or final comment line is only partly visible or runs below the bottom edge or under the bottom scrollbar - such a cut-off block will be read in full, under exactly the same blue title and with exactly the same fields, on the next, closely overlapping scrolled page instead, and must not be entered on this page with a truncated comment, a missing date, or a guessed field. Keep an active medication whose comment says 'New order' distinct from inactive prior medications whose comments give an outcome after 'Stopped:'.",
+     "scroll": 1,
+     "max_pages": 16
+    },
+    {
+     "do": "scroll",
+     "dy": -5
+    },
+    {
+     "do": "scroll",
+     "dy": -5
+    },
+    {
+     "do": "wait",
+     "seconds": 1
+    },
+    {
+     "do": "ensure",
+     "question": "Is the large blue patient name at the top-left of the header visible, beside the grey avatar icon and immediately before a parenthesised ID, with a 'DOB:' line below it?",
+     "why": "The Medical Issues page is its own tab and shows no Dashboard, History, Issues chart navigation row at any scroll position, so do not look for a Dashboard link here; the blue patient name in the persistent header is the route back to the dashboard and must be in view before it is clicked."
+    },
+    {
+     "do": "click",
+     "target": "the large blue patient name link at the top-left of the header, beside the grey avatar icon and immediately before the parenthesised ID that follows it, above the 'DOB:' line and below the top black navigation bar; not the 'Patient Issues' or 'Patient Finder' window tab, not the top black menu, and not any blue issue or medication title link in the page below"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "dismiss",
+     "question": "Is an 'OpenEMR Product Registration' modal open in the centre of the screen?",
+     "target": "the 'Ask again later' button at the bottom-right of the OpenEMR Product Registration modal, to the right of the blue Submit button"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the Medical Record Dashboard showing again for this patient?",
+     "why": "Return to the dashboard via the blue header patient name to re-read the header as a final identity check."
+    },
+    {
+     "do": "ensure",
+     "question": "Is a heading beginning 'Medical Record Dashboard -' visible below the chart tabs, with a patient name written after the hyphen?",
+     "why": "The patient name is repeated in plain text in this heading; confirm that readable heading is present before re-reading the header, rather than relying only on the blue header name that is followed by a parenthesised ID and a close x."
+    },
+    {
+     "do": "read",
+     "into": "header_final",
+     "fields": {
+      "name": "the patient name written in plain black text immediately after 'Medical Record Dashboard -' in the heading below the chart tabs, on the left side of the screen; copy only the person's name words from after the hyphen, with no ID, number or punctuation added",
+      "external_id": "the ID inside parentheses immediately after the large blue patient name at the top-left, beside the grey avatar icon and not the Select Encounter control on the right",
+      "dob": "the date after 'DOB:' on the line directly below the large blue patient name at the top-left, before 'Age:'"
+     },
+     "types": {
+      "name": "name",
+      "external_id": "id",
+      "dob": "date"
+     }
+    },
+    {
+     "do": "compare",
+     "a": "{header_final.name}",
+     "b": "{first} {last}",
+     "kind": "name"
+    },
+    {
+     "do": "compare",
+     "a": "{header_final.dob}",
+     "b": "{header.dob}",
+     "kind": "date"
+    },
+    {
+     "do": "compare",
+     "a": "{header_final.external_id}",
+     "b": "{demographics.member_id}",
+     "kind": "id"
+    }
+   ]
+  },
+  {
+   "name": "set_home_phone",
+   "does": "Set the home phone number of the already-opened patient and verify the saved value on the dashboard.",
+   "inputs": {
+    "first": "the patient's first name",
+    "last": "the patient's last name",
+    "phone": "the new home phone number"
+   },
+   "outputs": [
+    "header",
+    "verification"
+   ],
+   "steps": [
+    {
+     "do": "ensure",
+     "question": "Is a Medical Record Dashboard showing, with the patient name and DOB at the top-left?",
+     "why": "Change demographics only after open_patient has opened a dashboard."
+    },
+    {
+     "do": "ensure",
+     "question": "Is a heading beginning 'Medical Record Dashboard -' visible below the chart tabs, with a patient name written after the hyphen?",
+     "why": "The patient name is repeated in plain text in this heading; confirm that readable heading is present before reading the header, rather than relying only on the blue header name that is followed by a parenthesised ID and a close x."
+    },
+    {
+     "do": "read",
+     "into": "header",
+     "fields": {
+      "name": "the patient name written in plain black text immediately after 'Medical Record Dashboard -' in the heading below the chart tabs, on the left side of the screen; copy only the person's name words from after the hyphen, with no ID, number or punctuation added",
+      "external_id": "the ID inside parentheses immediately after the large blue patient name at the top-left, beside the grey avatar icon and not the Select Encounter control on the right",
+      "dob": "the date after 'DOB:' on the line directly below the large blue patient name at the top-left, before 'Age:'"
+     },
+     "types": {
+      "name": "name",
+      "external_id": "id",
+      "dob": "date"
+     }
+    },
+    {
+     "do": "compare",
+     "a": "{header.name}",
+     "b": "{first} {last}",
+     "kind": "name"
+    },
+    {
+     "do": "scroll",
+     "dy": 3
+    },
+    {
+     "do": "if",
+     "question": "Is the blue 'Demographics' panel heading visible on the left, with a pencil edit icon at the right end of that same heading row?",
+     "then": [],
+     "else": [
+      {
+       "do": "if",
+       "question": "Are Demographics detail rows such as Birth Name, DOB or External ID visible, even though the Demographics heading above them is not visible?",
+       "then": [
+        {
+         "do": "scroll",
+         "dy": -2
+        },
+        {
+         "do": "wait",
+         "seconds": 1
+        }
+       ],
+       "else": [
+        {
+         "do": "scroll",
+         "dy": 2
+        },
+        {
+         "do": "wait",
+         "seconds": 1
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "do": "if",
+     "question": "Is the blue 'Demographics' panel heading visible on the left, with a pencil edit icon at the right end of that same heading row?",
+     "then": [],
+     "else": [
+      {
+       "do": "scroll",
+       "dy": -2
+      },
+      {
+       "do": "wait",
+       "seconds": 1
+      },
+      {
+       "do": "if",
+       "question": "Is the blue 'Demographics' panel heading visible on the left, with a pencil edit icon at the right end of that same heading row?",
+       "then": [],
+       "else": [
+        {
+         "do": "scroll",
+         "dy": 4
+        },
+        {
+         "do": "wait",
+         "seconds": 1
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "do": "ensure",
+     "question": "Is the blue 'Demographics' panel heading visible on the left, with a pencil edit icon at the right end of that same heading row?",
+     "why": "The Demographics pencil is on the panel heading, which sits above the detail rows and can be scrolled off the top by a large scroll; scroll only part-way, adjust up or down based on whether detail rows or the heading are showing, and confirm the heading itself before clicking, so a pencil belonging to a lower panel is not used."
+    },
+    {
+     "do": "click",
+     "target": "the pencil edit icon at the far right end of the Demographics panel heading, on the same horizontal line as the blue 'Demographics' heading near the lower part of the dashboard; not a pencil on Medical Problems, Medications or any higher panel"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "dismiss",
+     "question": "Is an 'OpenEMR Product Registration' modal open in the centre of the screen?",
+     "target": "the 'Ask again later' button at the bottom-right of the OpenEMR Product Registration modal, to the right of the blue Submit button"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the Edit Current Patient page showing, with blue Save and Cancel buttons near the top-left and a blue Who, Contact, Choices tab bar?",
+     "why": "Confirm demographics edit mode opened for this patient."
+    },
+    {
+     "do": "click",
+     "target": "the 'Contact' tab in the blue Demographics tab bar on the Edit Current Patient page, second tab from the left between 'Who' and 'Choices'"
+    },
+    {
+     "do": "wait",
+     "seconds": 1
+    },
+    {
+     "do": "ensure",
+     "question": "Is the Contact edit form showing, with a 'Home Phone:' label and an input box to its right in the left-hand column?",
+     "why": "Confirm the Contact tab, where Home Phone lives, is active before typing."
+    },
+    {
+     "do": "type",
+     "target": "the left-hand input box immediately to the right of the 'Home Phone:' label in the left-hand column of the Contact form, below the Emergency Contact input and above the 'Mobile Phone:' input; this box is in the left half of the screen on the same horizontal row as the 'Work Phone:' label, and it is not the empty right-hand input box to the right of that 'Work Phone:' label and not the Emergency Phone box in the right-hand column higher up",
+     "text": "{phone}",
+     "no_check": true
+    },
+    {
+     "do": "wait",
+     "seconds": 1
+    },
+    {
+     "do": "ensure",
+     "question": "Does the left-hand input box immediately to the right of the 'Home Phone:' label, below Emergency Contact and above Mobile Phone in the left-hand column, show the value '{phone}'?",
+     "why": "The type step's automatic read-back for this field can mistake the empty right-hand Work Phone box on the same row and report the left-hand Home Phone value as empty even when it is visibly present, so the read-back is skipped and the left-hand box is verified directly from the screen before saving; do not use the right-hand Work Phone box for this check."
+    },
+    {
+     "do": "click",
+     "target": "the blue Save button with a checkmark at the top-left of the Edit Current Patient page, below the heading and immediately left of the Cancel button"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "dismiss",
+     "question": "Is an 'OpenEMR Product Registration' modal open in the centre of the screen?",
+     "target": "the 'Ask again later' button at the bottom-right of the OpenEMR Product Registration modal, to the right of the blue Submit button"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the Medical Record Dashboard showing again for this patient after saving?",
+     "why": "Confirm Save returned to the dashboard before verifying the stored value."
+    },
+    {
+     "do": "scroll",
+     "dy": 3
+    },
+    {
+     "do": "if",
+     "question": "Is the Demographics panel visible with its blue Who, Contact, Choices tab bar?",
+     "then": [],
+     "else": [
+      {
+       "do": "if",
+       "question": "Are Demographics detail rows such as Birth Name, DOB or External ID visible, even though the tab bar above them is not visible?",
+       "then": [
+        {
+         "do": "scroll",
+         "dy": -2
+        },
+        {
+         "do": "wait",
+         "seconds": 1
+        }
+       ],
+       "else": [
+        {
+         "do": "scroll",
+         "dy": 2
+        },
+        {
+         "do": "wait",
+         "seconds": 1
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "do": "ensure",
+     "question": "Is the Demographics panel visible with its blue Who, Contact, Choices tab bar?",
+     "why": "Scroll the saved Demographics panel into view for verification, adjusting up if only its detail rows show because the tab bar above them was scrolled off the top."
+    },
+    {
+     "do": "click",
+     "target": "the 'Contact' tab in the blue Demographics tab bar on the dashboard, second tab from the left between 'Who' and 'Choices', below the Demographics heading"
+    },
+    {
+     "do": "wait",
+     "seconds": 1
+    },
+    {
+     "do": "if",
+     "question": "Is the 'Home Phone:' label visible in the Demographics Contact panel, with the space or value to its right also visible, above the 'Mobile Phone:' label?",
+     "then": [],
+     "else": [
+      {
+       "do": "if",
+       "question": "Is the 'Mobile Phone:' label visible near the top of the screen in the Demographics Contact panel, without 'Home Phone:' visible above it?",
+       "then": [
+        {
+         "do": "scroll",
+         "dy": -2
+        },
+        {
+         "do": "wait",
+         "seconds": 1
+        }
+       ],
+       "else": [
+        {
+         "do": "scroll",
+         "dy": 2
+        },
+        {
+         "do": "wait",
+         "seconds": 1
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "do": "if",
+     "question": "Is the 'Home Phone:' label visible in the Demographics Contact panel, with the space or value to its right also visible, above the 'Mobile Phone:' label?",
+     "then": [],
+     "else": [
+      {
+       "do": "scroll",
+       "dy": -2
+      },
+      {
+       "do": "wait",
+       "seconds": 1
+      }
+     ]
+    },
+    {
+     "do": "ensure",
+     "question": "Is the 'Home Phone:' label visible in the Demographics Contact panel, with the space or value to its right also visible, above the 'Mobile Phone:' label?",
+     "why": "Home Phone is the top row of the Contact panel, above Mobile Phone, so an extra downward scroll after opening Contact pushes Home Phone off the top while leaving Mobile Phone visible; do not scroll blindly after opening Contact, scroll back up if Mobile Phone is at the top without Home Phone, and confirm Home Phone itself is in view before reading it, so an off-screen value is not read as empty."
+    },
+    {
+     "do": "read",
+     "into": "verification",
+     "fields": {
+      "home_phone": "the value to the right of the 'Home Phone:' label in the left-hand column of the Demographics Contact panel, above 'Mobile Phone:' and in the left-hand value on the same row as 'Work Phone:' across in the right-hand column; not the Work Phone value on the right and not the Mobile Phone value below"
+     },
+     "types": {
+      "home_phone": "text"
+     }
+    },
+    {
+     "do": "compare",
+     "a": "{verification.home_phone}",
+     "b": "{phone}",
+     "kind": "text"
+    }
+   ]
+  },
+  {
+   "name": "read_patient_chart",
+   "does": "Log in, open the named patient and read their verified chart and medication history.",
+   "inputs": {
+    "username": "the login username",
+    "password": "the login password",
+    "first": "the patient's first name",
+    "last": "the patient's last name"
+   },
+   "outputs": [
+    "header",
+    "demographics",
+    "issue_rows",
+    "issues_expanded",
+    "header_final"
+   ],
+   "steps": [
+    {
+     "do": "call",
+     "skill": "log_in",
+     "with": {
+      "username": "{username}",
+      "password": "{password}"
+     }
+    },
+    {
+     "do": "call",
+     "skill": "open_patient",
+     "with": {
+      "first": "{first}",
+      "last": "{last}"
+     }
+    },
+    {
+     "do": "call",
+     "skill": "read_chart",
+     "with": {
+      "first": "{first}",
+      "last": "{last}"
+     }
+    }
+   ]
+  },
+  {
+   "name": "report_patient_dob",
+   "does": "Log in, open the named patient and report the date of birth verified on the opened chart header.",
+   "inputs": {
+    "username": "the login username",
+    "password": "the login password",
+    "first": "the patient's first name",
+    "last": "the patient's last name"
+   },
+   "outputs": [
+    "header"
+   ],
+   "steps": [
+    {
+     "do": "call",
+     "skill": "log_in",
+     "with": {
+      "username": "{username}",
+      "password": "{password}"
+     }
+    },
+    {
+     "do": "call",
+     "skill": "open_patient",
+     "with": {
+      "first": "{first}",
+      "last": "{last}"
+     }
+    }
+   ]
+  },
+  {
+   "name": "update_patient_home_phone",
+   "does": "Log in, open the named patient, set their home phone number and verify the saved value.",
+   "inputs": {
+    "username": "the login username",
+    "password": "the login password",
+    "first": "the patient's first name",
+    "last": "the patient's last name",
+    "phone": "the new home phone number"
+   },
+   "outputs": [
+    "header",
+    "verification"
+   ],
+   "steps": [
+    {
+     "do": "call",
+     "skill": "log_in",
+     "with": {
+      "username": "{username}",
+      "password": "{password}"
+     }
+    },
+    {
+     "do": "call",
+     "skill": "open_patient",
+     "with": {
+      "first": "{first}",
+      "last": "{last}"
+     }
+    },
+    {
+     "do": "call",
+     "skill": "set_home_phone",
+     "with": {
+      "first": "{first}",
+      "last": "{last}",
+      "phone": "{phone}"
+     }
+    }
+   ]
+  }
+ ],
+ "jobs": {
+  "read_dob": "report_patient_dob",
+  "set_phone": "update_patient_home_phone",
+  "read_chart": "read_patient_chart"
+ },
+ "compile_usd": 0.42504,
+ "repair_usd": 0,
+ "target": {
+  "name": "OpenEMR",
+  "kind": "web",
+  "url": "http://127.0.0.1:8300/interface/login/login.php?site=default",
+  "blurb": "A real open-source medical records system, running on this machine with made-up patients",
+  "start_timeout": 60,
+  "settle": 1.5,
+  "suggested_goal": "Log in with username admin and password pass. Register a new patient using the details in the inputs, and confirm that the patient's chart opens showing that name.",
+  "sample_params": {
+   "first_name": "Testa",
+   "last_name": "Synthetic",
+   "date_of_birth": "1984-03-09",
+   "sex": "Female"
+  },
+  "id": "openemr"
+ },
+ "samples": {
+  "report_patient_dob": {
+   "first": "Dariusz",
+   "last": "Fenwick",
+   "dob": "1971-09-02",
+   "username": "admin",
+   "password": "pass"
+  },
+  "update_patient_home_phone": {
+   "first": "Dariusz",
+   "last": "Fenwick",
+   "phone": "555-5610",
+   "username": "admin",
+   "password": "pass"
+  },
+  "read_patient_chart": {
+   "first": "Dariusz",
+   "last": "Fenwick",
+   "username": "admin",
+   "password": "pass"
+  }
+ }
+}

@@ -1,0 +1,977 @@
+{
+ "app": "A made-up insurer's portal",
+ "how_it_behaves": "A 5-step prior-authorization wizard: 1 Member, 2 Medication, 3 Diagnosis, 4 Prior treatments, 5 Review. A browser 'Save password?' popup can appear on the right after login and obscure the page. Pressing Enter on the Medication step acts like going back to Member and resets the Strength selection while keeping the medication, so Medication must be advanced only by clicking Continue. Strength is unavailable until a medication is chosen. Diagnosis requires a search, selecting the result, then Continue. Each prior treatment must be committed separately with Add treatment before entering the next, after which it appears in a table above a cleared form. Saving on Review creates a Request page headed 'Request PA-\u2026' with status 'Awaiting prescriber signature' and a Prescriber PIN / 'Sign and submit to the plan' area that must not be used. A numeric Medication box that is still focused, with the text cursor sitting right after its last digit, can have that trailing digit misread on an immediate screenshot read-back, so Quantity and Days supply must not be trusted to the in-place read-back while the cursor is still in the box; they are verified instead by the independent read taken after focus has been moved off the Days supply box with Tab. Reading the Prior treatments Start and End values back out of their entry boxes is unreliable even after focus has been moved off the End box with Tab: the End box read can intermittently return nothing even though the date is plainly showing in the box, so Start and End must not be verified by a read of the entry boxes at all. They are verified instead from the committed added-treatments table after Add treatment, where the dates appear as static table text, and again from the treatments tables on Review and on the saved Request page. Reading the Prior treatments Medication tried value back out of its entry box is likewise unreliable: the in-place read-back after typing can return nothing even though the entered text is plainly showing in the box, so Medication tried must not be verified by a read of the entry box at all. It is verified instead from the committed added-treatments table after Add treatment, where it appears as static table text, and again from the treatments tables on Review and on the saved Request page.",
+ "skills": [
+  {
+   "name": "log_in",
+   "does": "Log in and dismiss the browser password-save popup if it appears.",
+   "inputs": {
+    "username": "portal username",
+    "password": "portal password"
+   },
+   "outputs": [],
+   "steps": [
+    {
+     "do": "ensure",
+     "question": "Is the Provider login form showing, with Username and Password boxes and a Log in button?",
+     "why": "Confirm starting point before entering credentials."
+    },
+    {
+     "do": "type",
+     "target": "the Username text box, under the 'Username' label in the Provider login form, above the Password box",
+     "text": "{username}"
+    },
+    {
+     "do": "type",
+     "target": "the Password text box, under the 'Password' label in the Provider login form, below the Username box and above the Log in button",
+     "text": "{password}",
+     "secret": true
+    },
+    {
+     "do": "click",
+     "target": "the dark-blue 'Log in' button, below the Password box at the left of the Provider login form"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "dismiss",
+     "question": "Is a 'Save password?' popup open on the right side of the screen, showing Username/Password fields and 'Not now' and 'Save' buttons?",
+     "target": "the light-blue 'Not now' button in the 'Save password?' popup on the right side, to the left of the dark-blue 'Save' button in that popup"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the Prior authorization home page showing, with the 'Start a new prior authorization' button and a Recent requests table?",
+     "why": "Confirm login succeeded and the password popup did not block the page."
+    }
+   ]
+  },
+  {
+   "name": "find_member",
+   "does": "Start a new request and find the member by ID and date of birth, landing on the Medication step.",
+   "inputs": {
+    "member_id": "member identifier",
+    "dob": "date of birth in YYYY-MM-DD"
+   },
+   "outputs": [
+    "member_on_medication"
+   ],
+   "steps": [
+    {
+     "do": "dismiss",
+     "question": "Is a 'Save password?' popup open on the right side of the screen, showing Username/Password fields and 'Not now' and 'Save' buttons?",
+     "target": "the light-blue 'Not now' button in the 'Save password?' popup on the right side, to the left of the dark-blue 'Save' button in that popup"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the Prior authorization home page showing, with the 'Start a new prior authorization' button and a Recent requests table?",
+     "why": "Must start from the home page, not an existing request in Recent requests."
+    },
+    {
+     "do": "click",
+     "target": "the dark-blue 'Start a new prior authorization' button, under the 'Prior authorization' heading and above the Recent requests table"
+    },
+    {
+     "do": "ensure",
+     "question": "Is step '1. Member' bold in the progress line at the top, with Member ID and Date of birth boxes and a 'Find member' button?",
+     "why": "Confirm a new request started at the Member step."
+    },
+    {
+     "do": "type",
+     "target": "the Member ID text box, under the 'Member ID' label, above the Date of birth box",
+     "text": "{member_id}"
+    },
+    {
+     "do": "type",
+     "target": "the Date of birth text box, under the 'Date of birth (YYYY-MM-DD)' label, to the left of the dark-blue 'Find member' button",
+     "text": "{dob}"
+    },
+    {
+     "do": "click",
+     "target": "the dark-blue 'Find member' button, immediately to the right of the Date of birth box"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "ensure",
+     "question": "Is step '2. Medication' bold in the progress line at the top, with 'Requested medication', 'Strength', 'Quantity' and 'Days supply' fields?",
+     "why": "Confirm Find member advanced to Medication for the found member; if it stayed on Member the ID/DOB did not match."
+    },
+    {
+     "do": "read",
+     "into": "member_on_medication",
+     "fields": {
+      "member_name": "the bold member name after 'Member:' near the top of the Medication form, above the Requested medication label"
+     },
+     "types": {
+      "member_name": "name"
+     }
+    }
+   ]
+  },
+  {
+   "name": "fill_medication",
+   "does": "Fill requested medication, strength, quantity and days supply, move focus off the Days supply box, verify all four values from an independent read, then click Continue to Diagnosis.",
+   "inputs": {
+    "member_id": "member identifier, for verification",
+    "dob": "date of birth in YYYY-MM-DD, for later verification",
+    "drug": "requested medication name",
+    "strength": "requested strength, exactly as shown in the Strength dropdown",
+    "quantity": "quantity as a number",
+    "days": "days supply as a number"
+   },
+   "outputs": [
+    "med_readback"
+   ],
+   "steps": [
+    {
+     "do": "ensure",
+     "question": "Is step '2. Medication' bold in the progress line, with Requested medication, Strength, Quantity and Days supply fields showing?",
+     "why": "Confirm on Medication step before editing."
+    },
+    {
+     "do": "choose",
+     "target": "the Requested medication dropdown, under the 'Requested medication' label, initially showing '-- Select --', above the Strength dropdown",
+     "option": "{drug}"
+    },
+    {
+     "do": "wait",
+     "seconds": 1
+    },
+    {
+     "do": "ensure",
+     "question": "Is the Strength dropdown, under the 'Strength' label below the Requested medication dropdown, showing '-- Select --'?",
+     "why": "Confirm the Strength placeholder changed to the visible '-- Select --' after a medication was chosen; whether the dropdown is enabled cannot be judged reliably from a screenshot and is not asked."
+    },
+    {
+     "do": "choose",
+     "target": "the Strength dropdown, under the 'Strength' label, below the Requested medication dropdown and above the Quantity box",
+     "option": "{strength}"
+    },
+    {
+     "do": "type",
+     "target": "the Quantity text box, under the 'Quantity' label, below the Strength dropdown and above the Days supply box",
+     "text": "{quantity}",
+     "no_check": true
+    },
+    {
+     "do": "type",
+     "target": "the Days supply text box, under the 'Days supply' label, below the Quantity box and to the left of the grey Back and dark-blue Continue buttons",
+     "text": "{days}",
+     "no_check": true
+    },
+    {
+     "do": "key",
+     "keys": "Tab"
+    },
+    {
+     "do": "wait",
+     "seconds": 1
+    },
+    {
+     "do": "read",
+     "into": "med_readback",
+     "fields": {
+      "drug": "the text currently shown in the Requested medication dropdown, under the 'Requested medication' label",
+      "strength": "the text currently shown in the Strength dropdown, under the 'Strength' label, not the Requested medication dropdown above it",
+      "quantity": "the number in the Quantity box, under the 'Quantity' label",
+      "days": "the number in the Days supply box, under the 'Days supply' label, not the Quantity box above it"
+     },
+     "types": {
+      "drug": "text",
+      "strength": "text",
+      "quantity": "number",
+      "days": "number"
+     }
+    },
+    {
+     "do": "compare",
+     "a": "{med_readback.drug}",
+     "b": "{drug}",
+     "kind": "text"
+    },
+    {
+     "do": "compare",
+     "a": "{med_readback.strength}",
+     "b": "{strength}",
+     "kind": "text"
+    },
+    {
+     "do": "compare",
+     "a": "{med_readback.quantity}",
+     "b": "{quantity}",
+     "kind": "number"
+    },
+    {
+     "do": "compare",
+     "a": "{med_readback.days}",
+     "b": "{days}",
+     "kind": "number"
+    },
+    {
+     "do": "click",
+     "target": "the dark-blue 'Continue' button at the bottom right of the Medication form, to the right of the grey 'Back' button; do not press Enter, which goes back and resets Strength"
+    },
+    {
+     "do": "ensure",
+     "question": "Is step '3. Diagnosis' bold in the progress line, with a 'Search diagnosis by ICD-10 code or words' box and Search, Back and Continue buttons?",
+     "why": "Confirm Continue advanced to Diagnosis, and did not return to Member."
+    }
+   ]
+  },
+  {
+   "name": "fill_diagnosis",
+   "does": "Search for the ICD-10 code, select the matching diagnosis result, and continue to Prior treatments.",
+   "inputs": {
+    "icd10": "ICD-10 code to search for"
+   },
+   "outputs": [],
+   "steps": [
+    {
+     "do": "ensure",
+     "question": "Is step '3. Diagnosis' bold in the progress line, with a 'Search diagnosis by ICD-10 code or words' box?",
+     "why": "Confirm on Diagnosis step before searching."
+    },
+    {
+     "do": "type",
+     "target": "the diagnosis search text box, under the 'Search diagnosis by ICD-10 code or words' label, to the left of the dark-blue 'Search' button",
+     "text": "{icd10}"
+    },
+    {
+     "do": "click",
+     "target": "the dark-blue 'Search' button, immediately to the right of the diagnosis search box, to the left of the grey 'Back' button"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "ensure",
+     "question": "Is a diagnosis search result showing that contains the code {icd10}?",
+     "why": "Must select a result for the requested code, not continue with no diagnosis."
+    },
+    {
+     "do": "click",
+     "target": "the diagnosis search result entry that shows the code {icd10}, in the results area below the search box and above the Back/Continue buttons, not the search box itself"
+    },
+    {
+     "do": "ensure",
+     "question": "Does the selected diagnosis result showing {icd10} appear chosen or highlighted below the search box?",
+     "why": "Confirm a diagnosis was selected before continuing."
+    },
+    {
+     "do": "click",
+     "target": "the dark-blue 'Continue' button on the Diagnosis step, to the right of the grey 'Back' button, below the diagnosis results area"
+    },
+    {
+     "do": "ensure",
+     "question": "Is step '4. Prior treatments' bold in the progress line, with 'Medication tried', Start, End and Outcome fields and an 'Add treatment' button?",
+     "why": "Confirm Diagnosis selection was accepted and the wizard advanced."
+    }
+   ]
+  },
+  {
+   "name": "add_prior_treatment",
+   "does": "Enter one prior treatment in the blank form without reading the Medication tried, Start or End entry boxes back (those box reads are unreliable), commit it with its own Add treatment button, then verify the treatment, including its medication, start and end dates and outcome, from the committed added-treatments table where they appear as static text.",
+   "inputs": {
+    "row.drug": "prior medication tried, including strength as given",
+    "row.start": "start date in YYYY-MM-DD",
+    "row.end": "end date in YYYY-MM-DD",
+    "row.outcome": "outcome, exactly as shown in the Outcome dropdown"
+   },
+   "outputs": [],
+   "steps": [
+    {
+     "do": "ensure",
+     "question": "Is step '4. Prior treatments' bold in the progress line, with empty Medication tried, Start, End and Outcome fields below any already-added treatments table?",
+     "why": "Each treatment is entered in the blank form below the table of added treatments."
+    },
+    {
+     "do": "type",
+     "target": "the Medication tried text box, under the 'Medication tried' label in the blank entry form below any added-treatments table, above the Start and End boxes",
+     "text": "{row.drug}",
+     "no_check": true
+    },
+    {
+     "do": "type",
+     "target": "the Start text box, under the 'Start (YYYY-MM-DD)' label on the left of the pair of date boxes in the blank entry form, below Medication tried",
+     "text": "{row.start}",
+     "no_check": true
+    },
+    {
+     "do": "type",
+     "target": "the End text box, under the 'End (YYYY-MM-DD)' label on the right of the pair of date boxes in the blank entry form, to the right of the Start box",
+     "text": "{row.end}",
+     "no_check": true
+    },
+    {
+     "do": "choose",
+     "target": "the Outcome dropdown, under the 'Outcome' label in the blank entry form, below the Start/End boxes and above the 'Add treatment' button, initially showing '-- Select --'",
+     "option": "{row.outcome}"
+    },
+    {
+     "do": "click",
+     "target": "the grey 'Add treatment' button in the blank entry form, below the Outcome dropdown and above the grey 'Back' and dark-blue 'Continue to review' buttons"
+    },
+    {
+     "do": "wait",
+     "seconds": 1
+    },
+    {
+     "do": "ensure",
+     "question": "Does the added-treatments table above the entry form now show a row for {row.drug} with outcome {row.outcome}?",
+     "why": "Catches a treatment that was typed but not committed; the form clearing alone is not proof. This also verifies Medication tried from the committed table's static text, because reading the Medication tried entry box back can return nothing even when the text is showing."
+    },
+    {
+     "do": "ensure",
+     "question": "Does the added-treatments table above the entry form show a row whose Start column is {row.start} and whose End column is {row.end}?",
+     "why": "Verify the dates from the committed table's static text, because reading the Start/End entry boxes back can intermittently return nothing even when the date is showing."
+    },
+    {
+     "do": "ensure",
+     "question": "Is the Medication tried entry box below the added-treatments table empty again?",
+     "why": "Confirm the committed form cleared before the next treatment is entered."
+    }
+   ]
+  },
+  {
+   "name": "fill_prior_treatments",
+   "does": "Add every supplied prior treatment, one Add treatment click each, and verify the added table.",
+   "inputs": {
+    "trials": "list of prior treatments, each with drug, start, end, outcome"
+   },
+   "outputs": [
+    "added_treatments"
+   ],
+   "steps": [
+    {
+     "do": "ensure",
+     "question": "Is step '4. Prior treatments' bold in the progress line, with the note that this plan needs at least 2 prior treatments?",
+     "why": "Confirm on Prior treatments step before adding any."
+    },
+    {
+     "do": "for_each",
+     "list": "{trials}",
+     "as": "row",
+     "steps": [
+      {
+       "do": "call",
+       "skill": "add_prior_treatment",
+       "with": {
+        "row.drug": "{row.drug}",
+        "row.start": "{row.start}",
+        "row.end": "{row.end}",
+        "row.outcome": "{row.outcome}"
+       }
+      }
+     ]
+    },
+    {
+     "do": "read_list",
+     "into": "added_treatments",
+     "item": {
+      "drug": "the value in the 'Medication tried' column of the added-treatments table above the entry form",
+      "start": "the value in the 'Start' column of the same row, not the End column to its right",
+      "end": "the value in the 'End' column of the same row, not the Start column to its left",
+      "outcome": "the value in the 'Outcome' column of the same row, the rightmost column"
+     },
+     "where": "Only rows in the added-treatments table with Medication tried, Start, End and Outcome column headers, above the blank Medication tried entry form. Ignore the blank entry form fields below the table.",
+     "scroll": 3,
+     "max_pages": 3
+    },
+    {
+     "do": "for_each",
+     "list": "{trials}",
+     "as": "row",
+     "steps": [
+      {
+       "do": "ensure",
+       "question": "Does the added-treatments table above the entry form show a row for {row.drug} with start {row.start}, end {row.end} and outcome {row.outcome}?",
+       "why": "Every supplied trial must be present in the committed table exactly as input before continuing to Review."
+      }
+     ]
+    },
+    {
+     "do": "click",
+     "target": "the dark-blue 'Continue to review' button at the bottom of the Prior treatments form, to the right of the grey 'Back' button and below the grey 'Add treatment' button"
+    },
+    {
+     "do": "ensure",
+     "question": "Is step '5. Review' bold in the progress line, with Member, Medication and Diagnosis rows and a Prior treatments table?",
+     "why": "Confirm all required treatments were accepted and the wizard advanced to Review."
+    }
+   ]
+  },
+  {
+   "name": "verify_review",
+   "does": "Read the Review page and compare every value against the inputs before saving.",
+   "inputs": {
+    "member_id": "member identifier",
+    "dob": "date of birth in YYYY-MM-DD",
+    "drug": "requested medication name",
+    "strength": "requested strength",
+    "quantity": "quantity as a number",
+    "days": "days supply as a number",
+    "icd10": "ICD-10 code",
+    "trials": "list of prior treatments, each with drug, start, end, outcome"
+   },
+   "outputs": [
+    "review",
+    "review_treatments"
+   ],
+   "steps": [
+    {
+     "do": "ensure",
+     "question": "Is step '5. Review' bold in the progress line, with Member, Medication, Diagnosis rows, a Prior treatments table, and a 'Save for prescriber signature' button?",
+     "why": "Only verify and save from the Review step."
+    },
+    {
+     "do": "read",
+     "into": "review",
+     "fields": {
+      "member_id": "the member identifier in the right-hand cell of the 'Member' row, between the member name and ', born', not the name before it",
+      "dob": "the date after 'born' in the right-hand cell of the 'Member' row",
+      "drug": "the medication name at the start of the right-hand cell of the 'Medication' row, before the strength",
+      "strength": "the strength immediately after the medication name in the right-hand cell of the 'Medication' row, before ', quantity'",
+      "quantity": "the number after 'quantity' in the right-hand cell of the 'Medication' row, not the days number after it",
+      "days": "the number before 'days' at the end of the right-hand cell of the 'Medication' row, not the quantity number before it",
+      "icd10": "the code at the very start of the right-hand cell of the 'Diagnosis' row, before the colon and description"
+     },
+     "types": {
+      "member_id": "id",
+      "dob": "date",
+      "drug": "text",
+      "strength": "text",
+      "quantity": "number",
+      "days": "number",
+      "icd10": "code"
+     }
+    },
+    {
+     "do": "compare",
+     "a": "{review.member_id}",
+     "b": "{member_id}",
+     "kind": "id"
+    },
+    {
+     "do": "compare",
+     "a": "{review.dob}",
+     "b": "{dob}",
+     "kind": "date"
+    },
+    {
+     "do": "compare",
+     "a": "{review.drug}",
+     "b": "{drug}",
+     "kind": "text"
+    },
+    {
+     "do": "compare",
+     "a": "{review.strength}",
+     "b": "{strength}",
+     "kind": "text"
+    },
+    {
+     "do": "compare",
+     "a": "{review.quantity}",
+     "b": "{quantity}",
+     "kind": "number"
+    },
+    {
+     "do": "compare",
+     "a": "{review.days}",
+     "b": "{days}",
+     "kind": "number"
+    },
+    {
+     "do": "compare",
+     "a": "{review.icd10}",
+     "b": "{icd10}",
+     "kind": "code"
+    },
+    {
+     "do": "read_list",
+     "into": "review_treatments",
+     "item": {
+      "drug": "the value in the 'Medication tried' column of the Prior treatments table on the Review page",
+      "start": "the value in the 'Start' column of the same row, not the End column to its right",
+      "end": "the value in the 'End' column of the same row, not the Start column to its left",
+      "outcome": "the value in the 'Outcome' column of the same row, the rightmost column"
+     },
+     "where": "Only rows in the Prior treatments table on the Review page, under the 'Prior treatments' heading, with Medication tried, Start, End and Outcome headers. Ignore the Member/Medication/Diagnosis summary rows above it.",
+     "scroll": 0,
+     "max_pages": 1
+    },
+    {
+     "do": "for_each",
+     "list": "{trials}",
+     "as": "row",
+     "steps": [
+      {
+       "do": "ensure",
+       "question": "Does the Prior treatments table on this Review page show a row for {row.drug} with start {row.start}, end {row.end} and outcome {row.outcome}?",
+       "why": "Every supplied trial must be present on Review exactly as input before saving."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "save_request",
+   "does": "Log in, fill the whole prior-authorization form from inputs, verify Review, save for prescriber signature, read back the saved request and reference, then stop for the prescriber to sign.",
+   "inputs": {
+    "member_id": "member identifier",
+    "dob": "date of birth in YYYY-MM-DD",
+    "drug": "requested medication name",
+    "strength": "requested strength, exactly as shown in the Strength dropdown",
+    "quantity": "quantity as a number",
+    "days": "days supply as a number",
+    "icd10": "ICD-10 code",
+    "trials": "list of prior treatments, each with drug, start, end and outcome",
+    "username": "portal username",
+    "password": "portal password"
+   },
+   "outputs": [
+    "result",
+    "review",
+    "review_treatments",
+    "added_treatments"
+   ],
+   "steps": [
+    {
+     "do": "call",
+     "skill": "log_in",
+     "with": {
+      "username": "{username}",
+      "password": "{password}"
+     }
+    },
+    {
+     "do": "call",
+     "skill": "find_member",
+     "with": {
+      "member_id": "{member_id}",
+      "dob": "{dob}"
+     }
+    },
+    {
+     "do": "call",
+     "skill": "fill_medication",
+     "with": {
+      "member_id": "{member_id}",
+      "dob": "{dob}",
+      "drug": "{drug}",
+      "strength": "{strength}",
+      "quantity": "{quantity}",
+      "days": "{days}"
+     }
+    },
+    {
+     "do": "call",
+     "skill": "fill_diagnosis",
+     "with": {
+      "icd10": "{icd10}"
+     }
+    },
+    {
+     "do": "call",
+     "skill": "fill_prior_treatments",
+     "with": {
+      "trials": "{trials}"
+     }
+    },
+    {
+     "do": "call",
+     "skill": "verify_review",
+     "with": {
+      "member_id": "{member_id}",
+      "dob": "{dob}",
+      "drug": "{drug}",
+      "strength": "{strength}",
+      "quantity": "{quantity}",
+      "days": "{days}",
+      "icd10": "{icd10}",
+      "trials": "{trials}"
+     }
+    },
+    {
+     "do": "dismiss",
+     "question": "Is a 'Save password?' popup open on the right side of the screen, showing Username/Password fields and 'Not now' and 'Save' buttons?",
+     "target": "the light-blue 'Not now' button in the 'Save password?' popup on the right side, to the left of the dark-blue 'Save' button in that popup"
+    },
+    {
+     "do": "click",
+     "target": "the dark-blue 'Save for prescriber signature' button at the bottom of the Review page, to the right of the grey 'Back' button, below the note that saving sends this to the prescriber and does not submit it to the plan"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "ensure",
+     "question": "Is a saved Request page showing, with a heading beginning 'Request PA-', a green status banner, Member/Medication/Diagnosis rows and a Prior treatments table?",
+     "why": "Confirm Save created a request rather than leaving the Review form unsaved."
+    },
+    {
+     "do": "read",
+     "into": "result",
+     "fields": {
+      "reference": "the reference number after 'Request' in the large page heading at the top, beginning 'PA-'",
+      "status": "the bold status text after 'Status:' in the green banner below the heading",
+      "member_id": "the member identifier in the right-hand cell of the 'Member' row, between the member name and ', born', not the name before it",
+      "dob": "the date after 'born' in the right-hand cell of the 'Member' row",
+      "drug": "the medication name at the start of the right-hand cell of the 'Medication' row, before the strength",
+      "strength": "the strength immediately after the medication name in the right-hand cell of the 'Medication' row, before ', quantity'",
+      "quantity": "the number after 'quantity' in the right-hand cell of the 'Medication' row, not the days number after it",
+      "days": "the number before 'days' at the end of the right-hand cell of the 'Medication' row, not the quantity number before it",
+      "icd10": "the code at the very start of the right-hand cell of the 'Diagnosis' row, before the colon and description"
+     },
+     "types": {
+      "reference": "code",
+      "status": "text",
+      "member_id": "id",
+      "dob": "date",
+      "drug": "text",
+      "strength": "text",
+      "quantity": "number",
+      "days": "number",
+      "icd10": "code"
+     }
+    },
+    {
+     "do": "compare",
+     "a": "{result.member_id}",
+     "b": "{member_id}",
+     "kind": "id"
+    },
+    {
+     "do": "compare",
+     "a": "{result.dob}",
+     "b": "{dob}",
+     "kind": "date"
+    },
+    {
+     "do": "compare",
+     "a": "{result.drug}",
+     "b": "{drug}",
+     "kind": "text"
+    },
+    {
+     "do": "compare",
+     "a": "{result.strength}",
+     "b": "{strength}",
+     "kind": "text"
+    },
+    {
+     "do": "compare",
+     "a": "{result.quantity}",
+     "b": "{quantity}",
+     "kind": "number"
+    },
+    {
+     "do": "compare",
+     "a": "{result.days}",
+     "b": "{days}",
+     "kind": "number"
+    },
+    {
+     "do": "compare",
+     "a": "{result.icd10}",
+     "b": "{icd10}",
+     "kind": "code"
+    },
+    {
+     "do": "compare",
+     "a": "{result.status}",
+     "b": "Awaiting prescriber signature",
+     "kind": "text"
+    },
+    {
+     "do": "for_each",
+     "list": "{trials}",
+     "as": "row",
+     "steps": [
+      {
+       "do": "ensure",
+       "question": "Does the Prior treatments table on this saved Request page show a row for {row.drug} with start {row.start}, end {row.end} and outcome {row.outcome}?",
+       "why": "Read-back of the saved request must match every supplied trial before handing over."
+      }
+     ]
+    },
+    {
+     "do": "stop_for_person",
+     "message": "Saved as {result.reference} with status Awaiting prescriber signature, and the saved details were read back and match the inputs. A prescriber must now enter the Prescriber PIN and use 'Sign and submit to the plan' if they approve; do not sign or submit automatically."
+    }
+   ]
+  }
+ ],
+ "jobs": {
+  "save_request": "save_request"
+ },
+ "compile_usd": 0.212296,
+ "repair_usd": 0,
+ "target": {
+  "name": "Prior-auth portal",
+  "kind": "web",
+  "url": "http://127.0.0.1:8310/login",
+  "blurb": "A made-up insurer's prior authorization portal, running on this machine",
+  "start_timeout": 30,
+  "settle": 1.0,
+  "suggested_goal": "Log in with username clinic01 and password demo-pass. Start a new prior authorization, fill it in with the facts in the inputs, and save it for prescriber signature. Report the reference number. Never try to sign or submit it. If the plan needs something the inputs don't have, stop and say what is missing; never make anything up.",
+  "sample_params": {
+   "member_id": "MBR-20863",
+   "dob": "1983-05-14",
+   "drug": "Vortioxetine",
+   "strength": "10 mg",
+   "quantity": 30,
+   "days": 30,
+   "icd10": "F33.1",
+   "trials": [
+    {
+     "drug": "Sertraline 100 mg",
+     "start": "2025-01-06",
+     "end": "2025-07-15",
+     "outcome": "Inadequate response"
+    },
+    {
+     "drug": "Bupropion XL 300 mg",
+     "start": "2025-07-20",
+     "end": "2026-02-03",
+     "outcome": "Intolerance"
+    }
+   ]
+  }
+ },
+ "samples": {
+  "save_request": {
+   "member_id": "MBR-32322",
+   "dob": "1971-09-02",
+   "drug": "Lurasidone",
+   "strength": "40 mg",
+   "quantity": 30,
+   "days": 30,
+   "icd10": "F31.81",
+   "trials": [
+    {
+     "drug": "Lamotrigine 200 mg",
+     "start": "2024-11-11",
+     "end": "2025-06-20",
+     "outcome": "Inadequate response"
+    },
+    {
+     "drug": "Quetiapine 300 mg",
+     "start": "2025-06-25",
+     "end": "2026-01-14",
+     "outcome": "Intolerance"
+    }
+   ],
+   "username": "clinic01",
+   "password": "demo-pass"
+  }
+ },
+ "swarm_inputs": [
+  {
+   "member_id": "MBR-341447",
+   "dob": "1967-10-06",
+   "drug": "Vortioxetine",
+   "strength": "10 mg",
+   "quantity": 30,
+   "days": 30,
+   "icd10": "F33.1",
+   "trials": [
+    {
+     "drug": "Quetiapine 200 mg",
+     "start": "2024-02-05",
+     "end": "2024-09-12",
+     "outcome": "Inadequate response"
+    },
+    {
+     "drug": "Mirtazapine 30 mg",
+     "start": "2024-10-01",
+     "end": "2025-05-20",
+     "outcome": "Intolerance"
+    }
+   ],
+   "username": "clinic01",
+   "password": "demo-pass"
+  },
+  {
+   "member_id": "MBR-501675",
+   "dob": "1960-05-24",
+   "drug": "Lurasidone",
+   "strength": "40 mg",
+   "quantity": 30,
+   "days": 30,
+   "icd10": "F31.81",
+   "trials": [
+    {
+     "drug": "Escitalopram 20 mg",
+     "start": "2024-02-05",
+     "end": "2024-09-12",
+     "outcome": "Inadequate response"
+    },
+    {
+     "drug": "Mirtazapine 30 mg",
+     "start": "2024-10-01",
+     "end": "2025-05-20",
+     "outcome": "Intolerance"
+    }
+   ],
+   "username": "clinic01",
+   "password": "demo-pass"
+  },
+  {
+   "member_id": "MBR-309157",
+   "dob": "1960-10-16",
+   "drug": "Cariprazine",
+   "strength": "3 mg",
+   "quantity": 30,
+   "days": 30,
+   "icd10": "F20.9",
+   "trials": [
+    {
+     "drug": "Lamotrigine 200 mg",
+     "start": "2024-02-05",
+     "end": "2024-09-12",
+     "outcome": "Inadequate response"
+    },
+    {
+     "drug": "Mirtazapine 30 mg",
+     "start": "2024-10-01",
+     "end": "2025-05-20",
+     "outcome": "Intolerance"
+    }
+   ],
+   "username": "clinic01",
+   "password": "demo-pass"
+  },
+  {
+   "member_id": "MBR-926609",
+   "dob": "1992-04-26",
+   "drug": "Vilazodone",
+   "strength": "20 mg",
+   "quantity": 30,
+   "days": 30,
+   "icd10": "F33.2",
+   "trials": [
+    {
+     "drug": "Quetiapine 200 mg",
+     "start": "2024-02-05",
+     "end": "2024-09-12",
+     "outcome": "Inadequate response"
+    },
+    {
+     "drug": "Lamotrigine 200 mg",
+     "start": "2024-10-01",
+     "end": "2025-05-20",
+     "outcome": "Intolerance"
+    }
+   ],
+   "username": "clinic01",
+   "password": "demo-pass"
+  },
+  {
+   "member_id": "MBR-583900",
+   "dob": "1998-04-05",
+   "drug": "Viloxazine",
+   "strength": "200 mg",
+   "quantity": 30,
+   "days": 30,
+   "icd10": "F90.0",
+   "trials": [
+    {
+     "drug": "Fluoxetine 40 mg",
+     "start": "2024-02-05",
+     "end": "2024-09-12",
+     "outcome": "Inadequate response"
+    },
+    {
+     "drug": "Quetiapine 200 mg",
+     "start": "2024-10-01",
+     "end": "2025-05-20",
+     "outcome": "Intolerance"
+    }
+   ],
+   "username": "clinic01",
+   "password": "demo-pass"
+  },
+  {
+   "member_id": "MBR-851493",
+   "dob": "1991-06-03",
+   "drug": "Duloxetine",
+   "strength": "60 mg",
+   "quantity": 30,
+   "days": 30,
+   "icd10": "F41.1",
+   "trials": [
+    {
+     "drug": "Mirtazapine 30 mg",
+     "start": "2024-02-05",
+     "end": "2024-09-12",
+     "outcome": "Inadequate response"
+    },
+    {
+     "drug": "Escitalopram 20 mg",
+     "start": "2024-10-01",
+     "end": "2025-05-20",
+     "outcome": "Intolerance"
+    }
+   ],
+   "username": "clinic01",
+   "password": "demo-pass"
+  },
+  {
+   "member_id": "MBR-144723",
+   "dob": "1985-06-13",
+   "drug": "Bupropion XL",
+   "strength": "300 mg",
+   "quantity": 30,
+   "days": 30,
+   "icd10": "F33.0",
+   "trials": [
+    {
+     "drug": "Lamotrigine 200 mg",
+     "start": "2024-02-05",
+     "end": "2024-09-12",
+     "outcome": "Inadequate response"
+    },
+    {
+     "drug": "Sertraline 100 mg",
+     "start": "2024-10-01",
+     "end": "2025-05-20",
+     "outcome": "Intolerance"
+    }
+   ],
+   "username": "clinic01",
+   "password": "demo-pass"
+  },
+  {
+   "member_id": "MBR-480141",
+   "dob": "1955-07-07",
+   "drug": "Lisdexamfetamine",
+   "strength": "30 mg",
+   "quantity": 30,
+   "days": 30,
+   "icd10": "F90.2",
+   "trials": [
+    {
+     "drug": "Fluoxetine 40 mg",
+     "start": "2024-02-05",
+     "end": "2024-09-12",
+     "outcome": "Inadequate response"
+    },
+    {
+     "drug": "Lamotrigine 200 mg",
+     "start": "2024-10-01",
+     "end": "2025-05-20",
+     "outcome": "Intolerance"
+    }
+   ],
+   "username": "clinic01",
+   "password": "demo-pass"
+  }
+ ]
+}

@@ -17,8 +17,8 @@
   ],
   [
    "OpenEMR: find a patient, read their birth date",
-   "0/5",
-   "55 s",
+   "5/5",
+   "47 s",
    "$0",
    "3/3, 84 s, $0.036"
   ],
@@ -27,28 +27,35 @@
    "5/5",
    "83 s",
    "$0",
-   "2/2, 275 s, $0.109"
+   "3/3, 293 s, $0.095"
   ],
   [
    "OpenEMR: read a whole chart",
-   "0/5",
-   "58 s",
+   "5/5",
+   "167 s",
    "$0",
-   "\u2014"
+   "3/3, 218 s, $0.091"
   ],
   [
    "Django admin: mark an order shipped",
    "5/5",
    "89 s",
    "$0",
-   "\u2014"
+   "3/3, 74 s, $0.024"
   ],
   [
    "Django admin: read an order",
-   "4/4",
-   "49 s",
+   "5/5",
+   "47 s",
    "$0",
-   "\u2014"
+   "3/3, 52 s, $0.016"
+  ],
+  [
+   "GNOME Calculator, a native desktop app",
+   "5/5",
+   "15 s",
+   "$0",
+   "3/3, 24 s, $0.009"
   ]
  ],
  "highlight": null,

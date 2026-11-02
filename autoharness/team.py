@@ -173,6 +173,36 @@ def design(samples: list, note: str = "", model: str | None = None, limit_usd: f
     return plan, meter.snapshot()
 
 
+REFINE_RULES = """You designed this reading plan for small vision models. Here it ran on a sample stack that a person says is correct and has nothing wrong with it, yet it raised the problems below, so they're faults in the plan, not the paperwork. Fix the plan so a correct stack clears:
+- A field whose wording naturally varies between pages shouldn't be compared: remove it, or describe one exact place to read it from and tell readers to leave it null elsewhere.
+- A column that only some pages have should say so in its note.
+Keep everything that catches real problems: identifiers, amounts and accounts must still be compared across pages. Reply with only the complete corrected plan as one JSON object in the same shape.
+
+THE PLAN:
+{plan}
+
+WHAT IT RAISED ON THE CORRECT STACK:
+{issues}"""
+
+
+def refine(plan: dict, issues: list[dict], samples: list, model: str | None = None, limit_usd: float = 0.25) -> tuple[dict, dict]:
+    """A plan's first proof: on a stack known to be correct, anything it raises is the plan's fault, and the frontier model fixes it."""
+    from . import config
+    from .cloud import Cloud, Meter, image_url, response_text
+    from .local import extract_json
+
+    meter = Meter()
+    cloud = Cloud(meter=meter, limit_usd=limit_usd)
+    brief = [{k: i.get(k) for k in ("kind", "field", "label", "text")} | ({"values": [v["value"] for v in i["votes"]]} if i.get("votes") else {}) for i in issues]
+    content = [{"type": "input_text", "text": REFINE_RULES.format(plan=json.dumps(plan), issues=json.dumps(brief))}]
+    for s in samples:
+        im = Image.fromarray(load_page(s))
+        im.thumbnail((1100, 1100))
+        content.append({"type": "input_image", "image_url": image_url(np.asarray(im), 80)})
+    resp = cloud.respond(model=model or config.TEACHER_MODEL, reasoning={"effort": "low"}, max_output_tokens=4000, input=[{"role": "user", "content": content}])
+    return check_plan(extract_json(response_text(resp))), meter.snapshot()
+
+
 def _field_note(f: dict) -> str | None:
     note = f.get("note") or f.get("label") or None
     if f.get("choices"):

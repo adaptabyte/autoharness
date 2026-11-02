@@ -28,7 +28,7 @@ def ui_rows() -> list[dict]:
             labels.setdefault((r["app"], r["job"]), {}).setdefault(r["run"], []).append(r)
     for key, name in NAMES.items():
         runs = labels.get(key) or {}
-        spark = [r for r in UI if r.get("run") == "spark" and (r["app"], r["job"]) == key]
+        spark = [r for r in UI if r.get("run") == "spark" and (r["app"].replace("openemr", "openemr-chart") if r["job"] == "read_chart" else r["app"], r["job"]) == key]
         final = runs.get("proof3") or runs.get("proof2") or runs.get("proof") or []
         out.append(dict(key=key, name=name, attempts={k: f"{sum(x['ok'] for x in v)}/{len(v)}" for k, v in runs.items()}, passes=sum(r["ok"] for r in final), runs=len(final), wrong=sum(bool(r["wrong_saved"]) for r in final), seconds=med(final, "seconds"), questions=med(final, "questions"),
                         spark_pass=sum(r["ok"] for r in spark), spark_runs=len(spark), spark_seconds=med(spark, "seconds"), spark_usd=med(spark, "usd"), spark_bytes=med(spark, "bytes_sent"), old=OLD.get(key, "")))
@@ -97,6 +97,16 @@ def main() -> None:
             dfx = [x for x in rr if x["defect"] != "clean"]
             lines.append(f"| {run} | {bad} | {n('caught')}/{len(dfx)} | {n('cleared_right')}/{len(rr) - len(dfx)} | {round(med(rr, 'seconds'), 1)} s |")
     (ROOT / "docs" / "PROOF.md").write_text("\n".join(lines) + "\n")
+    readme = ROOT / "README.md"
+    start, end = "<!-- proof -->", "<!-- /proof -->"
+    text = readme.read_text()
+    if start in text:
+        short = ["| Job | Glimmer + compiled plan | Median time | Cloud per run | Muse Spark, a screenshot every step |", "|---|---|---|---|---|"]
+        for r in rows:
+            if r["runs"]:
+                spark = f"{r['spark_pass']}/{r['spark_runs']}, {secs(r['spark_seconds'])}, {money(r['spark_usd'])}" if r["spark_runs"] else "—"
+                short.append(f"| {r['name']} | **{r['passes']}/{r['runs']}** | {secs(r['seconds'])} | $0 | {spark} |")
+        readme.write_text(text[:text.index(start) + len(start)] + "\n" + "\n".join(short) + "\n" + text[text.index(end):])
     table = [[r["name"], f"{r['passes']}/{r['runs']}", secs(r["seconds"]), "$0", f"{r['spark_pass']}/{r['spark_runs']}, {secs(r['spark_seconds'])}, {money(r['spark_usd'])}" if r["spark_runs"] else "—"] for r in rows if r["runs"]]
     (ROOT / "docs" / "paperwork-final.json").write_text(json.dumps({"title": "Measured, on inputs it hadn't seen", "columns": ["Job", "Glimmer + plan", "Median", "Cloud per run", "Spark doing it live"], "rows": table, "highlight": None, "note": "Checked against each app's own data. Small samples. Every failed round is in docs/PROOF.md."}, indent=1))
     print("\n".join(lines))

@@ -1,0 +1,119 @@
+{
+ "app": "GNOME Calculator",
+ "how_it_behaves": "A small white calculator window is centred on a black background in Basic mode. It has a light-grey history pane above a white input line with a caret, and a keypad below with an orange = button on the right. Evaluating moves the entered expression, an = sign and the bold result onto the lowest line of the grey history pane and leaves the result in the white input line; multiplication is displayed as \u00d7 and division as \u00f7, including immediately when * or / are typed, so the input line will not read back literally with * or / characters.",
+ "skills": [
+  {
+   "name": "ensure_calculator_ready",
+   "does": "Confirm the Basic calculator window is visible and ready for input.",
+   "inputs": {},
+   "outputs": [],
+   "steps": [
+    {
+     "do": "ensure",
+     "question": "Is the white Basic calculator window showing, with a light-grey history pane above a white input line and a keypad below that includes an orange = button at the lower right?",
+     "why": "Calculation must not start until the calculator is on screen."
+    }
+   ]
+  },
+  {
+   "name": "clear_calculator",
+   "does": "Clear any previous expression or result from the calculator input.",
+   "inputs": {},
+   "outputs": [],
+   "steps": [
+    {
+     "do": "click",
+     "target": "the C button, the first button in the top row of the keypad directly below the white input line, to the left of the ( button"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the white input line below the grey history pane empty, showing only a text caret?",
+     "why": "A leftover expression or result must not contaminate the new calculation."
+    }
+   ]
+  },
+  {
+   "name": "calculate",
+   "does": "Type an input expression, evaluate it with Return, and read back and verify the displayed answer.",
+   "inputs": {
+    "expression": "the arithmetic expression to calculate, using keyboard characters such as digits, parentheses, +, -, * and /"
+   },
+   "outputs": [
+    "answer"
+   ],
+   "steps": [
+    {
+     "do": "call",
+     "skill": "ensure_calculator_ready",
+     "with": {}
+    },
+    {
+     "do": "call",
+     "skill": "clear_calculator",
+     "with": {}
+    },
+    {
+     "do": "type",
+     "target": "the white expression input line directly below the light-grey history pane and above the keypad, identifiable by the text caret at its left end",
+     "text": "{expression}",
+     "no_check": true
+    },
+    {
+     "do": "ensure",
+     "question": "Is the white input line showing the expression {expression}, allowing multiplication to be displayed as \u00d7 instead of * and division as \u00f7 instead of /?",
+     "why": "The calculator converts * and / to \u00d7 and \u00f7 as they are typed, so the literal read-back check on typing must be skipped and this visual check, which accepts the converted symbols, catches any mistyped expression before evaluating it."
+    },
+    {
+     "do": "key",
+     "keys": "Return"
+    },
+    {
+     "do": "ensure",
+     "question": "Has the lowest line of the light-grey history pane become a completed calculation with an = sign and a bold result at its right end, while the white input line below shows a result?",
+     "why": "Confirm Return evaluated the expression instead of leaving it uncalculated or going elsewhere."
+    },
+    {
+     "do": "read",
+     "into": "result",
+     "fields": {
+      "answer": "the value in the white input line directly below the grey history pane and above the C button row, at the left with the text caret immediately after it; this is not the bold value in the grey pane above",
+      "history_result": "the bold value at the right-hand end of the lowest completed line in the light-grey history pane, on the same line as the = sign and above the white input line"
+     },
+     "types": {
+      "answer": "number",
+      "history_result": "number"
+     }
+    },
+    {
+     "do": "compare",
+     "a": "{result.answer}",
+     "b": "{result.history_result}",
+     "kind": "number"
+    }
+   ]
+  }
+ ],
+ "jobs": {
+  "calculate": "calculate"
+ },
+ "compile_usd": 0.06598,
+ "repair_usd": 0,
+ "target": {
+  "name": "Calculator",
+  "kind": "desktop",
+  "command": [
+   "gnome-calculator"
+  ],
+  "blurb": "GNOME's native desktop calculator",
+  "suggested_goal": "Work out the expression given in the inputs using the calculator's own buttons, and report the answer shown on screen.",
+  "sample_params": {
+   "expression": "(17 + 25) * 3"
+  },
+  "id": "calculator"
+ },
+ "samples": {
+  "calculate": {
+   "expression": "(17 + 26) * 3"
+  }
+ }
+}

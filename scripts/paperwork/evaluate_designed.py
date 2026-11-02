@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Does a team designed by Muse Wonder work on paperwork that has nothing to do with clinics?
   evaluate_designed.py design <packets dir>      Wonder sees the one example packet and writes plan.json (costs cloud money, once)
+  evaluate_designed.py refine <packets dir>      runs the plan on the example, known to be correct, and has Wonder fix whatever it raises there (cloud)
   evaluate_designed.py run <packets dir> --label NAME
 
 The bar, set before the first run and not to be moved after a result: on each kind of paperwork, 12 packets,
@@ -41,7 +42,7 @@ def shown(want: str, values: list[str]) -> bool:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("what", choices=["design", "run"])
+    ap.add_argument("what", choices=["design", "refine", "run"])
     ap.add_argument("packets", type=Path)
     ap.add_argument("--label", default="designed")
     a = ap.parse_args()
@@ -54,6 +55,17 @@ def main() -> None:
         print(json.dumps(plan, indent=1))
         return
     plan = team.check_plan(json.loads(plan_file.read_text()))
+    if a.what == "refine":
+        pages = sorted((a.packets / "example").glob("*.jpg"))
+        for round_no in range(3):
+            result = team.process(plan, pages)
+            print(f"round {round_no}: {[i['field'] or i['kind'] for i in result['issues']]}", flush=True)
+            if not result["issues"]:
+                break
+            plan, cost = team.refine(plan, result["issues"], pages)
+            plan_file.write_text(json.dumps(plan, indent=1))
+            print(json.dumps(cost), flush=True)
+        return
     manifest = json.loads((a.packets / "manifest.json").read_text())
     tally = dict(wrong_saved=0, defects_sent=0, clean_cleared=0, false_alarm=0)
     for info in manifest:

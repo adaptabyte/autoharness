@@ -1,0 +1,141 @@
+{
+ "name": "Rental applicant verification",
+ "document": "a rental applicant's paperwork stack \u2014 a rental application, pay stub / earnings statement, or employment verification letter, which may be a scan, fax or phone photo",
+ "fields": [
+  {
+   "key": "applicant_name",
+   "label": "Applicant / employee name",
+   "type": "name",
+   "note": "The person applying: 'Applicant' on the application, 'Employee' on the pay stub, and the person named as employed in the letter body. Not the employer, property, or Human Resources signer.",
+   "required": true,
+   "identity": true
+  },
+  {
+   "key": "applicant_date_of_birth",
+   "label": "Applicant date of birth",
+   "type": "date",
+   "note": "Date of birth on the application only; do not use the employment start date or pay period in its place. Leave blank on pages that do not show it.",
+   "required": false,
+   "identity": true
+  },
+  {
+   "key": "employer_name",
+   "label": "Employer name",
+   "type": "name",
+   "note": "'Current employer' on the application, and the company letterhead/header on the pay stub and employment letter. Do not use 'Linden Court Apartments' or other property/landlord name at the top of the application, which is not the employer.",
+   "required": true,
+   "identity": true
+  },
+  {
+   "key": "employment_start_date",
+   "label": "Employment start date",
+   "type": "date",
+   "note": "'Employment start date' on the application and 'employed here since' date in the letter. Not the applicant's date of birth and not the pay period on the pay stub. Leave blank on pages that do not show it.",
+   "required": false,
+   "identity": false
+  },
+  {
+   "key": "gross_monthly_income",
+   "label": "Gross monthly income / gross monthly pay",
+   "type": "money",
+   "note": "'Gross monthly income' on the application, 'Gross pay this month' below the table (and the 'Regular pay' row) on the pay stub, and 'gross monthly pay' in the letter. Do not use 'Net pay' ($8,170.00 in the example) or the negative 'Federal tax' deduction, which are look-alikes on the pay stub.",
+   "required": true,
+   "identity": false
+  },
+  {
+   "key": "property_name",
+   "label": "Property / landlord name",
+   "type": "text",
+   "note": "The property name in the small header of the rental application, e.g. Linden Court Apartments. This is the landlord/property, not the applicant's employer shown as letterhead on the other pages. Leave blank on pages that do not show it.",
+   "required": false,
+   "identity": false
+  },
+  {
+   "key": "unit_applied_for",
+   "label": "Unit applied for",
+   "type": "code",
+   "note": "'Unit applied for' on the application only, e.g. 2A. Do not use any pay, tax, or date value in its place. Leave blank on pages that do not show it.",
+   "required": false,
+   "identity": false
+  }
+ ],
+ "tables": [
+  {
+   "key": "earnings_lines",
+   "label": "Pay stub earnings lines",
+   "columns": [
+    {
+     "key": "description",
+     "label": "Description",
+     "type": "text",
+     "note": "First column naming the row, exactly as shown, e.g. Regular pay, Federal tax, or Net pay. Only on the pay stub; leave the table empty on pages without it."
+    },
+    {
+     "key": "amount_this_period",
+     "label": "This period amount",
+     "type": "money",
+     "note": "Amount in the 'This period' column for that row. Keep deductions negative as shown, e.g. $-1,330.00 for Federal tax; Net pay is a row here, not the gross total."
+    }
+   ]
+  }
+ ],
+ "readers": [
+  {
+   "name": "Full reader",
+   "instruction": "Read every field and the earnings table exactly as shown on this page, leaving blank anything the page does not show. Ignore page titles, document type labels, headers/footers except where a field explicitly uses a letterhead name, and the pay period.",
+   "reads": [
+    "applicant_name",
+    "applicant_date_of_birth",
+    "employer_name",
+    "employment_start_date",
+    "gross_monthly_income",
+    "property_name",
+    "unit_applied_for",
+    "earnings_lines"
+   ]
+  },
+  {
+   "name": "Identity and employment specialist",
+   "instruction": "Read only the applicant's identity and employment details: name, date of birth, employer, and employment start date. Ignore all pay amounts, the unit, the property name, pay period, and earnings table rows.",
+   "reads": [
+    "applicant_name",
+    "applicant_date_of_birth",
+    "employer_name",
+    "employment_start_date"
+   ]
+  },
+  {
+   "name": "Income specialist",
+   "instruction": "Read only the applicant name, employer name, gross monthly income, and every earnings line with its This period amount. Carefully distinguish gross/regular pay from net pay and negative tax deductions, and ignore dates, date of birth, unit, and property name.",
+   "reads": [
+    "applicant_name",
+    "employer_name",
+    "gross_monthly_income",
+    "earnings_lines"
+   ]
+  },
+  {
+   "name": "Application details specialist",
+   "instruction": "Read only the applicant name, date of birth, property/landlord name, and unit applied for, mainly as shown on the rental application. Ignore employer letterheads on other pages as the property, and ignore all pay amounts, employment dates, and earnings lines.",
+   "reads": [
+    "applicant_name",
+    "applicant_date_of_birth",
+    "property_name",
+    "unit_applied_for"
+   ]
+  }
+ ],
+ "checks": [
+  {
+   "kind": "date_order",
+   "first": "applicant_date_of_birth",
+   "second": "employment_start_date"
+  },
+  {
+   "kind": "min_complete_rows",
+   "table": "earnings_lines",
+   "count": 1,
+   "message": "The pay stub should contribute at least one complete earnings line so its gross, deductions, and net pay can be checked against the stated income."
+  }
+ ]
+}

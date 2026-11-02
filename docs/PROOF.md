@@ -9,20 +9,22 @@ Results are checked against each app's own data: OpenEMR's saved record through 
 | Job | Glimmer + compiled plan | Wrong saved | Median | Cloud at run time | Muse Spark doing it live | Before this |
 |---|---|---|---|---|---|---|
 | A made-up insurer's portal: fill and save a five-step request | **5/5** | 0 | 122 s | $0 | 3/3, 556 s, $0.172 | Generated programs: 0 of 2 |
-| OpenEMR: find a patient, read their birth date | **0/5** | 0 | 55 s | $0 | 3/3, 84 s, $0.036 | Glimmer + generated program: 0 of 1 |
-| OpenEMR: change a patient's phone number | **5/5** | 0 | 83 s | $0 | 2/2, 275 s, $0.109 | Glimmer + generated program: 0 of 1 |
-| OpenEMR: read a whole chart | **0/5** | 0 | 58 s | $0 | — | Glimmer + written guide: 0 of 6 |
-| Django admin: mark an order shipped | **5/5** | 0 | 89 s | $0 | — |  |
-| Django admin: read an order | **4/4** | 0 | 49 s | $0 | — |  |
+| OpenEMR: find a patient, read their birth date | **5/5** | 0 | 47 s | $0 | 3/3, 84 s, $0.036 | Glimmer + generated program: 0 of 1 |
+| OpenEMR: change a patient's phone number | **5/5** | 0 | 83 s | $0 | 3/3, 293 s, $0.095 | Glimmer + generated program: 0 of 1 |
+| OpenEMR: read a whole chart | **5/5** | 0 | 167 s | $0 | 3/3, 218 s, $0.091 | Glimmer + written guide: 0 of 6 |
+| Django admin: mark an order shipped | **5/5** | 0 | 89 s | $0 | 3/3, 74 s, $0.024 |  |
+| Django admin: read an order | **5/5** | 0 | 47 s | $0 | 3/3, 52 s, $0.016 |  |
+| GNOME Calculator, a native desktop app | **5/5** | 0 | 15 s | $0 | 3/3, 24 s, $0.009 |  |
 
 Every proof round, including the ones that missed the bar:
 
 - A made-up insurer's portal: fill and save a five-step request: proof 5/5
-- OpenEMR: find a patient, read their birth date: proof 2/5, proof2 0/5
+- OpenEMR: find a patient, read their birth date: proof 2/5, proof2 0/5, proof3 5/5
 - OpenEMR: change a patient's phone number: proof 0/5, proof2 5/5
-- OpenEMR: read a whole chart: proof 0/5
+- OpenEMR: read a whole chart: proof 0/5, proof2 5/5
 - Django admin: mark an order shipped: proof 5/5
-- Django admin: read an order: proof 4/4
+- Django admin: read an order: proof 5/5
+- GNOME Calculator, a native desktop app: proof 5/5
 
 ## What teaching cost, once
 
@@ -31,8 +33,8 @@ Every proof round, including the ones that missed the bar:
 | portal | $0.197 | $0.212 | $0.934 | $1.343 |
 | openemr | $0.473 | $0.425 | $3.458 | $4.355 |
 | backoffice | $0.055 | $0.182 | $0.110 | $0.347 |
-| calculator | $0.007 | $0.066 | $0.000 | $0.073 |
-| openemr-chart | $0.000 | $0.298 | $0.804 | $1.102 |
+| calculator | $0.007 | $0.066 | $0.044 | $0.118 |
+| openemr-chart | $0.000 | $0.298 | $1.305 | $1.603 |
 
 ## Paperwork, the read-only case
 

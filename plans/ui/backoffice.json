@@ -1,0 +1,413 @@
+{
+ "app": "A Django admin back office",
+ "how_it_behaves": "Django administration login uses a centred form; pressing Enter after typing credentials does not reliably submit it, so the blue Log in button must be clicked. After login a browser 'Save password?' popup may overlay the top-right of the Site administration page and must be dismissed with 'Not now' (never its blue Save button). The home page lists Orders under the SHOP heading. The order list 'Select order to change' has a search box with a Search button that filters to matching rows; clicking the blue order number in the NUMBER column opens the 'Change order' edit page, whose heading and Number field show the order number. On the edit page Customer and Status are native dropdowns, Total and Tracking are text boxes, and the dark teal SAVE button at the bottom-left returns to the filtered list with a green 'was changed successfully' banner and the updated row. The filtered list screen also shows the same order number in the green banner and in the search box, so saved values are verified by re-opening the order and reading the Number, Status and Tracking fields on its edit page rather than reading those values out of the list table.",
+ "skills": [
+  {
+   "name": "log_in",
+   "does": "Log in to Django administration and dismiss the browser password-save popup if it appears.",
+   "inputs": {
+    "username": "admin username",
+    "password": "admin password"
+   },
+   "outputs": [],
+   "steps": [
+    {
+     "do": "ensure",
+     "question": "Is the Django administration login form showing, with Username and Password boxes and a blue Log in button?",
+     "why": "Must start on the login form before entering credentials."
+    },
+    {
+     "do": "type",
+     "target": "the Username text box in the centred login form, directly below the 'Username:' label and above the 'Password:' label",
+     "text": "{username}"
+    },
+    {
+     "do": "type",
+     "target": "the Password text box in the centred login form, directly below the 'Password:' label and above the blue Log in button",
+     "text": "{password}",
+     "secret": true
+    },
+    {
+     "do": "click",
+     "target": "the blue 'Log in' button centred below the Password box in the login form"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "dismiss",
+     "question": "Is a browser 'Save password?' popup open on the right side of the screen, with Username/Password fields and 'Not now' and blue 'Save' buttons?",
+     "target": "the light-blue 'Not now' button in the Save password popup on the right, to the left of the dark blue Save button (do not click that popup Save button)"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the 'Site administration' page showing, with AUTHENTICATION AND AUTHORIZATION and SHOP sections?",
+     "why": "Confirms login succeeded and landed on the admin home page, not back on the login form."
+    }
+   ]
+  },
+  {
+   "name": "open_orders",
+   "does": "Open the Orders list from the admin home page.",
+   "inputs": {},
+   "outputs": [],
+   "steps": [
+    {
+     "do": "dismiss",
+     "question": "Is a browser 'Save password?' popup open on the right side of the screen, with 'Not now' and blue 'Save' buttons?",
+     "target": "the light-blue 'Not now' button in the Save password popup on the right, to the left of the dark blue Save button"
+    },
+    {
+     "do": "click",
+     "target": "the 'Orders' text link in the SHOP section near the bottom-left of the Site administration page, below the 'Customers' link and distinct from the '+ Add' and 'Change' links on the same row"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "dismiss",
+     "question": "Is a browser 'Save password?' popup open on the right side of the screen, with 'Not now' and blue 'Save' buttons?",
+     "target": "the light-blue 'Not now' button in the Save password popup on the right, to the left of the dark blue Save button"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the 'Select order to change' page showing, with a search box and Search button above a table with NUMBER, CUSTOMER, STATUS, TOTAL and TRACKING columns?",
+     "why": "Confirms the Orders list opened and not Customers, Users, Groups or an Add page."
+    }
+   ]
+  },
+  {
+   "name": "find_and_open_order",
+   "does": "Search the order list by order number and open that exact order's edit page.",
+   "inputs": {
+    "number": "order number to find, e.g. the ORD-xxxxx identifier"
+   },
+   "outputs": [],
+   "steps": [
+    {
+     "do": "ensure",
+     "question": "Is the 'Select order to change' order list showing, with its search box and Search button?",
+     "why": "Search must be used on the order list before opening any order."
+    },
+    {
+     "do": "type",
+     "target": "the wide empty search text box at the top of the Select order to change list, with a magnifying-glass icon on its left and the Search button on its right",
+     "text": "{number}"
+    },
+    {
+     "do": "click",
+     "target": "the grey 'Search' button immediately to the right of the search box at the top of the order list"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "ensure",
+     "question": "Does the filtered order list show a result row whose NUMBER column is exactly {number}?",
+     "why": "Confirms the search found the requested order; a missing or different row must stop rather than open another order."
+    },
+    {
+     "do": "click",
+     "target": "the blue link labelled exactly {number} in the NUMBER column of the filtered results table, in the row for that order (not the search box text and not any other order number)"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "dismiss",
+     "question": "Is a browser 'Save password?' popup open on the right side of the screen, with 'Not now' and blue 'Save' buttons?",
+     "target": "the light-blue 'Not now' button in the Save password popup on the right, to the left of the dark blue Save button"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the 'Change order' edit page showing, with Number, Customer, Status, Total and Tracking fields?",
+     "why": "Confirms clicking the row opened an order edit page."
+    }
+   ]
+  },
+  {
+   "name": "read_order_details",
+   "does": "Read the current order's number, customer and total from its edit page and confirm the number matches the requested order.",
+   "inputs": {
+    "number": "expected order number to confirm against the page"
+   },
+   "outputs": [
+    "order.number",
+    "order.customer",
+    "order.total"
+   ],
+   "steps": [
+    {
+     "do": "ensure",
+     "question": "Is the 'Change order' edit page showing, with labelled Number, Customer, Status, Total and Tracking fields all visible without scrolling?",
+     "why": "All fields read here must be visible on this one screen."
+    },
+    {
+     "do": "read",
+     "into": "order",
+     "fields": {
+      "number": "the value in the text box to the right of the 'Number:' label, at the top of the field list below the bold order-number heading",
+      "customer": "the selected name shown in the Customer dropdown to the right of the 'Customer:' label, between the Number field above and the Status field below, ignoring the pencil/plus/cross/eye icons to its right",
+      "total": "the value in the text box to the right of the 'Total:' label, between the Status dropdown above and the Tracking box below"
+     },
+     "types": {
+      "number": "code",
+      "customer": "name",
+      "total": "money"
+     }
+    },
+    {
+     "do": "compare",
+     "a": "{order.number}",
+     "b": "{number}",
+     "kind": "code"
+    }
+   ]
+  },
+  {
+   "name": "edit_order_shipping",
+   "does": "Set the Status dropdown and Tracking box on the already-confirmed order edit page, without saving.",
+   "inputs": {
+    "new_status": "new status value to select in the Status dropdown",
+    "new_tracking": "new tracking value to type in the Tracking box"
+   },
+   "outputs": [],
+   "steps": [
+    {
+     "do": "choose",
+     "target": "the Status native dropdown to the right of the 'Status:' label, between the Customer dropdown above and the Total box below",
+     "option": "{new_status}"
+    },
+    {
+     "do": "type",
+     "target": "the Tracking text box to the right of the 'Tracking:' label, between the Total box above and the large Notes area below",
+     "text": "{new_tracking}"
+    },
+    {
+     "do": "read",
+     "into": "edited",
+     "fields": {
+      "status": "the selected value shown in the Status dropdown to the right of the 'Status:' label",
+      "tracking": "the value in the Tracking text box to the right of the 'Tracking:' label, between Total above and Notes below"
+     },
+     "types": {
+      "status": "text",
+      "tracking": "code"
+     }
+    },
+    {
+     "do": "compare",
+     "a": "{edited.status}",
+     "b": "{new_status}",
+     "kind": "text"
+    },
+    {
+     "do": "compare",
+     "a": "{edited.tracking}",
+     "b": "{new_tracking}",
+     "kind": "code"
+    }
+   ]
+  },
+  {
+   "name": "read_order",
+   "does": "Log in, search for the requested order, open it, confirm its number, and report its total and customer.",
+   "inputs": {
+    "number": "order number to look up",
+    "username": "admin username",
+    "password": "admin password"
+   },
+   "outputs": [
+    "order.number",
+    "order.customer",
+    "order.total"
+   ],
+   "steps": [
+    {
+     "do": "call",
+     "skill": "log_in",
+     "with": {
+      "username": "{username}",
+      "password": "{password}"
+     }
+    },
+    {
+     "do": "call",
+     "skill": "open_orders",
+     "with": {}
+    },
+    {
+     "do": "call",
+     "skill": "find_and_open_order",
+     "with": {
+      "number": "{number}"
+     }
+    },
+    {
+     "do": "call",
+     "skill": "read_order_details",
+     "with": {
+      "number": "{number}"
+     }
+    }
+   ]
+  },
+  {
+   "name": "ship_order",
+   "does": "Log in, search for and open the requested order, confirm its number, set its status and tracking, save, re-open the order, and verify the saved number, status and tracking on its edit page.",
+   "inputs": {
+    "number": "order number to update",
+    "new_status": "new status to set",
+    "new_tracking": "new tracking value to set",
+    "username": "admin username",
+    "password": "admin password"
+   },
+   "outputs": [
+    "result.number",
+    "result.status",
+    "result.tracking"
+   ],
+   "steps": [
+    {
+     "do": "call",
+     "skill": "log_in",
+     "with": {
+      "username": "{username}",
+      "password": "{password}"
+     }
+    },
+    {
+     "do": "call",
+     "skill": "open_orders",
+     "with": {}
+    },
+    {
+     "do": "call",
+     "skill": "find_and_open_order",
+     "with": {
+      "number": "{number}"
+     }
+    },
+    {
+     "do": "call",
+     "skill": "read_order_details",
+     "with": {
+      "number": "{number}"
+     }
+    },
+    {
+     "do": "call",
+     "skill": "edit_order_shipping",
+     "with": {
+      "new_status": "{new_status}",
+      "new_tracking": "{new_tracking}"
+     }
+    },
+    {
+     "do": "click",
+     "target": "the dark teal 'SAVE' button at the bottom-left of the Change order form, distinct from 'Save and add another' and 'Save and continue editing' beside it and from the red Delete button at the bottom-right"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "dismiss",
+     "question": "Is a browser 'Save password?' popup open on the right side of the screen, with 'Not now' and blue 'Save' buttons?",
+     "target": "the light-blue 'Not now' button in the Save password popup on the right, to the left of the dark blue Save button"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the 'Select order to change' list showing again with a green success banner saying the order was changed successfully?",
+     "why": "SAVE should return to the order list; anything else means the save may not have completed."
+    },
+    {
+     "do": "ensure",
+     "question": "Does the filtered list still show one result row whose NUMBER column is exactly {number}?",
+     "why": "Verification must re-open the same order that was searched for, not another order."
+    },
+    {
+     "do": "click",
+     "target": "the blue link labelled exactly {number} in the NUMBER column of the filtered results table, in the single result row below the NUMBER/CUSTOMER/STATUS/TOTAL/TRACKING header (not the same order number quoted in the green success banner at the top and not the text inside the search box)"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "dismiss",
+     "question": "Is a browser 'Save password?' popup open on the right side of the screen, with 'Not now' and blue 'Save' buttons?",
+     "target": "the light-blue 'Not now' button in the Save password popup on the right, to the left of the dark blue Save button"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the 'Change order' edit page showing, with labelled Number, Customer, Status, Total and Tracking fields all visible without scrolling?",
+     "why": "Saved values are verified from the re-opened edit page fields, which are unambiguous, instead of from the list table where the order number also appears in the banner and search box."
+    },
+    {
+     "do": "read",
+     "into": "result",
+     "fields": {
+      "number": "the value in the text box to the right of the 'Number:' label, at the top of the field list below the bold order-number heading",
+      "status": "the selected value shown in the Status dropdown to the right of the 'Status:' label, between the Customer dropdown above and the Total box below",
+      "tracking": "the value in the Tracking text box to the right of the 'Tracking:' label, between the Total box above and the large Notes area below"
+     },
+     "types": {
+      "number": "code",
+      "status": "text",
+      "tracking": "code"
+     }
+    },
+    {
+     "do": "compare",
+     "a": "{result.number}",
+     "b": "{number}",
+     "kind": "code"
+    },
+    {
+     "do": "compare",
+     "a": "{result.status}",
+     "b": "{new_status}",
+     "kind": "text"
+    },
+    {
+     "do": "compare",
+     "a": "{result.tracking}",
+     "b": "{new_tracking}",
+     "kind": "code"
+    }
+   ]
+  }
+ ],
+ "jobs": {
+  "ship_order": "ship_order",
+  "read_order": "read_order"
+ },
+ "compile_usd": 0.182172,
+ "repair_usd": 0,
+ "target": {
+  "name": "Order back office",
+  "kind": "web",
+  "url": "http://127.0.0.1:8320/admin/",
+  "start_timeout": 30,
+  "settle": 1.0
+ },
+ "samples": {
+  "ship_order": {
+   "number": "ORD-25874",
+   "new_status": "Shipped",
+   "new_tracking": "TRK944611",
+   "username": "manager",
+   "password": "demo-pass"
+  },
+  "read_order": {
+   "number": "ORD-25874",
+   "username": "manager",
+   "password": "demo-pass"
+  }
+ }
+}

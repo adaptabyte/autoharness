@@ -57,9 +57,9 @@ def main() -> None:
             t0 = time.time()
             rec = uiteam.explore(display, target, info["goal"](inputs), meter, limit_usd=a.limit)
             seconds = round(time.time() - t0, 1)
-            said = " ".join(r["said"] for r in rec["record"][-3:])
+            said = " ".join(r["said"] for r in rec["record"][-2:])
             finished = rec["status"] == "finished"
-            result = {"status": "done" if finished else "needs_help", "reason": rec["status"], "outputs": {"answer": values_from_text(said)}, "scope": {}}
+            result = {"status": "done" if finished else "needs_help", "reason": rec["status"], "outputs": {"answer": values_from_text(said)}, "scope": {}, "written": said if a.job == "read_chart" else ""}
             ok, detail, wrong = info["judge"](result, inputs, before)
             row = dict(run="spark", app=a.app, job=a.job, i=i, ok=ok, wrong_saved=wrong, detail=detail[:300], status=rec["status"], seconds=seconds, turns=rec["turns"], usd=round(meter.usd, 4), bytes_sent=meter.bytes_sent, answer=said[-300:], at=time.time())
             with OUT.open("a") as f:

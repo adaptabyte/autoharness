@@ -1,0 +1,667 @@
+{
+ "app": "OpenEMR, reading whole charts",
+ "how_it_behaves": "Login opens a calendar behind a central OpenEMR Product Registration modal and sometimes a browser Save password panel, both of which block work. The top demographics search and the Patient Finder table filter are unreliable: they can show no matches, lose results on refresh, and return look-alike patients. The reliable route is Patient > Search or Add Patient, entering first and last name, using the grey Search button at the bottom (never Create New Patient), then picking the exact name row in the results popup. Typing into the First Name and Last Name search boxes can be read back incorrectly by a single-screenshot reader even when the boxes visibly contain the full correctly typed names, for example dropping or altering a final letter; those two type steps therefore must not rely on the type step's own read-back, and the typed names are instead verified by requiring the exact '{last}, {first}' row to be visible in the search results popup before that row is clicked. The search results popup can be a long alphabetically ordered list containing many patients, so the exact matching row may be far down the list and not reached after only a couple of scrolls; it must be sought by repeatedly scrolling the popup list a little at a time and re-checking for the exact row after each scroll, continuing well beyond the first few scrolls, rather than assuming the row is absent if it is not seen early in the list. A chart's plain-text heading after 'Medical Record Dashboard -' gives the patient name; the blue header above it has look-alike ID and DOB values. Verify that heading with a yes/no ensure only: reading the heading name as a field can return nothing even when the heading is plainly showing, so a read-and-compare of it must not be used to confirm the patient. Demographics in the Dashboard Who panel holds External ID (the plan member ID) and DOB. On the Issues page, Medical Problems and Medications are separate sections; each row has a '>' expander at its far left that opens inline dates and comments and pushes later rows down, so rows must be re-found by title before expanding. Expanding a row near the bottom of the screen turns its '>' into a down chevron but puts the expanded detail below the visible area, so after expanding a row you must scroll down to bring that detail into view before checking for or reading it. Expanding a row higher up the screen may already show its detail with no scrolling at all, and a fixed or large scroll after expanding can push that row itself off the top of the screen while its detail remains below; so after expanding, first check whether the detail is already visible and only scroll in small one-notch steps while it is not, and do not require the title row and its detail table to be on screen at the same time, since bringing lower detail into view can move the title just out of view. The expanded detail under a row is not separate date/comment lines: it is a small table with column headings such as 'Last Modified', 'Start Date', 'End Date' and 'Comments' on one line and the values on the line underneath those headings; a row with no start or end date may omit those two columns entirely, showing only 'Last Modified' and 'Comments'. Such a row is a complete, valid row: its 'Comments' value is still present and must be read, and the row must still be recorded with its dates simply absent, not skipped, dropped, or read as entirely empty because the date columns are missing. A medication title and its expanded detail table can be split across two views by a large scroll, and a list read then records the title with empty detail, so list reads over the expanded Medications section must scroll in small steps so each title stays on screen together with its detail table. A diagnosis code sits in parentheses at the very end of a Medical Problems blue title, just before a separate parenthesised status word such as (Active); the code and the status are two different parenthesised parts and must be read as separate fields. The Issues page is shown in a 'Patient Issues' tab alongside Calendar, Message Center and Visit History tabs, with no Dashboard link visible in that tab row or elsewhere on that page, so identity cannot be re-read by clicking a Dashboard link after going to Issues; read identity from the Dashboard before opening Issues and do not navigate back afterwards. This job is read-only.",
+ "skills": [
+  {
+   "name": "log_in",
+   "does": "Log in to OpenEMR and dismiss the popups that can block the main screen.",
+   "inputs": {
+    "username": "the OpenEMR username",
+    "password": "the OpenEMR password"
+   },
+   "outputs": [],
+   "steps": [
+    {
+     "do": "type",
+     "target": "the Username text box on the login form, to the right of the 'Username' label and above the Password box",
+     "text": "{username}"
+    },
+    {
+     "do": "type",
+     "target": "the Password text box on the login form, to the right of the 'Password' label and above the Language dropdown",
+     "text": "{password}",
+     "secret": true
+    },
+    {
+     "do": "click",
+     "target": "the blue Login button spanning the width of the login form below the Language dropdown"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "dismiss",
+     "question": "Is a Save password panel open?",
+     "target": "the Not now button at the bottom of the Save password panel in the top-right corner"
+    },
+    {
+     "do": "dismiss",
+     "question": "Is an OpenEMR Product Registration popup open?",
+     "target": "the Ask again later button at the bottom-right of the central registration popup, to the right of the blue Submit button"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the Calendar page showing?",
+     "why": "confirms login succeeded and the popups are gone before searching"
+    }
+   ]
+  },
+  {
+   "name": "open_patient",
+   "does": "Open the exact patient's chart through Patient > Search or Add Patient and confirm it is the right person. The First and Last Name type steps do not use the type step's read-back, which can misread a correctly filled name box; correctness is instead confirmed by requiring the exact name row in the results popup before clicking it. The results popup may be a long list, so the exact row is sought by repeated small scrolls of the popup, re-checking after each scroll, until it is found.",
+   "inputs": {
+    "first": "the patient's first name",
+    "last": "the patient's last name"
+   },
+   "outputs": [],
+   "steps": [
+    {
+     "do": "dismiss",
+     "question": "Is an OpenEMR Product Registration popup open?",
+     "target": "the Ask again later button at the bottom-right of the central registration popup, to the right of the blue Submit button"
+    },
+    {
+     "do": "click",
+     "target": "the Patient menu label in the black top navigation bar, between Messages and Fees"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the Patient menu dropdown open?",
+     "why": "confirms the menu opened before choosing from it"
+    },
+    {
+     "do": "click",
+     "target": "the Search or Add Patient item in the dropdown that opened below the Patient top menu"
+    },
+    {
+     "do": "ensure",
+     "question": "Is 'Search or Add Patient' heading showing?",
+     "why": "confirms the detailed patient search form opened"
+    },
+    {
+     "do": "type",
+     "target": "the empty input box with the placeholder text 'First Name' in the row to the right of the red 'Name:' label, the leftmost of the four boxes in that row and immediately left of the 'Middle Name' box",
+     "text": "{first}",
+     "no_check": true
+    },
+    {
+     "do": "type",
+     "target": "the empty input box with the placeholder text 'Last Name' in the row to the right of the red 'Name:' label, to the right of the 'Middle Name' box and immediately left of the 'Name Suffix' box in that same row",
+     "text": "{last}",
+     "no_check": true
+    },
+    {
+     "do": "scroll",
+     "dy": 5
+    },
+    {
+     "do": "ensure",
+     "question": "Is the Search button showing?",
+     "why": "confirms the bottom of the search form is in view before searching"
+    },
+    {
+     "do": "click",
+     "target": "the grey Search button with a magnifying glass at the bottom-left of the form, immediately left of the blue Create New Patient button"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "ensure",
+     "question": "Is a patient results list open?",
+     "why": "confirms the search produced a results popup before picking a row"
+    },
+    {
+     "do": "if",
+     "question": "Is the '{last}, {first}' name visible in the results list?",
+     "then": [],
+     "else": [
+      {
+       "do": "scroll",
+       "dy": 3,
+       "target": "the patient results popup list in the centre of the screen"
+      }
+     ]
+    },
+    {
+     "do": "if",
+     "question": "Is the '{last}, {first}' name visible in the results list?",
+     "then": [],
+     "else": [
+      {
+       "do": "scroll",
+       "dy": 3,
+       "target": "the patient results popup list in the centre of the screen"
+      }
+     ]
+    },
+    {
+     "do": "if",
+     "question": "Is the '{last}, {first}' name visible in the results list?",
+     "then": [],
+     "else": [
+      {
+       "do": "scroll",
+       "dy": 3,
+       "target": "the patient results popup list in the centre of the screen"
+      }
+     ]
+    },
+    {
+     "do": "if",
+     "question": "Is the '{last}, {first}' name visible in the results list?",
+     "then": [],
+     "else": [
+      {
+       "do": "scroll",
+       "dy": 3,
+       "target": "the patient results popup list in the centre of the screen"
+      }
+     ]
+    },
+    {
+     "do": "if",
+     "question": "Is the '{last}, {first}' name visible in the results list?",
+     "then": [],
+     "else": [
+      {
+       "do": "scroll",
+       "dy": 3,
+       "target": "the patient results popup list in the centre of the screen"
+      }
+     ]
+    },
+    {
+     "do": "if",
+     "question": "Is the '{last}, {first}' name visible in the results list?",
+     "then": [],
+     "else": [
+      {
+       "do": "scroll",
+       "dy": 3,
+       "target": "the patient results popup list in the centre of the screen"
+      }
+     ]
+    },
+    {
+     "do": "if",
+     "question": "Is the '{last}, {first}' name visible in the results list?",
+     "then": [],
+     "else": [
+      {
+       "do": "scroll",
+       "dy": 3,
+       "target": "the patient results popup list in the centre of the screen"
+      }
+     ]
+    },
+    {
+     "do": "if",
+     "question": "Is the '{last}, {first}' name visible in the results list?",
+     "then": [],
+     "else": [
+      {
+       "do": "scroll",
+       "dy": 3,
+       "target": "the patient results popup list in the centre of the screen"
+      }
+     ]
+    },
+    {
+     "do": "if",
+     "question": "Is the '{last}, {first}' name visible in the results list?",
+     "then": [],
+     "else": [
+      {
+       "do": "scroll",
+       "dy": 3,
+       "target": "the patient results popup list in the centre of the screen"
+      }
+     ]
+    },
+    {
+     "do": "if",
+     "question": "Is the '{last}, {first}' name visible in the results list?",
+     "then": [],
+     "else": [
+      {
+       "do": "scroll",
+       "dy": 3,
+       "target": "the patient results popup list in the centre of the screen"
+      }
+     ]
+    },
+    {
+     "do": "if",
+     "question": "Is the '{last}, {first}' name visible in the results list?",
+     "then": [],
+     "else": [
+      {
+       "do": "scroll",
+       "dy": 3,
+       "target": "the patient results popup list in the centre of the screen"
+      }
+     ]
+    },
+    {
+     "do": "if",
+     "question": "Is the '{last}, {first}' name visible in the results list?",
+     "then": [],
+     "else": [
+      {
+       "do": "scroll",
+       "dy": 3,
+       "target": "the patient results popup list in the centre of the screen"
+      }
+     ]
+    },
+    {
+     "do": "ensure",
+     "question": "Is the exact name '{last}, {first}' visible as a row in the patient results list?",
+     "why": "this exact-name row in the results, rather than the name boxes' own read-back which can misread a correctly typed name, confirms the search was typed for the intended patient before any row is clicked; the list is long, so this is only checked after repeated scrolling through the popup"
+    },
+    {
+     "do": "click",
+     "target": "the '{last}, {first}' text in the Name column, the first column of the patient results popup, on the row whose name matches exactly and not a similar surname row"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "dismiss",
+     "question": "Is an OpenEMR Product Registration popup open?",
+     "target": "the Ask again later button at the bottom-right of the central registration popup, to the right of the blue Submit button"
+    },
+    {
+     "do": "dismiss",
+     "question": "Is a Save password panel open?",
+     "target": "the Not now button at the bottom of the Save password panel in the top-right corner"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the Medical Record Dashboard heading showing?",
+     "why": "confirms a patient chart opened"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the heading 'Medical Record Dashboard - {first} {last}' showing at the left of the page, below the Dashboard tab?",
+     "why": "confirms the chart that opened is for the exact patient searched for, before any read is relied on; this yes/no check on the visible heading is the patient confirmation, not a field read of the heading"
+    }
+   ]
+  },
+  {
+   "name": "read_identity",
+   "does": "Read the patient's date of birth and plan member ID (External ID) from the Dashboard, after confirming the exact patient from the visible heading. Only call this while the chart's Dashboard is the current view, as opened by open_patient; do not call it after navigating to the Issues page, which has no Dashboard link to return with.",
+   "inputs": {
+    "first": "the patient's first name",
+    "last": "the patient's last name"
+   },
+   "outputs": [
+    "identity"
+   ],
+   "steps": [
+    {
+     "do": "if",
+     "question": "Is the Medical Record Dashboard heading showing?",
+     "then": [],
+     "else": [
+      {
+       "do": "click",
+       "target": "the Dashboard text link in the secondary navigation row below the patient header, the first link before History"
+      },
+      {
+       "do": "wait",
+       "seconds": 2
+      }
+     ]
+    },
+    {
+     "do": "ensure",
+     "question": "Is the Medical Record Dashboard heading showing?",
+     "why": "confirms the Dashboard view is open before reading identity"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the heading 'Medical Record Dashboard - {first} {last}' showing at the left of the page, below the Dashboard tab?",
+     "why": "confirms the Dashboard shown is for the exact patient before reading identity; this yes/no check on the visible heading is the patient confirmation, not a field read of the heading"
+    },
+    {
+     "do": "scroll",
+     "dy": 5
+    },
+    {
+     "do": "ensure",
+     "question": "Is the Demographics External ID showing?",
+     "why": "confirms the Demographics Who panel is in view before reading the member ID"
+    },
+    {
+     "do": "read",
+     "into": "identity",
+     "fields": {
+      "member_id": "the value to the right of the 'External ID:' label in the Demographics Who panel, not the ID in parentheses after the blue header name",
+      "dob": "the date to the right of the 'DOB:' label in the same Demographics Who panel, not the DOB line under the blue header name"
+     },
+     "types": {
+      "member_id": "id",
+      "dob": "date"
+     }
+    }
+   ]
+  },
+  {
+   "name": "read_issues",
+   "does": "Read the medical problems (with each diagnosis code as its own field) and the full medication history from the Issues tab.",
+   "inputs": {
+    "first": "the patient's first name",
+    "last": "the patient's last name"
+   },
+   "outputs": [
+    "problems",
+    "medications"
+   ],
+   "steps": [
+    {
+     "do": "scroll",
+     "dy": -5
+    },
+    {
+     "do": "click",
+     "target": "the Issues text link in the secondary navigation row below the patient header, between Transactions and Ledger"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "dismiss",
+     "question": "Is an OpenEMR Product Registration popup open?",
+     "target": "the Ask again later button at the bottom-right of the central registration popup, to the right of the blue Submit button"
+    },
+    {
+     "do": "ensure",
+     "question": "Is 'Medical Issues' heading showing?",
+     "why": "confirms the Issues page opened for this patient"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the 'Medical Problems' heading showing?",
+     "why": "confirms the top of the Issues page is in view before reading the problems list"
+    },
+    {
+     "do": "read_list",
+     "into": "problems",
+     "item": {
+      "title": "the blue linked title text of the row, stopping before the first parenthesised part at the end of that blue text",
+      "code": "the diagnosis code inside the parentheses at the very end of the blue linked title text, just before the separate parenthesised status word that follows the blue text; this is a code of letters and numbers, not the status word",
+      "status": "the status word inside the parentheses immediately after the blue linked title text, after the diagnosis code parentheses"
+     },
+     "where": "Only rows directly under the 'Medical Problems' heading and above the 'Health Concerns' heading; ignore every other section and any 'None' rows",
+     "scroll": 0,
+     "max_pages": 1
+    },
+    {
+     "do": "read_list",
+     "into": "medication_rows",
+     "item": {
+      "title": "the blue linked medication title text of the row, including any strength in that text but not the parenthesised status word after it",
+      "status": "the status word in parentheses immediately after the blue medication title, not the Occurrence text at the right end of the row"
+     },
+     "where": "Only rows under the 'Medications' heading; ignore Medical Problems, Health Concerns and Allergies rows and any 'None' rows",
+     "scroll": 2,
+     "max_pages": 8
+    },
+    {
+     "do": "scroll",
+     "dy": -5
+    },
+    {
+     "do": "for_each",
+     "list": "{medication_rows}",
+     "as": "row",
+     "steps": [
+      {
+       "do": "if",
+       "question": "Is the medication row '{row.title}' visible?",
+       "then": [],
+       "else": [
+        {
+         "do": "scroll",
+         "dy": 2
+        }
+       ]
+      },
+      {
+       "do": "if",
+       "question": "Is the medication row '{row.title}' visible?",
+       "then": [],
+       "else": [
+        {
+         "do": "scroll",
+         "dy": 2
+        }
+       ]
+      },
+      {
+       "do": "if",
+       "question": "Is the medication row '{row.title}' visible?",
+       "then": [],
+       "else": [
+        {
+         "do": "scroll",
+         "dy": 2
+        }
+       ]
+      },
+      {
+       "do": "ensure",
+       "question": "Is the medication row '{row.title}' visible?",
+       "why": "confirms this row was re-found by title before expanding it, since earlier expansions push later rows down"
+      },
+      {
+       "do": "click",
+       "target": "the small '>' expand arrow at the far left of the medication row titled '{row.title}', left of the chain-link icon and the blue title, not the blue title link itself"
+      },
+      {
+       "do": "wait",
+       "seconds": 1
+      },
+      {
+       "do": "if",
+       "question": "Is the 'Last Modified' column heading of the expanded detail table directly below the '{row.title}' medication row visible?",
+       "then": [],
+       "else": [
+        {
+         "do": "scroll",
+         "dy": 1
+        }
+       ]
+      },
+      {
+       "do": "if",
+       "question": "Is the 'Last Modified' column heading of the expanded detail table directly below the '{row.title}' medication row visible?",
+       "then": [],
+       "else": [
+        {
+         "do": "scroll",
+         "dy": 1
+        }
+       ]
+      },
+      {
+       "do": "if",
+       "question": "Is the 'Last Modified' column heading of the expanded detail table directly below the '{row.title}' medication row visible?",
+       "then": [],
+       "else": [
+        {
+         "do": "scroll",
+         "dy": 1
+        }
+       ]
+      },
+      {
+       "do": "if",
+       "question": "Is the 'Last Modified' column heading of the expanded detail table directly below the '{row.title}' medication row visible?",
+       "then": [],
+       "else": [
+        {
+         "do": "scroll",
+         "dy": 1
+        }
+       ]
+      },
+      {
+       "do": "ensure",
+       "question": "Is the 'Comments' column heading of the expanded detail table for the '{row.title}' medication row visible?",
+       "why": "confirms this row's own expanded detail table was scrolled into view before reading it; the title row itself does not need to be on screen at the same time, since scrolling the detail into view can move the title just above the visible area; detail belonging to other rows does not count; this table is complete even if it has only 'Last Modified' and 'Comments' columns and no date columns"
+      },
+      {
+       "do": "read",
+       "into": "medication_detail",
+       "fields": {
+        "comment": "the full text written underneath the 'Comments' column heading in the expanded detail table that was just opened for the '{row.title}' row and is now visible, copied exactly as written; read this even when that table has no 'Start Date' or 'End Date' columns",
+        "start": "the value written underneath the 'Start Date' column heading in that same expanded detail table now visible for the '{row.title}' row; this column is optional: if the table has only 'Last Modified' and 'Comments' columns and no 'Start Date' column at all, leave this empty and still read the comment",
+        "end": "the value written underneath the 'End Date' column heading in that same expanded detail table now visible for the '{row.title}' row; this column is optional: if the table has only 'Last Modified' and 'Comments' columns and no 'End Date' column at all, leave this empty and still read the comment"
+       },
+       "types": {
+        "comment": "text",
+        "start": "text",
+        "end": "text"
+       }
+      }
+     ]
+    },
+    {
+     "do": "scroll",
+     "dy": -5
+    },
+    {
+     "do": "if",
+     "question": "Is the Medications heading visible?",
+     "then": [],
+     "else": [
+      {
+       "do": "scroll",
+       "dy": 2
+      }
+     ]
+    },
+    {
+     "do": "if",
+     "question": "Is the Medications heading visible?",
+     "then": [],
+     "else": [
+      {
+       "do": "scroll",
+       "dy": 2
+      }
+     ]
+    },
+    {
+     "do": "ensure",
+     "question": "Is the Medications heading visible?",
+     "why": "confirms the top of the Medications section is in view before the final slow list read, so no expanded row is skipped"
+    },
+    {
+     "do": "read_list",
+     "into": "medications",
+     "item": {
+      "title": "the blue linked medication title text of the row, including any strength in that text but not the parenthesised status word after it",
+      "status": "the status word in parentheses immediately after the blue medication title, not the Occurrence text at the right end of the row",
+      "comment": "the full text underneath the 'Comments' column heading in the expanded detail table directly below that medication row and above the next medication title, copied exactly as written; every expanded detail table has this column, including a table that has only 'Last Modified' and 'Comments'",
+      "start": "the value underneath the 'Start Date' column heading in that same expanded detail table if a 'Start Date' column is present; this is optional: if the table has no 'Start Date' column, leave this empty and still record the row and its comment",
+      "end": "the value underneath the 'End Date' column heading in that same expanded detail table if an 'End Date' column is present; this is optional: if the table has no 'End Date' column, leave this empty and still record the row and its comment"
+     },
+     "where": "Only medication rows under the 'Medications' heading, each taken together with its own expanded detail table directly beneath it on the same screen. Record every such row, including any row whose expanded detail table shows only 'Last Modified' and 'Comments' with no 'Start Date' or 'End Date' columns: that row is complete, do not skip it, do not drop it, and do not record its comment as empty merely because its dates are absent. If a title is at the very bottom of the screen with its detail table not yet visible, do not record that row yet, wait until a later page shows the title together with its detail table; ignore all other sections and any 'None' rows",
+     "scroll": 1,
+     "max_pages": 12
+    },
+    {
+     "do": "ensure",
+     "question": "Are medication rows showing?",
+     "why": "confirms the final medication history was read back from the expanded rows"
+    }
+   ]
+  },
+  {
+   "name": "read_patient_chart",
+   "does": "Log in, open the named patient's chart, and read their plan member ID, date of birth, diagnosis code and medication history without changing anything. Identity is read once, from the Dashboard before going to Issues, because the Issues page offers no Dashboard link to return with, so there is deliberately no second identity read at the end.",
+   "inputs": {
+    "username": "the OpenEMR username",
+    "password": "the OpenEMR password",
+    "first": "the patient's first name",
+    "last": "the patient's last name"
+   },
+   "outputs": [
+    "identity",
+    "problems",
+    "medications"
+   ],
+   "steps": [
+    {
+     "do": "call",
+     "skill": "log_in",
+     "with": {
+      "username": "{username}",
+      "password": "{password}"
+     }
+    },
+    {
+     "do": "call",
+     "skill": "open_patient",
+     "with": {
+      "first": "{first}",
+      "last": "{last}"
+     }
+    },
+    {
+     "do": "call",
+     "skill": "read_identity",
+     "with": {
+      "first": "{first}",
+      "last": "{last}"
+     }
+    },
+    {
+     "do": "call",
+     "skill": "read_issues",
+     "with": {
+      "first": "{first}",
+      "last": "{last}"
+     }
+    }
+   ]
+  }
+ ],
+ "jobs": {
+  "read_chart": "read_patient_chart"
+ },
+ "compile_usd": 0.298044,
+ "repair_usd": 0,
+ "target": {
+  "name": "OpenEMR",
+  "kind": "web",
+  "url": "http://127.0.0.1:8300/interface/login/login.php?site=default",
+  "blurb": "A real open-source medical records system, running on this machine with made-up patients",
+  "start_timeout": 60,
+  "settle": 1.5,
+  "suggested_goal": "Log in with username admin and password pass. Register a new patient using the details in the inputs, and confirm that the patient's chart opens showing that name.",
+  "sample_params": {
+   "first_name": "Testa",
+   "last_name": "Synthetic",
+   "date_of_birth": "1984-03-09",
+   "sex": "Female"
+  },
+  "id": "openemr"
+ },
+ "samples": {
+  "read_patient_chart": {
+   "first": "Dariusz",
+   "last": "Fenwick",
+   "username": "admin",
+   "password": "pass"
+  }
+ }
+}

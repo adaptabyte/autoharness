@@ -1,64 +1,55 @@
-# Demo script: 3 minutes
+# Demo: 3 minutes
 
-The video is the primary judging artifact. Everything shown must be real and built during the event.
-Replace every `[measured]` with a number from your own run. Leave out any claim you did not capture on camera.
+The video is the main judging artifact. Everything in it is a real run. Numbers come from [PROOF.md](PROOF.md). If your recording shows a different number, say the number your recording shows.
+
+`clips/draft.mp4` is a complete captioned cut, made from real runs by `scripts/make_clips.py` and `scripts/make_video.py`. You can submit it as it is. It's much stronger with your voice and your face in two shots, listed under "Only you can do".
 
 ## Before recording
 
-1. Start Glimmer: `bash serve/serve_glimmer.sh`, and wait for `Glimmer ready` in the app.
-2. Start the app: `.venv-app/bin/python -m autoharness serve`.
-3. **View the app from this machine, or from another one on your LAN that doesn't need the internet.**
-   If you watch it over Tailscale or anything else that uses the internet, pulling the cable kills your view too.
-   Unplug the rig's *WAN uplink* (router to modem) if your laptop reaches the rig through the same router.
-   Glimmer's workers now use loopback, so a cable pull shouldn't hurt it, but **this hasn't been tested with a real cable yet. Rehearse it.**
-4. Do one full dry run of the cable pull.
-5. Clear the leftover test patients first, so the patient list looks clean on camera: from `scripts/openemr`, run `sudo docker compose down -v && sudo docker compose up -d`.
+```bash
+cd ~/muse
+bash serve/serve_glimmer.sh                                   # wait for it to answer on :8001
+.venv-app/bin/python scripts/priorauth/portal.py &            # the made-up portal, :8310
+~/.autoharness/backoffice-venv/bin/python scripts/backoffice/run.py &   # the Django admin, :8320
+.venv-app/bin/python -m autoharness serve                     # http://127.0.0.1:4140
+```
 
-## Numbers measured so far
+OpenEMR has to be up on :8300. Its patient list has leftover test patients. To clean it: `cd scripts/openemr && sudo docker compose down -v && sudo docker compose up -d`, then `.venv-app/bin/python scripts/priorauth/seed_chart.py` and `.venv-app/bin/python scripts/priorauth/seed_chart.py cases2.json`.
 
-Yours to use, as long as your own recording shows the same. Re-measure anything you put on screen. All of these come from `docs/BENCHMARK.md`, and the home page shows the same table.
-
-- OpenEMR, one new patient: Glimmer + the program **5/5, 111 s, $0** against Spark alone **5/5, 286 s, $0.16**. A written guide gets Glimmer to **5/5, 165 s**. Taught once for **$1.02**, paying back in about 6 runs.
-- Minesweeper: Glimmer + the program **5/5, 48 s**. Glimmer with a guide **0/3**. Spark **0/2** at a **$0.40** limit that I chose, so say that. Spark has won before at $0.28 in 277 s.
-- Calculator: the program **5/5, 3 s**. Spark **4/5, 24 s, $0.022**. **Don't race Calculator**: Spark is so cheap there that a lesson takes dozens of runs to pay back.
-- Jobs it was never taught: Glimmer + the program **0/3, and it said so**. Spark **3/3**. Say this out loud; it's what makes the rest believable.
-- One screenshot costs Glimmer **1,321 tokens**. Calculator's state costs about **22**.
-- **Don't claim the clinic job works.** Prior authorization failed its test (`docs/PRIORAUTH.md`). Don't claim a harness grows on request either (`docs/GROW.md`).
-- **Don't demo repair on OpenEMR.** Under a smaller window it broke, Wonder spent $0.56, and the repair still failed. It asked for a person and the proven code came back, which is the right ending but not a success.
-- Recorded footage is in `clips/`. `race-mines-full.webm` is the fair medium-effort race. `race-mines.webm` has Spark at low effort, so don't use it as a comparison. `teach-openemr.mp4` is the real OpenEMR lesson's saved frames, sped up. There's only $0.61 left under the $30 limit, which isn't enough for a new lesson on camera, so use this.
+Watch the app on this machine or over your LAN, not over Tailscale, or pulling the cable will cut your view too. **The cable pull hasn't been tested with a real cable. Do one dry run first.**
 
 ## The cut
 
 | Time | On screen | You say |
 |---|---|---|
-| 0:00 | `race-mines-full.webm`. Left counter climbing. Right side finishing again and again. | "Same app, same goal. On the left, a frontier model looks at every screen, the way AI agents work today. On the right is a program that model wrote for itself." |
-| 0:15 | Final race numbers. | "It finished [measured] times while the frontier model finished once. That cost [measured]. This cost nothing in the cloud." |
-| 0:25 | Home page, top. | "Every app on earth was built for human eyes and hands. Nobody is going to rebuild them all. So we let the model build its own way in." |
-| 0:35 | `teach-openemr.mp4`. | "I gave Meta's models an app they had never seen, with no instructions. Muse Spark explores it and works out how it behaves. Muse Wonder writes the interface they wish the app had." |
-| 1:00 | An app's page: proof runs passing. | "It isn't allowed to mark its own homework. The program has to pass on fresh copies with no cloud, and a separate model that never saw the code judges the result." |
-| 1:15 | "Two interfaces" view. Point at the token numbers. | "Here's the app we built for people. Here's the interface the model built for itself. One look at the screen costs Glimmer [measured] tokens. This costs about [measured]." |
-| 1:35 | Ask Glimmer in plain words. It calls verbs. The app moves. | "Glimmer runs on this box. It has never seen this screen." |
-| 1:50 | **Reach over and pull the cable, in one shot, with the pill turning to `Internet off`.** Keep it going. | "And it doesn't need the internet." |
-| 2:05 | Home page: the benchmark table. | "So is this better than computer use? I measured it. On a records system, 111 seconds and no cloud, against 286 seconds and 16 cents. Could it just be a markdown skill? On forms, nearly: a guide gets the small model there in 165 seconds. On a game that takes logic, the guide went 0 for 3 and this went 5 for 5. And it only knows what it was taught: on new jobs it stops and says so, and Spark wins those." |
-| 2:35 | OpenEMR: Glimmer registers a made-up patient from a plain-English request, then show the patient list. | "I'm a psychiatrist, and most software that runs clinics has no API. Teach it once on made-up patients, and the work can happen on your own machine. It isn't ready for real patients, and every failure is in the repo." |
-| 2:50 | Repo: `test_no_app_specific_code`. | "No hand-written code for any app, and a test enforces that. Computer use becomes the compiler, not the runtime." |
+| 0:00 | The swarm: eight screens, all moving | "Every one of these is an app built for human eyes and hands. Nobody on this screen is a person, and none of it is in the cloud. It's one small open model on my desk." |
+| 0:12 | Home page | "AI agents today pay a genius to look at a screenshot and click a button. So I built a compiler. Give it any interface, and Meta's strongest models learn it once, then hand it to a small model for good." |
+| 0:25 | `teach`: typing an address and a job, then Spark exploring | "I'll give it a Django admin it has never seen. No API and no instructions. Muse Spark uses it once, and everything it sees and does gets recorded." |
+| 0:45 | `teach`: the plan appears | "Muse Wonder turns that into a plan. It isn't code, and it isn't a prompt. It's every decision made in advance, so the small model never has to think about what to do next." |
+| 1:00 | `run`: live screen with the feed of checks | "Now Muse Glimmer runs it on my machine. It only ever answers one narrow question per screen. Where's this button? Is this the right page? What does this say? Code holds all the memory." |
+| 1:20 | The feed: a read-back, and a compare | "And code checks everything. What it types gets read back. What it reads gets read twice. So a run ends verified, or it stops and asks. It doesn't quietly get it wrong." |
+| 1:35 | **Pull the cable, in one shot.** The pill turns to `Internet off`. Keep it running | "And it doesn't need the internet." |
+| 1:45 | The table from PROOF.md | "Is that as good as a frontier model? I measured it, with bars I committed before running. Reading a whole chart in a real records system: this same small model used to go 0 for 6. Now it's 5 for 5 on patients it's never seen, in 167 seconds and no cloud. Spark takes 218 seconds and 9 cents. On small jobs Spark's about as fast and costs cents, and it does better on anything it wasn't taught. So this is for repeated, long or private work." |
+| 2:10 | `digit`: drop a stack, the disagreement side by side | "I'm a psychiatrist, and paper's an interface too. Here's a medication request with one wrong digit in a member ID. The pages disagree, so it comes to me. It doesn't pick one." |
+| 2:30 | `clean`: approve, Glimmer fills the portal, stops at signature | "When I approve a clean stack, the same small model fills the insurer's portal, a compiled interface with no connector anyone wrote, and stops at the signature. Only a person can sign." |
+| 2:45 | README: What failed | "It isn't ready for real patients. These are all made-up records and a small sample, and every failure's in the repo." |
+| 2:52 | Home page | "Computer use becomes the compiler, not the runtime. For the models, by the models." |
+
+## Only you can do
+
+These take about 20 minutes and do more for the entry than anything else left:
+
+1. **Your voice** over the script above. A person who has the problem beats any narration.
+2. **The cable pull**, filmed in one shot with your phone, with the screen visible.
+3. **Ten seconds of your face** at 2:10: "I'm a psychiatrist." The credibility is the point.
+4. **Real pen and paper, optional but strong.** Print [print-and-fill.pdf](print-and-fill.pdf), fill it in by hand with the made-up patient, change one digit on the order form, photograph the pages, and drop them in on camera. All my tests use fonts and simulated damage, so this would be the first real handwriting it has seen. Try it before you film. If it fails, don't use it, and tell me what it did.
 
 ## Don't
 
-- Don't say "free" without "cloud cost": electricity and the GPU are real.
-- Don't say "replaces computer use": the learning phase is computer use.
-- Don't show real patient data, or imply this is ready for it. Nothing here has been clinically or legally reviewed.
-- Don't demo an online game with an anti-cheat or a policy against automation.
-- Say which parts were built with Claude Code. Judges have to be able to tell what's new, and hiding it risks disqualification.
-
-## The X post
-
-> AI agents pay a genius to click buttons.
->
-> So I made Meta's Muse Spark teach itself an app it had never seen, build its own interface to it, and hand the job to a tiny model on my PC.
->
-> Then I pulled the ethernet cable. It kept going. (Only post this line after you've done it on camera.)
->
-> Same records-system job: 286 s and $0.16 → 111 s and $0.00 in cloud. Every run and failure in the repo.
-
-Attach the race clip. Submit the post link on the hackathon platform: Most Viral counts likes, reposts and comments through Nov 8.
+- Don't say "free" without "in the cloud": electricity and the GPUs are real.
+- Don't say "error-free." Say it either finishes verified or stops and asks. Say "in these tests."
+- Don't say "replaces computer use." The learning phase is computer use.
+- Don't imply the plan handles jobs it wasn't taught. Spark wins those.
+- Don't show real patient data, or imply it's ready for it.
+- Don't say it's more accurate than Spark. Spark also passed every job here.
+- Say that Claude Code wrote most of the code. Judges must be able to tell what was built during the event and how, and hiding it risks disqualification.

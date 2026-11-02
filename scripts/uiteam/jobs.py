@@ -113,6 +113,26 @@ def rows_in(x) -> list[dict]:
     return []
 
 
+def written_chart_judge(text: str, c: dict) -> tuple[bool, str, bool]:
+    """Each medication must be followed, before the next one, by its dates and its outcome."""
+    low = text.lower()
+    wrong = [v for v in (c["member_id"], c["icd10"], c["request"]["drug"], c["request"]["strength"]) if v.lower() not in low]
+    dates = set()
+    for m in re.findall(r"\d{4}-\d{1,2}-\d{1,2}|\d{1,2}/\d{1,2}/\d{2,4}|[A-Z][a-z]{2,8}\.? \d{1,2},? \d{4}", text):
+        dates.add(team.normal(m, "date"))
+    if c["dob"] not in dates:
+        wrong.append(c["dob"])
+    for t in c["trials"]:
+        if t["drug"].split()[0].lower() not in low:
+            wrong.append(t["drug"])
+        for d in (t["start"], t["end"]):
+            if d and d not in dates:
+                wrong.append(d)
+        if t["outcome"] and t["outcome"].lower() not in low:
+            wrong.append(t["outcome"])
+    return not wrong, f"missing or wrong: {wrong}" if wrong else "every value is in its answer", bool(wrong)
+
+
 def chart_judge(result, inputs, before):
     """Row by row: each date and outcome has to be on the row of the right medication, so a right value in the wrong place doesn't count."""
     c = inputs
@@ -121,6 +141,8 @@ def chart_judge(result, inputs, before):
     everything = {**result["scope"], **result["outputs"]}
     text = " | ".join(values_in(everything)).lower()
     rows = rows_in(everything)
+    if result.get("written"):  # Spark answers in sentences, so its check is on the same facts in its own words, a stanza per medication
+        return written_chart_judge(result["written"], c)
     wrong = []
     if not has_value(result, c["member_id"], "id"):
         wrong.append(c["member_id"])

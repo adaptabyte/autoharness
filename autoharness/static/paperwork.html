@@ -23,7 +23,7 @@ h1{font-size:clamp(34px,5.6vw,58px);line-height:1.05;letter-spacing:-.03em;font-
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 18px;border-radius:10px;border:1px solid var(--line);background:var(--paper);cursor:pointer;font-weight:600;text-decoration:none}
 .btn:hover{border-color:var(--faint)}.btn.primary{background:var(--ok);border-color:var(--ok);color:#fff}.btn.primary:hover{filter:brightness(1.12)}.btn:disabled{opacity:.45;cursor:default;filter:none}.btn.small{padding:6px 12px;font-size:14px}
 .hint{font-size:13.5px;color:var(--muted)}.error{color:var(--bad);font-size:14.5px;margin-top:10px}
-select{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+select{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:9px 12px;max-width:100%}
 input[type=text]{width:100%;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:7px 10px;outline:0}input[type=text]:focus{border-color:var(--ok)}
 .samples{display:grid;grid-template-columns:repeat(auto-fill,minmax(245px,1fr));gap:12px;margin-top:10px}
 .sample{padding:14px 16px;text-align:left;cursor:pointer;background:var(--paper);border:1px solid var(--line);border-radius:12px}.sample:hover{border-color:var(--ok)}.sample b{display:block;font-weight:650;line-height:1.3}.sample span{font-size:13.5px;color:var(--muted)}
@@ -97,10 +97,10 @@ async function uiPlan(id){
   const v=$("#view");const jobs=Object.values(p.jobs);const skills=p.skills.filter(s=>jobs.length?jobs.includes(s.name):true);let skill=skills[0]||p.skills[0];
   const form=h("div",{style:"display:grid;gap:8px;margin:10px 0"});const inputs={};
   const err=h("div",{class:"error"});
-  function drawForm(){form.replaceChildren();for(const k of Object.keys(skill.inputs||{})){const sample=(p.samples[skill.name]||{})[k];const i=h("input",{type:"text",value:sample==null?"":(typeof sample==="object"?JSON.stringify(sample):String(sample)),placeholder:skill.inputs[k]});inputs[k]=i;form.append(h("label",{class:"hint"},k,i))}}
+  function drawForm(){form.replaceChildren();for(const k of Object.keys(inputs))delete inputs[k];for(const k of Object.keys(skill.inputs||{})){const sample=(p.samples[skill.name]||{})[k];const i=h("input",{type:"text",value:sample==null?"":(typeof sample==="object"?JSON.stringify(sample):String(sample)),placeholder:skill.inputs[k]});inputs[k]=i;form.append(h("label",{class:"hint"},k,i))}}
   drawForm();
   const sel=h("select",{onchange:e=>{skill=p.skills.find(s=>s.name===e.target.value);drawForm()}},skills.map(s=>h("option",{value:s.name},s.does||s.name)));
-  v.replaceChildren(h("button",{class:"back",onclick:()=>go("")},"← All interfaces"),h("div",{class:"reading"},h("h1",{},p.app),h("p",{class:"hint",style:"max-width:50em"},p.how)),
+  v.replaceChildren(h("button",{class:"back",onclick:()=>go("")},"← All interfaces"),h("div",{class:"reading"},h("h1",{},p.app),h("details",{class:"hint",style:"max-width:50em;margin-bottom:14px"},h("summary",{style:"cursor:pointer"},"What Wonder learned about this interface"),h("p",{},p.how))),
     h("div",{class:"card",style:"padding:18px 20px"},h("label",{class:"hint"},"Job"),h("div",{},sel),form,h("button",{class:"btn primary",onclick:async()=>{err.textContent="";const out={};for(const[k,i]of Object.entries(inputs)){const raw=i.value.trim();try{out[k]=/^[\[{]/.test(raw)?JSON.parse(raw):raw}catch(e){out[k]=raw}}try{const j=await api("/api/ui/run",{id,skill:skill.name,inputs:out});go("job/"+j.id)}catch(e){err.textContent=e.message}}},"Run it on this computer"),p.swarm?h("button",{class:"btn",style:"margin-left:8px",onclick:async()=>{try{const j=await api("/api/ui/swarm",{id,skill:skill.name,count:p.swarm});go("swarm/"+j.id)}catch(e){err.textContent=e.message}}},`Run ${p.swarm} at once`):null,err),
     h("h2",{},"The plan"),h("p",{class:"hint",style:"margin:0 0 8px"},"Written by a model, for a model. It's data, not code."),h("div",{class:"card vals"},p.skills.map(s=>h("div",{class:"val",style:"grid-template-columns:minmax(120px,30%) minmax(0,1fr)"},h("label",{},s.name),h("span",{},s.does||"",h("span",{class:"hint"},` ${plural(s.size,"step")}`))))));
 }
