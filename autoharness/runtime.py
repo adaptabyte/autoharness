@@ -159,7 +159,7 @@ class Runner:
             return None
         if method == "wait_stable":
             region = m.get("region")
-            return d.wait_stable(min(float(m.get("timeout", 3)), 60), region=tuple(region) if region else None)
+            return d.wait_stable(min(float(m.get("timeout", 3)), 60), region=tuple(region) if region else None, ignore_small=bool(m.get("ignore_small")))
         if method == "ocr":
             frame = d.shot()
             region = m.get("region")

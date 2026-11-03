@@ -22,8 +22,8 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from . import __version__, config, library, targets, team_app, uiteam
-from .cloud import Ledger, Meter
+from . import __version__, config, guides, library, targets, team_app, uiteam
+from .cloud import CloudError, Ledger, Meter
 from .desktop import Display
 from .local import Glimmer
 from .runtime import Runner
@@ -531,15 +531,23 @@ def start_ui_swarm(app_id: str, skill: str, count: int) -> Job:
     return _start("ui_swarm", f"A swarm on {plan.get('app') or app_id}", None, body)
 
 
-def start_ui_teach(target_text: str, goal: str, inputs: dict, name: str | None = None, way: str = "auto") -> Job:
+def start_ui_teach(target_text: str, goal: str, inputs: dict, name: str | None = None, way: str = "auto", docs: list | None = None, limit: float = 4.0,
+                   use_guides: bool = True) -> Job:
     """The one way in, for any interface and any job. Spark picks how it's learned: a plan, for the same steps every time, or a
-    program, for jobs that decide each move from the screen, like a game. Either way the result is a tool."""
+    program, for jobs that decide each move from the screen, like a game. Either way the result is a tool.
+    docs are web addresses, or files sent to /api/upload first: a manual, shortcuts, pictures of the controls. Wonder reads
+    them before anything touches the app and tells Spark what to check, so Spark doesn't have to find everything by trying."""
     spec = _resolve_target(target_text)
     goal = goal.strip() or spec.get("suggested_goal", "")
     if not goal:
         raise ValueError("say what it should learn to do")
     if way not in ("auto", "plan", "program"):
         raise ValueError("way must be auto, plan or program")
+    if not 0.2 <= float(limit) <= 20:
+        raise ValueError("the limit must be between $0.20 and $20")
+    sources = [str(d).strip() for d in docs or [] if str(d).strip()]
+    files = [s for s in sources if not re.match(r"https?://|docsdb:", s, re.I)]
+    _uploaded(files)  # only files sent to this app, never a path that names anything else on the disk
     if spec.get("kind") == "vnc":
         from .vnc import parse_address
         host, port, _ = parse_address(spec["url"])
@@ -553,22 +561,97 @@ def start_ui_teach(target_text: str, goal: str, inputs: dict, name: str | None =
         display = targets.open_screen(spec)  # first, so a screen that can't be reached costs nothing
         job.displays["main"] = display
         tgt = targets.Target(spec, display)
+        spent = [0.0]  # reading the docs and choosing the way, so the total a person sees is the whole cost of learning
+
+        def emit(e: dict) -> None:
+            job.emit({**e, "usd": round(float(e.get("usd") or 0) + spent[0], 4)} if e.get("type") in ("learned", "not_learned") else e)
         try:
+            brief, told = None, ""
+            reading = list(sources)
+            if use_guides:
+                # What's already known about this app: this computer's guide from earlier lessons, and the shared one in docsdb.
+                found = guides.find(spec, [name] if name else [])
+                if found:
+                    job.emit({"type": "guides_found", "found": found})
+                    reading += [g["source"] for g in found if g["source"] not in reading]
+            if reading:
+                from . import docs as docs_mod
+                try:
+                    read = docs_mod.read(reading)  # before any spending, so a doc that can't be read costs nothing
+                except docs_mod.DocsError as e:
+                    job.emit({"type": "error", "text": f"The docs: {e}."})
+                    job.finish("failed")
+                    return
+                cut = docs_mod.fit(read)
+                job.emit({"type": "docs", "read": [d.label() for d in read], "cut": cut})
+                meter = Meter()
+                brief = docs_mod.brief(read, goal, tgt.describe(), meter, limit_usd=min(0.75, limit / 4))
+                told = docs_mod.brief_text(brief, [d.name for d in read])
+                spent[0] += meter.usd
+                job.emit({"type": "brief", "brief": brief, "usd": round(meter.usd, 4)})
             chosen = {"way": way, "why": "", "job": "", "app": ""}
             if way != "plan":
                 meter = Meter()
-                chosen = {**uiteam.choose_way(tgt.describe(), goal, meter), **({"way": "program"} if way == "program" else {})}
+                chosen = {**uiteam.choose_way(tgt.describe(), goal, meter, docs=brief), **({"way": "program"} if way == "program" else {})}
+                spent[0] += meter.usd
                 job.emit({"type": "way", **chosen, "picked": way == "auto", "usd": round(meter.usd, 4)})
             if chosen["way"] == "program":
-                out = uiteam.teach_program(spec, goal, inputs, display, tgt, job.emit, job.stop, chosen, name=name, approve=job.approve)
+                out = uiteam.teach_program(spec, goal, inputs, display, tgt, emit, job.stop, chosen, name=name, approve=job.approve, docs=told, limit_usd=limit - spent[0])
             else:
-                out = uiteam.teach(app_id, spec, goal, inputs, display, tgt, job.emit, job.stop, name=name)
+                out = uiteam.teach(app_id, spec, goal, inputs, display, tgt, emit, job.stop, name=name, docs=told, limit_usd=limit - spent[0])
             _keep_last_frame(job, display)
+            if out.get("notes"):
+                _update_guide(job, out, spec, told, sources, inputs, name or chosen.get("app") or out.get("app") or str(spec.get("name") or ""))
             job.finish("done" if out["ok"] else "failed")
         finally:
             tgt.stop()
 
     return _start("ui_teach", f"Teaching {spec.get('name', target_text)}", None, body)
+
+
+def _update_guide(job: Job, out: dict, spec: dict, told: str, sources: list, inputs: dict, app: str) -> None:
+    """Fold what this lesson found into the app's guide on this computer, and share it if the person asked for that."""
+    try:
+        g = guides.update(app, spec, told, out["notes"], out.get("outcome", ""), [s for s in sources if not s.startswith(guides.RAW)],
+                          guides.private_values(inputs, spec) + [str(v) for v in out.get("private") or []])
+    except CloudError as e:
+        job.emit({"type": "log", "text": f"The app's guide wasn't updated: {e}"[:300]})
+        return
+    job.emit({"type": "guide", **g})
+    if g.get("ok") and g.get("changed") and guides.share_settings(g["id"]).get("always"):
+        try:
+            url = guides.open_pull_request(g["id"], guides.check_shareable(Path(g["path"]).read_text(), g["id"]))
+            job.emit({"type": "guide_shared", "id": g["id"], "url": url})
+        except (ValueError, RuntimeError, OSError) as e:
+            job.emit({"type": "log", "text": f"The guide wasn't shared: {e}"[:300]})
+
+
+def guide_view(gid: str) -> dict:
+    md = guides.load_local(gid)
+    if md is None:
+        raise ValueError("there's no guide by that name on this computer")
+    try:
+        guides.check_shareable(md, gid)
+        problem = None
+    except ValueError as e:
+        problem = str(e)
+    return {"id": gid, "md": md, "problem": problem, "always": bool(guides.share_settings(gid).get("always")), "site": guides.SITE}
+
+
+def share_guide(gid: str, always: bool = False) -> dict:
+    """The person clicked share after reading the guide on screen: that click is the yes."""
+    md = guides.load_local(gid)
+    if md is None:
+        raise ValueError("there's no guide by that name on this computer")
+    try:
+        url = guides.open_pull_request(gid, guides.check_shareable(md, gid))
+    except FileNotFoundError:
+        raise ValueError("sharing uses the GitHub CLI (gh), which isn't installed here") from None
+    except RuntimeError as e:
+        raise ValueError(f"GitHub said: {e}. If gh isn't signed in, run gh auth login") from None
+    if always:
+        guides.set_always(gid, True)
+    return {"url": url}
 
 
 def team_state() -> dict:
@@ -718,6 +801,9 @@ class Handler(BaseHTTPRequestHandler):
             m = re.fullmatch(r"/api/package/([a-z0-9-]+)", path)
             if m:
                 return self._json(package_detail(m.group(1)))
+            m = re.fullmatch(r"/api/guides/([a-z0-9-]+)", path)
+            if m:
+                return self._json(guide_view(m.group(1)))
             m = re.fullmatch(r"/api/package/([a-z0-9-]+)/export", path)
             if m:
                 out = library.get(m.group(1)).export()
@@ -805,8 +891,13 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(start_ui_run(str(body["id"]), str(body["skill"]), body.get("inputs") or {}).brief())
             if path == "/api/ui/swarm":
                 return self._json(start_ui_swarm(str(body["id"]), str(body["skill"]), int(body.get("count", 8))).brief())
+            m = re.fullmatch(r"/api/guides/([a-z0-9-]+)/share", path)
+            if m:
+                return self._json(share_guide(m.group(1), bool(body.get("always"))))
             if path == "/api/ui/teach":
-                return self._json(start_ui_teach(str(body.get("target", "")), str(body.get("goal", "")), body.get("inputs") or {}, str(body.get("name") or "") or None, str(body.get("way") or "auto")).brief())
+                return self._json(start_ui_teach(str(body.get("target", "")), str(body.get("goal", "")), body.get("inputs") or {}, str(body.get("name") or "") or None,
+                                                 str(body.get("way") or "auto"), body.get("docs") or [], float(body.get("limit") or 4),
+                                                 body.get("guides", True) is not False).brief())
             if path == "/api/team/read":
                 return self._json(start_team_read(body).brief())
             if path == "/api/team/design":

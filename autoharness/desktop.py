@@ -155,23 +155,38 @@ class Display:
         img = grabber.grab(grabber.monitors[1])
         return np.frombuffer(img.rgb, dtype=np.uint8).reshape(img.height, img.width, 3)
 
-    def wait_stable(self, timeout: float = 3.0, quiet: float = 0.25, region=None) -> bool:
-        """Block until the screen stops changing for `quiet` seconds. False if it never settles."""
+    SMALL = 0.002  # with ignore_small, a change to less than 0.2% of the screen between looks counts as still
+
+    def wait_stable(self, timeout: float = 3.0, quiet: float = 0.25, region=None, ignore_small: bool = False) -> bool:
+        """Block until the screen stops changing for `quiet` seconds. False if it never settles. With ignore_small, small
+        changes that never stop, like animated sprites or a blinking cursor, don't count, so a game that is always moving
+        a little still settles."""
         end = time.time() + timeout
         last = None
         still_since = time.time()
+        small_only = True
         while time.time() < end:
             f = self.shot()
             if region:
                 x1, y1, x2, y2 = region
                 f = f[y1:y2, x1:x2]
-            if last is not None and f.shape == last.shape and np.array_equal(f, last):
-                if time.time() - still_since >= quiet:
-                    return True
+            if last is not None and f.shape == last.shape:
+                same = np.array_equal(f, last)
+                changed = 0 if same else int(np.count_nonzero((f != last).reshape(f.shape[0], f.shape[1], -1).any(axis=2)))
+                small = changed <= self.SMALL * f.shape[0] * f.shape[1]
+                small_only = small_only and small
+                if same or (ignore_small and small):
+                    if time.time() - still_since >= quiet:
+                        return True
+                else:
+                    still_since = time.time()
             else:
                 still_since = time.time()
             last = f
             time.sleep(0.04)
+        self.unsettled = getattr(self, "unsettled", 0) + 1
+        if small_only:
+            self.small_unsettled = getattr(self, "small_unsettled", 0) + 1  # only small changes kept it from settling
         return False
 
     # -- input -------------------------------------------------------------------------------

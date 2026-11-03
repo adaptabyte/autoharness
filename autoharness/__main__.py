@@ -38,6 +38,19 @@ def main() -> None:
     t.add_argument("--name", help="what to call the interface, like orders. Otherwise it's named after the app")
     t.add_argument("--way", choices=("auto", "plan", "program"), default="auto",
                    help="plan: the same steps every time. program: code that decides each move, as in a game. auto (the default): Spark picks")
+    t.add_argument("--limit", type=float, default=4.0, metavar="USD", help="the most this lesson may spend on the Meta API (default 4)")
+    t.add_argument("--docs", action="extend", nargs="+", default=[], metavar="FILE_OR_URL",
+                   help="a manual, a list of shortcuts, a picture of the controls, a web page about the app, or a folder of them. "
+                        "Muse Wonder reads them first, so Spark checks what they say instead of trying every control")
+    t.add_argument("--no-guides", action="store_true", help="don't read the guide to this app from earlier lessons or from docsdb")
+    sc = sub.add_parser("screens", help="other computers it can reach, which share their screen, and how to turn sharing on")
+    sc.add_argument("address", nargs="?", help="a vnc:// address to try: it says what it sees and saves a screenshot")
+    gl = sub.add_parser("guides", help="the guides to apps written by lessons on this computer")
+    sh = sub.add_parser("share", help="offer an app's guide to everyone in docsdb, after you've read it; a person reviews it before it's live")
+    sh.add_argument("guide", help="a name from autoharness guides, like gnome-robots")
+    sh.add_argument("--yes", action="store_true", help="don't ask; you've read it")
+    sh.add_argument("--always", action="store_true", default=None, help="also offer each later update to this guide for review")
+    sh.add_argument("--never", dest="always", action="store_false", help="stop offering updates to this guide")
     o = sub.add_parser("tools", help="every job an agent can call, with its inputs")
     o.add_argument("interface", nargs="?", help="only this interface")
     c = sub.add_parser("call", help="run one job: autoharness call <tool> key=value ...")
@@ -65,7 +78,8 @@ def main() -> None:
     from . import cli
     try:
         code = {"up": lambda: cli.up(not args.no_demo, args.tailscale), "check": cli.check, "down": cli.down, "connect": cli.connect,
-                "teach": lambda: cli.teach(args.address, args.job, args.input, args.name, args.way), "tools": lambda: cli.tools(args.interface),
+                "teach": lambda: cli.teach(args.address, args.job, args.input, args.name, args.way, args.docs, args.limit, not args.no_guides), "tools": lambda: cli.tools(args.interface),
+                "guides": cli.guides_list, "screens": lambda: cli.screens(args.address), "share": lambda: cli.share(args.guide, args.yes, args.always),
                 "call": lambda: cli.call(args.tool, args.inputs, args.json),
                 "mcp": lambda: cli.mcp_stdio(args.interface, args.wait)}[args.cmd]()
     except cli.AppError as e:

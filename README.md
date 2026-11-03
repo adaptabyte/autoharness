@@ -98,13 +98,43 @@ The program is doing the job, with Muse Glimmer for any look it needs. No cloud.
 
 Taught once in 19 minutes. Then it won five of five fresh games on its own, and two more as a tool, one through the official MCP SDK. No second computer? `python scripts/vnc_box.py gnome-mines` opens an app on a screen shared over VNC, standing in for one.
 
-### Turn on screen sharing
+### Apps on Windows, a Mac, or another computer
 
-- **Mac:** System Settings → General → Sharing → Screen Sharing → ⓘ → turn on "VNC viewers may control screen with password". Then use `vnc://:yourpassword@your-mac.local`.
-- **Windows:** install a VNC server such as TightVNC, and set a password. Then use `vnc://:yourpassword@your-pc`.
-- **Linux:** run `x11vnc -display :0 -rfbauth ~/.vnc/passwd` on an X11 desktop.
+Autoharness runs on one Linux computer, the one with the GPUs for Glimmer. The app can be on any computer it can reach. It works that computer's screen over VNC, the screen-sharing standard Windows, Mac and Linux all speak, and nothing of Autoharness is installed there. Turn sharing on once:
 
-The password goes into `~/.autoharness/logins.json` on this computer, never into a plan or a tool. Over VNC, a screen bigger than 1280 × 800 is scaled down for the models, and clicks are scaled back up.
+| That computer | Turn on screen sharing |
+|---|---|
+| **Mac** | Built in. System Settings → General → Sharing → Screen Sharing → ⓘ → turn on "VNC viewers may control screen with password" |
+| **Windows** | Install [TightVNC](https://www.tightvnc.com), which is free, and set a password when it asks. For games, use windowed or borderless mode: some full-screen games show black to any screen sharing |
+| **Linux** | `x11vnc -usepw -forever -shared` on an X11 desktop, Desktop Sharing on KDE, or `wayvnc` on Sway |
+
+Then `autoharness screens` finds them. It lists the computers on your [Tailscale](https://tailscale.com) network, says which are sharing, and gives the steps for each system that isn't. Real output, with the computers' names changed:
+
+```text
+$ autoharness screens
+Other computers, from Tailscale
+  · gamepc              windows  not sharing
+      To share it: Install TightVNC, which is free (tightvnc.com). Choose the server, and set a password of up to 8 characters ...
+  · laptop              linux    not sharing
+      To share it: On an X11 desktop: x11vnc -usepw -forever -shared. KDE: turn on Desktop Sharing (krfb). ...
+  · phone               iOS      Phones and tablets can't share a screen for control this way.
+
+$ autoharness screens "vnc://:playtime@127.0.0.1:5912"
+✓ vnc://127.0.0.1:5912 answers: a 1280 x 800 screen called 'adaptabyte-MC62-G40-00:2'.
+  What Autoharness sees: ~/.autoharness/screens/127.0.0.1.png
+```
+
+Not on Tailscale? Use the computer's address on your network, like `vnc://192.168.1.20` or `vnc://my-mac.local`. The password goes into `~/.autoharness/logins.json` on this computer, never into a plan or a tool. A screen bigger than 1280 × 800 is scaled down for the models, and clicks are scaled back up.
+
+**Is VNC the slow part? No.** The same app and the same action, a flag toggled 30 times in GNOME Mines, timed until the screen settled:
+
+| | Its own virtual screen | Over VNC |
+|---|---|---|
+| A click that changes the screen | 409 ms | 482 ms |
+| A key that changes nothing | 337 ms | 696 ms |
+| Data sent | | 0.2 KB per action, 26 KB for a whole screen |
+
+The slow part is the models: each look by Glimmer takes half a second to two seconds. VNC's extra time is deliberate. After every action Autoharness waits up to 0.3 s for the screen to answer before trusting what it sees, because a program that acted on the screen from before its own click lost games. I tried cutting that wait, and one run in three then stopped on what looked like a screen that hadn't caught up, so the wait stays. Both screens were on one machine here; a network adds its round trip, and 26 KB is about 20 ms on a 10 Mbit/s link.
 
 Things to know:
 
@@ -112,7 +142,7 @@ Things to know:
 - **It moves that computer's real pointer.** Don't use that computer while a job runs on it. One job at a time per screen; a second is refused.
 - **Turn-based, not twitch.** Each look takes the small model half a second to two seconds, so games that need fast reflexes are out.
 - **Online games** often forbid bots in their terms. Use it on single-player games and software you're allowed to automate.
-- **Tested here** against x11vnc on Linux. Mac and Windows VNC servers speak the same protocol, but I haven't tested them.
+- **Tested here** against x11vnc on Linux. Tests cover the sign-in a Mac, TightVNC and others offer, but I haven't run it against a real Mac or Windows PC.
 
 ## Plug it into any agent
 
@@ -129,6 +159,30 @@ Every job is a tool over MCP, the standard way AI agents use tools. `autoharness
 - **A bad call is refused before anything opens:** a missing input, an unexpected one, or a call made while Glimmer isn't running.
 - **Long jobs work with any client.** Jobs take 15 s to a few minutes, and most clients give up on a call after 60 s. So a call still running at 50 s answers with a job id, the job keeps going, and the agent collects the result with `wait_for_job`.
 - **Both ways in were tested** with the official MCP Python SDK, on real jobs.
+
+## docsdb: what it learns, shared
+
+Every lesson leaves a guide to the app on your computer, in `~/.autoharness/guides/<app>/SKILL.md`. The guide brings together the docs you gave, what Spark checked on the real screen, and how the job is done. Each control is marked "seen on screen" or "from the docs". The next lesson on that app reads the guide first, then updates it.
+
+With your yes, a guide joins [docsdb](https://adaptabyte.github.io/autoharness/docsdb/), a shared library of them:
+
+```bash
+autoharness guides                         # the guides on this computer
+autoharness share gnome-robots             # shows it, asks, then offers it for review
+autoharness share gnome-robots --always    # also offers later updates, each one reviewed
+```
+
+- **Anyone's lesson starts from it.** Before teaching an app, Autoharness looks for its guide in docsdb, by the app's command or public web address, and reads it like any docs. `--docs docsdb:<name>` names one outright, and `--no-guides` skips them.
+- **Any agent can use it.** Each guide is an [Agent Skill](https://agentskills.io), the open format that Claude, Codex, Gemini CLI and others already load.
+- **Nothing private goes in.**
+  - The model that writes it never sees what was typed or read.
+  - Code removes what it recognises: every value the lesson was given, emails, private addresses, file paths, keys, and numbers that look like IDs.
+  - You read it before it's shared, and a person reviews it before it's live.
+- **Reviewed, never automatic.** A guide becomes instructions for other people's agents, so it arrives as a pull request. A check refuses any guide with a private-looking value, HTML or script. Each guide has its full history, and the site rebuilds itself from the repo.
+
+Other shared libraries exist for neighbouring things. [Context7](https://github.com/upstash/context7) collects code-library docs for coding agents, and llms.txt lets websites describe themselves to models. I found none for using apps through their screens.
+
+A guide alone doesn't make a small model capable: written guides went 0 of 6 on reading a chart ([below](#honest-answers)). A guide is what the big model reads before it teaches, and it's enough for any big agent.
 
 ## Why
 
@@ -307,7 +361,10 @@ autoharness check                  # run again until everything is ready
 |---|---|
 | `autoharness up` | Starts the app, the made-up demo apps and Glimmer, if they aren't running, then checks everything |
 | `autoharness check` | What's ready, what's missing, and the fix for each |
-| `autoharness teach <address> "<job>"` | Teaches a new job, in plain words. The address is a web address, a Linux app's command, or `vnc://` for any other computer. `--name` names the interface. `--way plan` or `--way program` overrides Spark's choice |
+| `autoharness teach <address> "<job>"` | Teaches a new job, in plain words. The address is a web address, a Linux app's command, or `vnc://` for any other computer. `--docs` gives it manuals, pictures or web pages to read first. `--name` names the interface. `--way plan` or `--way program` overrides Spark's choice. `--limit` caps what the lesson may spend |
+| `autoharness screens [vnc://...]` | Other computers it can reach, which share their screen, and how to turn sharing on; with an address, what it sees there |
+| `autoharness guides` | The guide to each app that lessons wrote on this computer |
+| `autoharness share <guide>` | Offers a guide to docsdb, after you've read it. It's reviewed before it's live |
 | `autoharness tools` | Every job an agent can call, with its inputs |
 | `autoharness call <tool> key=value ...` | Runs one job and prints the verified result |
 | `autoharness connect` | Settings for MCP clients, with your paths filled in |

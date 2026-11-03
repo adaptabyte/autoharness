@@ -89,10 +89,14 @@ function interfaces(){
   const tIn=h("input",{type:"text",placeholder:"A web address, a command, or vnc://another-computer, like http://127.0.0.1:8310/login, gnome-calculator or vnc://gamepc","aria-label":"The interface"});
   const gIn=h("input",{type:"text",placeholder:"What should it learn to do? For example: log in and save a request","aria-label":"The job"});
   const pIn=h("input",{type:"text",placeholder:'Optional sample inputs as JSON, like {"username":"demo"}',"aria-label":"Sample inputs"});
-  const go2=h("button",{class:"btn primary",onclick:async()=>{err.textContent="";let inputs={};try{inputs=pIn.value.trim()?JSON.parse(pIn.value):{}}catch(e){err.textContent="The sample inputs aren't valid JSON.";return}go2.disabled=true;try{const j=await api("/api/ui/teach",{target:tIn.value,goal:gIn.value,inputs});go("job/"+j.id)}catch(e){err.textContent=e.message;go2.disabled=false}}},"Teach it");
+  const dIn=h("input",{type:"text",placeholder:"Optional docs: links to its manual, its shortcuts or a page about it, separated by spaces","aria-label":"Links to docs"});
+  let docFiles=[];const dNames=h("span",{class:"hint"},"or a PDF manual, a picture of the controls, a list of shortcuts");
+  const dFile=h("input",{type:"file",multiple:true,hidden:true,accept:".pdf,image/*,.txt,.md,.html,.htm,.docx,.json,.csv,.rst",onchange:e=>{docFiles=[...e.target.files];dNames.textContent=docFiles.length?docFiles.map(f=>f.name).join(", "):"or a PDF manual, a picture of the controls, a list of shortcuts"}});
+  const dBtn=h("button",{class:"btn small",onclick:()=>dFile.click()},"Add docs");
+  const go2=h("button",{class:"btn primary",onclick:async()=>{err.textContent="";let inputs={};try{inputs=pIn.value.trim()?JSON.parse(pIn.value):{}}catch(e){err.textContent="The sample inputs aren't valid JSON.";return}go2.disabled=true;try{const docs=dIn.value.split(/\s+/).filter(Boolean);for(const f of docFiles){const r=await fetch("/api/upload?name="+encodeURIComponent(f.name),{method:"POST",body:f});const d=await r.json();if(!r.ok)throw new Error(d.error);docs.push(d.path)}const j=await api("/api/ui/teach",{target:tIn.value,goal:gIn.value,inputs,docs});go("job/"+j.id)}catch(e){err.textContent=e.message;go2.disabled=false}}},"Teach it");
   return [
-    h("div",{class:"card",style:"padding:18px 20px"},h("b",{style:"font-size:18px;letter-spacing:-.01em"},"Teach it a new interface"),h("p",{class:"hint",style:"margin:2px 0 12px"},"Muse Spark tries the job once, Muse Wonder writes the plan, and Muse Glimmer has to run it alone before it's kept. This step uses the cloud, once. Don't teach it on real records."),
-      h("div",{style:"display:grid;gap:8px"},tIn,gIn,pIn),h("div",{class:"row",style:"margin-top:12px"},go2,T.has_key?null:h("span",{class:"hint"},"No API key is set, so this can't run.")),err),
+    h("div",{class:"card",style:"padding:18px 20px"},h("b",{style:"font-size:18px;letter-spacing:-.01em"},"Teach it a new interface"),h("p",{class:"hint",style:"margin:2px 0 12px"},"Muse Spark tries the job once, Muse Wonder writes the plan, and Muse Glimmer has to run it alone before it's kept. Add the app's docs and Wonder reads them first, so Spark checks what they say instead of trying every control. This step uses the cloud, once. Don't teach it on real records."),
+      h("div",{style:"display:grid;gap:8px"},tIn,gIn,pIn,dIn,h("div",{class:"row"},dBtn,dNames,dFile)),h("div",{class:"row",style:"margin-top:12px"},go2,T.has_key?null:h("span",{class:"hint"},"No API key is set, so this can't run.")),err),
     T.interfaces.length?h("h2",{},"Already compiled"):null,
     h("div",{class:"samples"},T.interfaces.map(p=>{const res=R[p.id]||{};const rows=Object.values(res);const pass=rows.reduce((a,x)=>a+x.passes,0),runs=rows.reduce((a,x)=>a+x.runs,0);return h("button",{class:"sample",onclick:()=>go("ui/"+p.id)},h("b",{},p.app),h("span",{},runs?`${pass} of ${runs} proof runs passed, no cloud`:`${plural(p.skills.length,"skill")}`))}))].filter(Boolean)}
 
@@ -154,6 +158,11 @@ function jobView(id){
   es.onmessage=ev=>{const e=JSON.parse(ev.data);if(typeof e.usd==="number")usd=e.usd;
     if(e.type==="stage"){if(!(e.stage==="run"&&/ is using /.test(stage.textContent)))stage.textContent=(STAGES.find(s=>s[0]===e.stage)||[,e.stage])[1];sub.textContent=e.text||""}
     if(e.type==="explore"&&e.said)add(null,"Spark: "+e.said);
+    if(e.type==="guides_found")add(null,"It already has a guide to this app, and reads it first",e.found.map(g=>`${g.id} (${g.where})`).join(", "));
+    if(e.type==="guide"&&e.ok){add(true,`The guide to this app is ${e.new?"written":e.changed?"updated":"unchanged"}: ${e.id}`,`${e.removed&&e.removed.length?"Taken out as possibly private: "+e.removed.join(", ")+". ":""}Others can use it too, once you've read it.`);feed.firstChild.querySelector("div").append(h("button",{class:"btn small",style:"margin-top:6px",onclick:()=>guideDialog(e.id)},"Read it, then share"))}
+    if(e.type==="guide_shared")add(true,"The guide was offered for review, as you asked",e.url);
+    if(e.type==="docs")add(null,"Muse Wonder is reading the docs first",[...e.read,...(e.cut||[]).map(c=>"Left out, to keep the reading affordable: "+c)].join(" · "));
+    if(e.type==="brief"){const b=e.brief||{};add(true,`Wonder's brief for Spark: ${plural((b.controls||[]).length,"control")}, ${plural((b.how_to||[]).length,"step")} for this job`,(b.check_first||[]).map((c,i)=>`${i+1}. ${c}`).join("  "))}
     if(e.type==="way")add(null,e.way==="program"?"Learning it as a program: code that decides each move":"Learning it as a plan: the same steps every time",e.why);
     if(e.type==="phase"&&PHASES[e.phase]){stage.textContent=PHASES[e.phase][0];sub.textContent=PHASES[e.phase][1]}
     if(e.type==="say"&&e.phase==="explore"&&e.text)add(null,"Spark: "+e.text.slice(0,160));
@@ -206,6 +215,17 @@ function home(){
     ].filter(Boolean));
 }
 function proofTable(p){return h("div",{class:"proof"},h("h2",{style:"margin-bottom:8px"},p.title),h("div",{class:"card scroll"},h("table",{},h("thead",{},h("tr",{},p.columns.map(c=>h("th",{},c)))),h("tbody",{},p.rows.map((r,i)=>h("tr",{},r.map((c,ci)=>h("td",{class:i===p.highlight||ci===1?"us":null},c))))))),h("p",{class:"hint"},p.note))}
+
+async function guideDialog(id){
+  const g=await api("/api/guides/"+id);const err=h("div",{class:"error"},g.problem||"");
+  const always=h("input",{type:"checkbox"});
+  const share=h("button",{class:"btn primary",disabled:!!g.problem,onclick:async()=>{share.disabled=true;share.textContent="Sending for review...";try{const r=await api(`/api/guides/${id}/share`,{always:always.checked});box.replaceChildren(h("b",{},"Offered for review"),h("p",{},"A person checks it before it's live in docsdb. ",h("a",{href:r.url,target:"_blank"},"The pull request")),h("button",{class:"btn",onclick:()=>m.remove()},"Close"))}catch(x){err.textContent=x.message;share.disabled=false;share.textContent="Share it with everyone"}}},"Share it with everyone");
+  const box=h("div",{class:"card",style:"max-width:820px;width:100%;max-height:86vh;overflow:auto",onclick:ev=>ev.stopPropagation()},
+    h("b",{style:"font-size:18px"},`The guide to ${id}`),h("p",{class:"hint"},"Read all of it first. It must hold nothing private: no names, accounts, values from the screen or addresses. Shared, it goes up as a pull request, and a person reviews it before it appears in docsdb."),
+    h("pre",{style:"white-space:pre-wrap;font-size:13px;max-height:52vh;overflow:auto"},g.md),err,
+    h("label",{class:"hint",style:"display:block;margin:8px 0"},always," Also offer later updates to this guide, each reviewed the same way"),
+    h("div",{class:"row"},share,h("button",{class:"btn",onclick:()=>m.remove()},"Not now")));
+  const m=h("div",{class:"big",style:"display:flex;align-items:center;justify-content:center;padding:16px",onclick:()=>m.remove()},box);document.body.append(m)}
 
 function teachDialog(){
   const err=h("div",{class:"error"});let files=[];

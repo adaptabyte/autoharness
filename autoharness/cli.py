@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import signal
 import socket
 import subprocess
@@ -332,6 +333,10 @@ def print_step(e: dict) -> None:
         print(bad("  " + str(e.get("text"))), flush=True)
 
 
+def plural_of(n: int, word: str) -> str:
+    return f"{n} {word}{'' if n == 1 else 's'}"
+
+
 def parse_inputs(pairs: list[str], raw_json: str | None) -> dict:
     """key=value pairs. A value that reads as JSON (30, true, a list) keeps its type; anything else is text."""
     inputs = json.loads(raw_json) if raw_json else {}
@@ -385,18 +390,68 @@ PHASES = {"explore": "Muse Spark is using the interface for the first time.", "c
           "verify": "The program is doing the job on its own, start to finish, with no cloud. Spark judges only the screen, never the code."}
 
 
-def teach(address: str, job: str, pairs: list[str], name: str | None = None, way: str = "auto") -> int:
+def send_docs(sources: list[str]) -> list[str]:
+    """Web addresses as they are; files, and the readable files in folders, sent to the app. Anything that can't be read
+    is refused here, before teaching starts."""
+    from .docs import DocsError, files_in, read
+    out = []
+    for s in sources:
+        if re.match(r"https?://|docsdb:", s, re.I):
+            out.append(s)
+            continue
+        path = Path(s).expanduser()
+        found = files_in(path) if path.is_dir() else [path]
+        try:
+            read([str(f) for f in found] or [s])
+        except DocsError as e:
+            raise AppError(f"The docs: {e}.") from None
+        for f in found:
+            req = urllib.request.Request(f"{APP}/api/upload?name={urllib.parse.quote(f.name)}", data=f.read_bytes(), method="POST")
+            try:
+                with urllib.request.urlopen(req, timeout=60) as r:
+                    out.append(json.load(r)["path"])
+            except urllib.error.HTTPError as e:
+                raise AppError(f"couldn't send {f.name}: {e.read()[:200].decode('utf8', 'replace')}") from None
+    return out
+
+
+def teach(address: str, job: str, pairs: list[str], name: str | None = None, way: str = "auto", docs: list[str] | None = None, limit: float = 4.0,
+          use_guides: bool = True) -> int:
     ensure_app()
     from .cloud import Ledger
     spent = Ledger.read()["spent_usd"]
-    print(dim(f"Teaching spends Meta API budget once, usually $0.10 to $4. ${spent:.2f} of the ${config.BUDGET_USD:.2f} cap is spent so far."), flush=True)
-    brief = http("POST", "/api/ui/teach", {"target": address, "goal": job, "inputs": parse_inputs(pairs, None), "name": name, "way": way})
+    sent = send_docs(docs or [])
+    print(dim(f"Teaching spends Meta API budget once, usually $0.10 to $4, and this lesson at most ${limit:.2f}. "
+              f"${spent:.2f} of the ${config.BUDGET_USD:.2f} cap is spent so far."), flush=True)
+    brief = http("POST", "/api/ui/teach", {"target": address, "goal": job, "inputs": parse_inputs(pairs, None), "name": name, "way": way, "docs": sent, "limit": limit, "guides": use_guides})
     print(dim(f"Watch it live: {APP}/#/job/{brief['id']}\n"), flush=True)
     seen: dict = {}
 
     def on_event(e: dict) -> None:
         kind = e.get("type")
-        if kind == "way":
+        if kind == "guides_found":
+            where = ", ".join(f"{g['id']} ({g['where']})" for g in e.get("found") or [])
+            print(colour("1", f"It already has a guide to this app: {where}. It reads that first."), flush=True)
+        elif kind == "guide":
+            if e.get("ok"):
+                seen["guide"] = e
+            else:
+                print(dim(f"The app's guide wasn't updated: {e.get('why')}."), flush=True)
+        elif kind == "guide_shared":
+            seen["shared"] = e
+        elif kind == "docs":
+            print(colour("1", "Muse Wonder is reading the docs first, so Spark can check what they say instead of trying everything."), flush=True)
+            for label in e.get("read") or []:
+                print(f"  {dim('read')}  {label}", flush=True)
+            for c in e.get("cut") or []:
+                print(f"  {colour('33', '!')} {dim('left out, to keep the reading affordable: ' + c)}", flush=True)
+        elif kind == "brief":
+            b = e.get("brief") or {}
+            found = [plural_of(len(b.get("controls") or []), "control"), plural_of(len(b.get("how_to") or []), "step") + " for this job"]
+            print(f"  {good()} Wonder's brief for Spark: {', '.join(found)}, ${float(e.get('usd') or 0):.2f}.", flush=True)
+            for i, c in enumerate(b.get("check_first") or [], 1):
+                print(f"     {dim(str(i) + '.')} {c[:110]}", flush=True)
+        elif kind == "way":
             if e.get("picked"):
                 print(f"{dim('Spark')} {e.get('why') or ''}".rstrip(), flush=True)
             print(colour("1", "So it learns this as a program: code that decides each move, written once by Muse Wonder." if e.get("way") == "program"
@@ -432,10 +487,23 @@ def teach(address: str, job: str, pairs: list[str], name: str | None = None, way
         elif kind == "not_learned":
             seen["failed"] = e
         elif kind in ("stage", "error"):
+            if kind == "error":
+                seen["error"] = str(e.get("text") or "")
             print_step(e)
 
     follow(brief["id"], on_event)
     print()
+    if "guide" in seen:
+        g = seen["guide"]
+        what = "written" if g.get("new") else "updated" if g.get("changed") else "unchanged"
+        print(f"{good()} The guide to this app is {what}, ${float(g.get('usd') or 0):.2f}: {g['path']}")
+        if g.get("removed"):
+            print(dim(f"  Taken out because it may be private: {', '.join(g['removed'])}."))
+        if "shared" in seen:
+            print(f"  Shared for review, as you asked: {seen['shared']['url']}")
+        elif g.get("changed"):
+            print(dim(f"  Others can use it too: autoharness share {g['id']}  (you see it first, and it's reviewed before it's live)"))
+        print()
     if "learned" in seen:
         e, plan = seen["learned"], seen.get("plan") or {}
         print(good(f"Learned, for ${e.get('usd', 0):.2f}, once.") + " It's now a tool any agent can call:\n")
@@ -444,9 +512,126 @@ def teach(address: str, job: str, pairs: list[str], name: str | None = None, way
             args = " ".join(f"{k}={json.dumps(sample[k]) if not isinstance(sample.get(k), str) or ' ' in sample[k] else sample[k]}" for k in t["inputs"] if k in sample)
             print(f"  autoharness call {e['id']}__{t['name']} {args}".rstrip())
         return 0
-    why = (seen.get("failed") or {}).get("why", "it stopped.")
+    why = (seen.get("failed") or {}).get("why") or ("it hit the error above." if seen.get("error") else "it stopped.")
     print(colour("33", f"Not learned: {why}" + ("" if "tool" in why else " Nothing was saved.")))
     return 2
+
+
+def screens(address: str | None = None) -> int:
+    from . import screens as sc
+    if address:
+        return look_at(address)
+    print(colour("1", "This computer"))
+    print(f"  {good()} Apps here open on a virtual screen, so nothing needs sharing: autoharness teach <the app's command> \"<the job>\"")
+    peers = sc.survey()
+    if not peers:
+        print(colour("1", "\nOther computers"))
+        print("  This computer isn't on Tailscale, so give the other one's address on your network, like vnc://192.168.1.20 or vnc://my-mac.local.")
+    else:
+        print(colour("1", "\nOther computers, from Tailscale"))
+        for p in peers:
+            mark = good() if p.get("ready") else dim("·")
+            print(f"  {mark} {p['name']:<28} {p['os'] or '?':<8} {p['says']}")
+            if p.get("ready"):
+                login = ":yourpassword@" if "password" in p["says"] else ""
+                print(dim(f"      autoharness teach vnc://{login}{p['address']} \"<the job>\""))
+            elif p["online"] and p["os"] not in sc.NO_SCREEN and not p.get("open"):
+                print(dim(f"      To share it: {sc.how_to_share(p['os'])}"))
+    print(dim("\nTry an address before teaching on it: autoharness screens vnc://<computer>. It says what it sees and saves a screenshot."))
+    return 0
+
+
+def look_at(address: str) -> int:
+    """Connect once, say what's there, and save a screenshot, so a screen can be checked before anything is taught on it."""
+    from PIL import Image
+
+    from . import targets
+    from .vnc import VncError
+    spec = targets.spec_from_text(address)
+    if spec.get("kind") != "vnc":
+        raise AppError("give a vnc:// address, like vnc://gamepc or vnc://:password@my-mac.local")
+    try:
+        screen = targets.open_screen(spec)
+    except VncError as e:
+        raise AppError(str(e)) from None
+    try:
+        screen.wait_stable(3)
+        frame = screen.shot()
+        out = config.HOME / "screens" / (re.sub(r"[^\w.-]", "_", spec["name"]) + ".png")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        Image.fromarray(frame).save(out)
+        w, h = screen.server_size
+        print(f"{good()} {spec['url']} answers: a {w} x {h} screen{f' called {screen.name!r}' if screen.name else ''}"
+              + (f", which the models see at {screen.width} x {screen.height}." if (w, h) != (screen.width, screen.height) else "."))
+        if frame.mean() < 8:
+            print(colour("33", "  It looks black. Is that computer asleep or locked, or is a game in exclusive full screen? Use windowed or borderless."))
+        print(f"  What Autoharness sees: {out}")
+        print(dim(f"  Teach on it: autoharness teach {spec['url']} \"<the job>\""))
+    finally:
+        screen.stop()
+    return 0
+
+
+def guides_list() -> int:
+    from . import guides
+    found = sorted(guides.folder().glob("*/SKILL.md")) if guides.folder().exists() else []
+    if not found:
+        print("No guides yet. Each lesson writes one: autoharness teach <address> \"<the job>\"")
+        return 0
+    for f in found:
+        head, _ = guides.parse(f.read_text())
+        always = " · shared after every lesson" if guides.share_settings(f.parent.name).get("always") else ""
+        print(f"  {colour('1', f.parent.name):<34} {head.get('app', '')}, updated {head.get('updated', '?')}{always}")
+        print(f"  {dim(str(f))}")
+    print(dim(f"\nShare one with everyone: autoharness share <name>. Shared guides: {guides.SITE}"))
+    return 0
+
+
+def share(gid: str, yes: bool = False, always: bool | None = None) -> int:
+    from . import guides
+    md = guides.load_local(gid)
+    if md is None:
+        raise AppError(f"there's no guide called {gid} on this computer. autoharness guides lists them")
+    try:
+        clean = guides.check_shareable(md, gid)
+    except ValueError as e:
+        raise AppError(str(e)) from None
+    if always is False:
+        guides.set_always(gid, False)
+        print(f"{gid} won't be shared after lessons any more.")
+        return 0
+    print(clean)
+    change = guides.what_changes(gid, clean)
+    print(colour("1", {"new": "This guide isn't in docsdb yet.", "same": "docsdb already has exactly this guide."}.get(change, "What changes in docsdb:")))
+    if change == "same":
+        return 0
+    if change not in ("new", "same"):
+        print(change)
+    print(f"\nIt goes up as a pull request to github.com/{guides.REPO}, and a person checks it before it appears at {guides.SITE}.")
+    print("Read it above first: it must hold nothing private, like names, accounts, values from the screen or addresses.")
+    if not yes:
+        try:
+            if input("Share it with everyone? [y/N] ").strip().lower() not in ("y", "yes"):
+                print("Not shared.")
+                return 0
+        except EOFError:
+            print("Not shared: run it in a terminal to answer, or add --yes.")
+            return 1
+    try:
+        url = guides.open_pull_request(gid, clean)
+    except FileNotFoundError:
+        print(colour("33", "Sharing uses the GitHub CLI (gh), and it isn't installed. Or add the file yourself:"))
+        print(f"  https://github.com/{guides.REPO}/new/{guides.BRANCH}?filename=docsdb/{gid}/SKILL.md")
+        return 1
+    except RuntimeError as e:
+        print(colour("33", f"GitHub said: {e}"))
+        print(dim("If gh isn't signed in, run: gh auth login"))
+        return 1
+    print(good(f"Offered for review: {url}"))
+    if always:
+        guides.set_always(gid, True)
+        print(dim(f"From now on, each lesson about {gid} that changes its guide offers the update for review too. Stop with --never."))
+    return 0
 
 
 def connect() -> int:

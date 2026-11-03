@@ -8,6 +8,7 @@ run and hands off, so a run ends either verified or asking for help, and never q
 """
 from __future__ import annotations
 
+import datetime
 import json
 import re
 import threading
@@ -31,8 +32,10 @@ class NeedsHelp(Exception):
 
 # ---- The record of a capable model using the interface ------------------------------------------------------------------
 
-def explore(display: Display, target, goal: str, meter: Meter, frames: list | None = None, limit_usd: float = 0.6, max_turns: int = 45, emit: Emit | None = None, stop: threading.Event | None = None) -> dict:
-    """Muse Spark does the job once through computer use. The record is what the compiler learns from."""
+def explore(display: Display, target, goal: str, meter: Meter, frames: list | None = None, limit_usd: float = 0.6, max_turns: int = 45, emit: Emit | None = None, stop: threading.Event | None = None, docs: str = "") -> dict:
+    """Muse Spark does the job once through computer use. The record is what the compiler learns from. docs is Wonder's
+    brief on the app's docs, if the user gave any."""
+    from .docs import FOR_SPARK
     from .teacher import Teacher
 
     emit = emit or (lambda e: None)
@@ -43,7 +46,8 @@ def explore(display: Display, target, goal: str, meter: Meter, frames: list | No
     target.reset()
     frame = display.shot()
     record: list[dict] = [{"i": 0, "image": frame, "said": "", "did": "the app as it first appears"}]
-    items = [{"role": "user", "content": [{"type": "input_text", "text": f"Goal: {goal}\nScreen size: {display.width}x{display.height}."}, {"type": "input_image", "image_url": image_url(frame)}]}]
+    told = FOR_SPARK.format(brief=docs) if docs else ""
+    items = [{"role": "user", "content": [{"type": "input_text", "text": f"Goal: {goal}\nScreen size: {display.width}x{display.height}.{told}"}, {"type": "input_image", "image_url": image_url(frame)}]}]
     prev, turns, status = None, 0, "ran out of turns"
     instructions = "Use the computer tool to reach the goal. Before each action, say in one short sentence what you see and why you're doing it. Stop when the goal is reached and state what you found. Coordinates are real pixels."
     while turns < max_turns and not stop.is_set():
@@ -60,7 +64,7 @@ def explore(display: Display, target, goal: str, meter: Meter, frames: list | No
                 status = str(e)[:200]
                 break
             prev = None
-            items = [{"role": "user", "content": [{"type": "input_text", "text": f"Goal: {goal}\nScreen size: {display.width}x{display.height}. You were already working on this and the earlier conversation had to end. Carry on from the screen as it is now."}, {"type": "input_image", "image_url": image_url(display.shot())}]}]
+            items = [{"role": "user", "content": [{"type": "input_text", "text": f"Goal: {goal}\nScreen size: {display.width}x{display.height}. You were already working on this and the earlier conversation had to end. Carry on from the screen as it is now.{told}"}, {"type": "input_image", "image_url": image_url(display.shot())}]}]
             continue
         prev = out["id"]
         turns += 1
@@ -598,10 +602,12 @@ Which way fits this job? If the same steps would work every time, it's a plan. R
 "app": "the app's name in one or two words, from the job or the address, such as the game's title or the site's name"}}"""
 
 
-def choose_way(address: str, goal: str, meter: Meter) -> dict:
-    """Spark reads the job, not the screen, and picks plan or program. It costs about a tenth of a cent."""
+def choose_way(address: str, goal: str, meter: Meter, docs: dict | None = None) -> dict:
+    """Spark reads the job, not the screen, and picks plan or program. It costs about a tenth of a cent. Wonder's brief on
+    the app's docs, if there is one, says how the app works, which helps tell a game from a form."""
+    told = " ".join([str((docs or {}).get("about") or ""), *[str(r) for r in (docs or {}).get("rules") or []][:6]]).strip()
     out = Cloud(meter=meter, limit_usd=0.05).respond(model=config.SPARK_MODEL, reasoning={"effort": "low"}, input=[
-        {"role": "user", "content": [{"type": "input_text", "text": WAYS.format(address=address, goal=goal)}]}])
+        {"role": "user", "content": [{"type": "input_text", "text": WAYS.format(address=address, goal=goal) + (f"\n\nWhat the app's docs say about it: {told}" if told else "")}]}])
     try:
         a = extract_json(response_text(out))
     except ValueError:
@@ -777,7 +783,7 @@ def without_login(text: str, login: dict) -> str:
 
 
 def teach_program(spec: dict, goal: str, inputs: dict, display: Display, target, emit: Emit, stop: threading.Event, chosen: dict,
-                  name: str | None = None, approve=None, limit_usd: float = 4.0) -> dict:
+                  name: str | None = None, approve=None, limit_usd: float = 4.0, docs: str = "") -> dict:
     """Program mode, through the same door as a plan: Spark explores, Wonder writes a program, and it has to pass its trials
     on its own before it's offered as a tool."""
     from . import library
@@ -785,32 +791,39 @@ def teach_program(spec: dict, goal: str, inputs: dict, display: Display, target,
 
     app = name or chosen.get("app") or str(spec.get("name") or "app")
     pkg = library.create(app, goal, spec)
-    manifest = Teacher(pkg, display, target, emit, stop, limit_usd=limit_usd, sample_params=inputs or None, approve=approve).teach()
+    manifest = Teacher(pkg, display, target, emit, stop, limit_usd=limit_usd, sample_params=inputs or None, approve=approve, docs=docs).teach()
     usd = float(manifest.get("teach_usd") or 0)
+    understanding = pkg.path / "teach" / "understanding.md"
+    notes = "\n\n".join(x for x in ((understanding.read_text() if understanding.exists() else ""), str(manifest.get("how") or "")) if x.strip())
     if manifest.get("status") != "ready":
-        emit({"type": "not_learned", "why": f"{str(manifest.get('failure') or 'it did not pass its trials').rstrip('.')}. It isn't offered as a tool.", "usd": usd})
-        return {"ok": False, "usd": usd}
+        why = f"{str(manifest.get('failure') or 'it did not pass its trials').rstrip('.')}."
+        emit({"type": "not_learned", "why": f"{why} It isn't offered as a tool.", "usd": usd})
+        return {"ok": False, "usd": usd, "notes": notes, "outcome": f"not learned: {why}", "app": app}
     iface = new_plan_id(name or app, "app")
     pkg.update(tool_id=iface, tool_job=chosen["job"], params=inputs or {})
     emit({"type": "plan", "plan": plan_brief(program_interfaces()[iface]), "usd": usd})
     emit({"type": "learned", "id": iface, "usd": usd, "verified": manifest.get("verified")})
-    return {"ok": True, "usd": usd}
+    return {"ok": True, "usd": usd, "notes": notes, "app": app,
+            "outcome": f"learned: a program written from this passed {manifest.get('verified')} runs on its own, {datetime.date.today().isoformat()}"}
 
 
-def teach(app_id: str, spec: dict, goal: str, inputs: dict, display: Display, target, emit: Emit, stop: threading.Event, repairs: int = 4, limit_usd: float = 4.0, name: str | None = None) -> dict:
+def teach(app_id: str, spec: dict, goal: str, inputs: dict, display: Display, target, emit: Emit, stop: threading.Event, repairs: int = 4, limit_usd: float = 4.0, name: str | None = None, docs: str = "") -> dict:
     """Explore, compile, prove, repair. Passing here means the plan finished and a separate model, shown only the final screen, agrees."""
     from .teacher import KEPT_SCREEN_NOTE, judge_final_screen, kept_screen
 
     meter = Meter()
     full_goal = goal + (f"\nInputs: {json.dumps(inputs)}" if inputs else "") + (KEPT_SCREEN_NOTE if kept_screen(spec) else "")
     emit({"type": "stage", "stage": "explore", "text": "Muse Spark is using the interface for the first time."})
-    record = explore(display, target, full_goal, meter, limit_usd=min(1.0, limit_usd), emit=lambda e: emit({**e, "usd": round(meter.usd, 4)}), stop=stop)
+    record = explore(display, target, full_goal, meter, limit_usd=min(1.0, limit_usd), emit=lambda e: emit({**e, "usd": round(meter.usd, 4)}), stop=stop, docs=docs)
     emit({"type": "stage", "stage": "compile", "text": "Muse Wonder is writing the plan.", "usd": round(meter.usd, 4)})
     note = ("Give the skill that does the whole job a short snake_case name another program could call it by, like read_order or ship_order, and list it in jobs under that same name. "
             "Every value a run needs that could change, including any login, name or number stated in the job, must be an input used as {name}, "
             'and must also appear with the value from this job in a top-level "defaults" object in your reply, so a run with no other inputs still works. '
             'The one exception is a login: put its values, like username and password, in a top-level "login" object instead of "defaults". '
             "A login is kept on this computer and never shown to programs that call the job.")
+    if docs:
+        from .docs import FOR_WONDER
+        note += FOR_WONDER.format(brief=docs)
     plan = compile_plan([record], note, meter=meter, limit_usd=min(1.5, limit_usd))
     login = plan.pop("login", None)
     login = {str(k): v for k, v in login.items()} if isinstance(login, dict) else {}
@@ -840,9 +853,13 @@ def teach(app_id: str, spec: dict, goal: str, inputs: dict, display: Display, ta
             plan.update(compile_usd=round(meter.usd, 4))
             folder.mkdir(parents=True, exist_ok=True)
             (folder / "plan.json").write_text(json.dumps(plan, indent=1))
+            if docs:
+                (folder / "docs.md").write_text(docs)
             keep_login(app_id, login)
             emit({"type": "learned", "id": app_id, "usd": round(meter.usd, 4)})
-            return {"ok": True, "plan": plan, "usd": meter.usd}
+            return {"ok": True, "plan": plan, "usd": meter.usd, "notes": plan_notes(plan, record), "app": plan.get("app") or app_id,
+                    "private": [*map(str, login.values()), *map(str, inputs.values())],
+                    "outcome": f"learned: a plan written from this passed its proof run on its own, {datetime.date.today().isoformat()}"}
         if attempt == repairs or meter.usd >= limit_usd or result["reason"] == last_reason:
             break  # the same failure twice means repairs aren't reaching the problem, so stop spending
         last_reason = result["reason"]
@@ -857,4 +874,12 @@ def teach(app_id: str, spec: dict, goal: str, inputs: dict, display: Display, ta
         except (ValueError, CloudError) as e:
             emit({"type": "log", "text": f"The repair didn't work: {e}"[:300]})
     emit({"type": "not_learned", "why": "It didn't pass within its repair limit, so nothing was saved.", "usd": round(meter.usd, 4)})
-    return {"ok": False, "usd": meter.usd}
+    return {"ok": False, "usd": meter.usd, "notes": plan_notes(plan, record), "app": plan.get("app") or app_id,
+            "private": [*map(str, login.values()), *map(str, inputs.values())], "outcome": "not learned: the plan didn't pass its proof runs"}
+
+
+def plan_notes(plan: dict, record: dict) -> str:
+    """What a plan lesson found, for the app's guide: how the app behaves, what each skill does, and Spark's last words."""
+    said = [r["said"] for r in record.get("record", []) if r.get("said")]
+    skills = "\n".join(f"- {s.get('name')}: {s.get('does', '')}" for s in plan.get("skills", []))
+    return f"How it behaves: {plan.get('how_it_behaves', '')}\n\nSkills the plan has:\n{skills}\n\nWhat Spark said while exploring:\n" + "\n".join(said[-12:])

@@ -191,9 +191,11 @@ class App:
     def wait(self, seconds: float) -> None:
         self._call("wait", seconds=float(seconds))
 
-    def wait_stable(self, timeout: float = 3.0, region=None) -> bool:
-        """Wait until the screen stops changing. Use after any action, instead of fixed sleeps."""
-        return bool(self._call("wait_stable", timeout=float(timeout), region=region))
+    def wait_stable(self, timeout: float = 3.0, region=None, ignore_small: bool = False) -> bool:
+        """Wait until the screen stops changing. Use after any action, instead of fixed sleeps. If the app never stops
+        moving a little, like animated sprites in a game or a blinking cursor, pass ignore_small=True, or every wait runs
+        to its timeout."""
+        return bool(self._call("wait_stable", timeout=float(timeout), region=region, ignore_small=bool(ignore_small)))
 
     # -- thinking and people --------------------------------------------------------------------
     def ask(self, question: str, region=None, choices=None, schema=None, image=None):

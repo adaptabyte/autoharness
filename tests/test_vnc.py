@@ -205,3 +205,22 @@ def test_on_a_screen_that_isnt_reset_the_judge_sees_where_the_run_began():
     assert [c["type"] for c in sent["input"][0]["content"]].count("input_image") == 1  # a fresh screen needs only the end
     assert kept_screen({"kind": "vnc"}) and not kept_screen({"kind": "desktop"}) and not kept_screen(None)
     assert "starting a new game" in KEPT_SCREEN_NOTE
+
+
+def test_a_screen_that_never_stops_moving_a_little_can_still_settle():
+    """Games animate: a few sprites change on every look. Opted in, small endless changes count as still; big ones never do."""
+    from autoharness.desktop import Display
+
+    class Moving(Display):
+        def __init__(self, patch):
+            self.patch, self.n = patch, 0
+
+        def shot(self):
+            self.n += 1
+            f = np.zeros((100, 100, 3), np.uint8)
+            f[: self.patch, : self.patch] = 255 * (self.n % 2)  # the same patch flickers forever
+            return f
+    sprite = Moving(4)  # 16 pixels of 10,000: under 0.2%
+    assert not sprite.wait_stable(0.4, quiet=0.1) and sprite.small_unsettled == 1  # as before, unless asked
+    assert sprite.wait_stable(0.4, quiet=0.1, ignore_small=True)
+    assert not Moving(30).wait_stable(0.4, quiet=0.1, ignore_small=True)  # 9% of the screen is a real change

@@ -80,6 +80,7 @@ class VncScreen(Display):
         self.updates = 0
         self._cache = (-1, None)
         self._buttons = 0
+        self.received = 0           # bytes from the screen so far, to see what a look costs the network
         self._input_at = 0.0        # when the last click or key went out
         self._looked_at = 0.0       # the last input a screenshot has already waited out
         self._update_done_at = 0.0  # when the last screen update finished arriving
@@ -100,6 +101,7 @@ class VncScreen(Display):
             if not chunk:
                 raise VncError("the screen closed the connection")
             buf += chunk
+            self.received += len(chunk)
         return bytes(buf)
 
     def _send(self, data: bytes) -> None:

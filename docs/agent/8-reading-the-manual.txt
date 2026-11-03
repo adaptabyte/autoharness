@@ -1,0 +1,19 @@
+Teaching a game from its manual: GNOME Robots, with --docs
+================================================================
+
+The bar, written before the run (2026-11-03):
+
+  autoharness teach gnome-robots "Clear the first level of Robots: get every robot destroyed without being caught. If you're caught, start a new game and keep going until a level is cleared." --docs https://help.gnome.org/users/gnome-robots/stable/ --name robots --limit 3
+
+  Passes only if it's learned the usual way: the program passes at least 4 of 5 fresh runs on its own, each judged by Spark
+  from the final screen alone, and Glimmer passes the model-interface check. The whole lesson, reading included, may spend
+  at most $3.
+  Also recorded: whether Spark used the keys the docs give (y k u h l b j n to move, Alt+S and Alt+R to teleport) rather
+  than finding them by trying, how many turns it explored, and what reading the docs cost.
+  Not measured: the same lesson without the docs. The budget allows one run, so nothing here claims the docs made it
+  cheaper or faster.
+
+Why this game: its keys can't be guessed. Moving is y k u h l b j n, the old Unix layout, and teleporting is Alt+S or
+Alt+R. Pressing every key to find them is exactly what reading the manual should save.
+
+The run:

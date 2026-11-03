@@ -1,0 +1,44 @@
+# autoharness.adaptabyte.com: the landing page and docsdb, built from docsdb/ on every change to master.
+# Pull requests that touch docsdb/ must pass the same checks before anyone reviews them.
+name: docsdb
+on:
+  push:
+    branches: [master]
+    paths: ["docsdb/**", "scripts/build_docsdb.py", "autoharness/guides.py", ".github/workflows/docsdb.yml"]
+  pull_request:
+    paths: ["docsdb/**"]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: docsdb-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install markdown==3.7 numpy pillow
+      - name: Check every guide
+        run: python scripts/build_docsdb.py --check
+      - name: Build the site
+        run: python scripts/build_docsdb.py _site
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

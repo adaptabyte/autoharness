@@ -25,6 +25,7 @@ from PIL import Image
 from . import config, sdk
 from .cloud import BudgetExceeded, Cloud, CloudError, Meter, image_url, response_text
 from .desktop import Display
+from .docs import FOR_SPARK, FOR_WONDER
 from .library import Package
 from .local import Glimmer, extract_json
 from .runtime import Runner, RunResult
@@ -220,11 +221,19 @@ def verify_only(pkg: Package, display: Display, target: Target, emit: Emit | Non
 
 
 class Teacher:
+    docs = ""  # Wonder's brief on the app's docs, when the user gave some
+
     def __init__(self, pkg: Package, display: Display, target: Target, emit: Emit | None = None,
                  stop: threading.Event | None = None, limit_usd: float = 4.0, max_explore_turns: int = 28,
                  max_compile_turns: int = 90, verify_runs: int = 5, sample_params: dict | None = None,
-                 glimmer: Glimmer | None = None, effort: str = "high", approve=None):
+                 glimmer: Glimmer | None = None, effort: str = "high", approve=None, docs: str = ""):
         self.pkg, self.display, self.target = pkg, display, target
+        # Wonder's brief on the app's docs, if the user gave any. Kept with the program, so repairs see it too.
+        brief = pkg.path / "teach" / "docs.md"
+        if docs:
+            brief.parent.mkdir(parents=True, exist_ok=True)
+            brief.write_text(docs)
+        self.docs = docs or (brief.read_text() if brief.exists() else "")
         self.emit = emit or (lambda e: None)
         self.stop = stop or threading.Event()
         self.meter = Meter()
@@ -309,7 +318,8 @@ class Teacher:
         results = [str(i.get("output"))[:4000] for i in items if i.get("type") == "function_call_output"]
         content = [{"type": "input_text", "text":
                     f"Your conversation history was lost, but all your work is saved.\nApp: {self.target.name}\nGoal: {self._goal()}\n"
-                    + (f"What you were asked to do, which may not be finished: {self.task}\n" if self.task else "") +
+                    + (f"What you were asked to do, which may not be finished: {self.task}\n" if self.task else "")
+                    + (FOR_WONDER.format(brief=self.docs).strip() + "\n" if self.docs else "") +
                     f"What you learned:\n{self.understanding}\nNotes: {json.dumps(self.notes)}\n"
                     f"Saved templates: {[f.name for f in self.pkg.assets.glob('*.png')]}\nLatest frame number: {self.frame_n}\n"
                     f"Current harness.py (version {m.get('version', 0)}):\n```python\n{self.pkg.code}\n```\n"
@@ -553,6 +563,7 @@ class Teacher:
         r = RunResult(local_only=True)
         t0 = time.time()
         runner._t_end = t0 + seconds
+        small_before = getattr(self.display, "small_unsettled", 0)
         end = runner._launch(Path(tempfile.mkdtemp(prefix="autoharness-trial-")), r)
         r.seconds = round(time.time() - t0, 2)
         status = end.get("status", "unknown")
@@ -560,6 +571,7 @@ class Teacher:
             status, end = "failed", {**end, "reason": "it did nothing. This screen isn't reset between runs, so what it saw was left from an "
                                                       "earlier run. Each run has to do the whole job itself, starting a new one first"}
         self.passes_in_a_row = self.passes_in_a_row + 1 if status == "done" else 0
+        small = getattr(self.display, "small_unsettled", 0) - small_before
         frame = self.display.shot()
         n = self._record(frame)
         self.emit({"type": "trial_end", "status": status, "seconds": r.seconds, "actions": r.actions, "glimmer": r.glimmer_calls,
@@ -568,6 +580,9 @@ class Teacher:
         result = {"status": status, "seconds": r.seconds, "actions": r.actions, "glimmer_calls": r.glimmer_calls,
                   "summary": end.get("summary"), "reason": end.get("reason"), "traceback": end.get("traceback"),
                   "last_log_lines": r.log[-25:], "final_frame": n, "passes_in_a_row": self.passes_in_a_row}
+        if small:
+            result["note"] = (f"{small} waits ran to their timeout because something small on screen never stops moving, like an "
+                              "animation. Use app.wait_stable(ignore_small=True) there, or each of those waits costs its whole timeout.")
         return json.dumps(result, default=str), [self._image_item(frame, f"Final screen after the trial (frame {n})")]
 
     # -- the loop -----------------------------------------------------------------------------
@@ -651,7 +666,7 @@ class Teacher:
         if self.sample_params:
             extra = f"\n\nSample inputs the user will supply each run: {json.dumps({k: v for k, v in self.sample_params.items() if k != '_files'})}"
         first = [{"role": "user", "content": [
-            {"type": "input_text", "text": f"App: {self.target.name} ({self.target.describe()})\nGoal: {goal}{extra}\n\nScreen size: {self.display.width}x{self.display.height}. Frame {n}:"},
+            {"type": "input_text", "text": f"App: {self.target.name} ({self.target.describe()})\nGoal: {goal}{extra}{FOR_SPARK.format(brief=self.docs) if self.docs else ''}\n\nScreen size: {self.display.width}x{self.display.height}. Frame {n}:"},
             {"type": "input_image", "image_url": image_url(frame)}]}]
         rules = EXPLORE_RULES.format(max_turns=self.max_explore_turns)
         try:
@@ -677,7 +692,8 @@ class Teacher:
         content: list = [{"type": "input_text", "text":
                           f"App: {self.target.name}\nGoal: {self._goal()}\nSample inputs each run: {json.dumps(params)}\n"
                           f"Screen size: {self.display.width}x{self.display.height}. Recorded frames 1 to {self.frame_n}; view any with view_frame.\n\n"
-                          f"What you learned by exploring the app:\n{self.understanding}\n\nNotes: {json.dumps(self.notes)}\n\nKey frames:"}]
+                          f"What you learned by exploring the app:\n{self.understanding}\n\nNotes: {json.dumps(self.notes)}"
+                          f"{FOR_WONDER.format(brief=self.docs) if self.docs else ''}\n\nKey frames:"}]
         for kf in (getattr(self, "key_frames", []) or [])[:8]:
             try:
                 content.append({"type": "input_text", "text": f"Frame {kf['frame']}: {kf.get('shows', '')}"})
