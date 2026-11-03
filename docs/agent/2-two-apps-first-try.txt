@@ -1,0 +1,15 @@
+7 jobs offered by http://127.0.0.1:4140/mcp/ui: backoffice__ship_order, backoffice__read_order, calculator__calculate, openemr__report_patient_dob, openemr__update_patient_home_phone, openemr-chart__read_patient_chart, portal__save_request
+
+You: Renata Ashby needs a prior authorization for vortioxetine 10 mg, 30 tablets for 30 days. Her chart is in OpenEMR. Read it, then file the request in the insurer's portal.
+
+muse-spark-1.3 calls openemr-chart__read_patient_chart {"first": "Renata", "last": "Ashby"}
+  running on this computer; watch it at http://127.0.0.1:4140
+  verified in 214 s: {"identity": {"member_id": "MBR-20863", "dob": "1983-05-14"}, "problems": [{"title": "Major depressive disorder, recurrent, moderate", "code": "F33.1", "status": "Active"}], "medication_rows": [{"title": "Vortioxetine 10 mg", "status": "Active"}, {"title": "Bupropion XL 300 mg", "status": "Inactive"}, {"title": "Sertraline 100 mg", "status": "Inactive"}], "medication_detail": [{"title": "Vortioxet
+
+muse-spark-1.3 calls portal__save_request {"days": 30.0, "dob": "1983-05-14", "drug": "vortioxetine", "icd10": "F33.1", "member_id": "MBR-20863", "quantity": 30.0, "strength": "10 mg", "trials": [{"drug": "Sertraline 100 mg", "end": "2025-07-15", "outcome": "inadequate response", "start": "2025-01-06"}, {"drug": "Bupropion XL 300 mg", "end": "2026-02-03", "outcome": "intolerance", "start": "2025-07-20"}]}
+  running on this computer; watch it at http://127.0.0.1:4140
+  stopped in 88 s: {"ok": false, "status": "needs_help", "outputs": {"member_on_medication": {"member_name": "Renata Ashby"}, "med_readback": {"drug": "Vortioxetine", "strength": "10 mg", "quantity": "30.0", "days": "30.0"}}, "stopped_for_person": null, "reason": "expected, but not true: Is step '3. Diagnosis' bold in the progress line, with a 'Search diagnosis by ICD-10 code or words' box and Search, Back and Conti
+
+muse-spark-1.3: The portal filing tool stopped and did not file the request — it stalled at step 3. Diagnosis when the expected diagnosis search screen did not appear.
+
+The asking model cost $0.0102 in the cloud. The interface ran on this computer, for $0.

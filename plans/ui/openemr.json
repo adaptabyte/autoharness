@@ -1076,8 +1076,7 @@
  ],
  "jobs": {
   "read_dob": "report_patient_dob",
-  "set_phone": "update_patient_home_phone",
-  "read_chart": "read_patient_chart"
+  "set_phone": "update_patient_home_phone"
  },
  "compile_usd": 0.42504,
  "repair_usd": 0,

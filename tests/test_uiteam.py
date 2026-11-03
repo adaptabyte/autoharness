@@ -214,3 +214,89 @@ def test_running_a_plan_never_touches_the_cloud(monkeypatch):
     monkeypatch.setattr(cloud.Cloud, "respond", blocked)
     result, _ = run([{"do": "click", "target": "Login"}, {"do": "ensure", "question": "Is it open?"}, {"do": "type", "target": "Box", "text": "x", "no_check": True}])
     assert result["status"] == "done"
+
+
+# ---- A compiled interface, offered to other models as tools ---------------------------------------------------------------------
+
+def shipped(name):
+    import json
+    from pathlib import Path
+    return {**uiteam.check_plan(json.loads((Path(__file__).resolve().parent.parent / "plans" / "ui" / f"{name}.json").read_text())), "id": name}
+
+
+def test_each_whole_job_is_one_tool_and_its_parts_are_not_offered():
+    tools = uiteam.plan_tools(shipped("backoffice"))
+    assert [t["name"] for t in tools] == ["ship_order", "read_order"]
+    schema = tools[0]["inputSchema"]
+    assert set(schema["required"]) == {"number", "new_status", "new_tracking", "username", "password"}
+    assert schema["additionalProperties"] is False
+
+
+def test_a_list_input_gets_its_shape_from_the_proven_sample():
+    tool = uiteam.plan_tools(shipped("portal"))[0]
+    trials = tool["inputSchema"]["properties"]["trials"]
+    assert trials["type"] == "array" and set(trials["items"]["properties"]) == {"drug", "start", "end", "outcome"}
+
+
+def test_a_call_with_a_gap_is_refused_before_anything_opens():
+    plan = shipped("backoffice")
+    good = {"number": "ORD-1", "username": "u", "password": "p"}
+    assert uiteam.check_tool_call(plan, "read_order", good) == good
+    for bad, why in [({"username": "u", "password": "p"}, "missing: number"), ({**good, "note": "x"}, "not inputs of this job: note"),
+                     ({**good, "number": ["ORD-1"]}, "should be text")]:
+        with pytest.raises(ValueError, match=why):
+            uiteam.check_tool_call(plan, "read_order", bad)
+    with pytest.raises(ValueError, match="no job called"):
+        uiteam.check_tool_call(plan, "log_in", {"username": "u", "password": "p"})
+
+
+def test_the_mcp_server_lists_every_interface_and_refuses_bad_calls_without_running(monkeypatch, tmp_path):
+    from autoharness import config, server
+    monkeypatch.setattr(config, "HOME", tmp_path)
+    monkeypatch.setattr(uiteam, "saved_plans", lambda: {"backoffice": shipped("backoffice"), "calculator": shipped("calculator")})
+    started = []
+    monkeypatch.setattr(server, "start_ui_run", lambda *a, **k: started.append(a))
+    init = server.ui_mcp_reply(None, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18"}})
+    assert init["result"]["capabilities"] == {"tools": {}}
+    names = [t["name"] for t in server.ui_mcp_reply(None, {"id": 2, "method": "tools/list"})["result"]["tools"]]
+    assert names == ["backoffice__ship_order", "backoffice__read_order", "calculator__calculate"]
+    assert [t["name"] for t in server.ui_mcp_reply("calculator", {"id": 3, "method": "tools/list"})["result"]["tools"]] == ["calculate"]
+    refused = server.ui_mcp_reply(None, {"id": 4, "method": "tools/call", "params": {"name": "backoffice__read_order", "arguments": {"number": "ORD-1"}}})
+    assert refused["result"]["isError"] and "missing: username, password" in refused["result"]["content"][0]["text"]
+    assert server.ui_mcp_reply(None, {"id": 5, "method": "tools/call", "params": {"name": "nobody__x", "arguments": {}}})["result"]["isError"]
+    assert server.ui_mcp_reply(None, {"method": "notifications/initialized"}) is None
+    assert server.ui_mcp_reply("nope", {"id": 6, "method": "tools/list"})["error"]["code"] == -32602
+    assert started == []
+
+
+def test_a_taught_job_gets_a_readable_name_and_never_overwrites_another(monkeypatch):
+    plan = {"skills": [{"name": "log_in", "steps": []}, {"name": "read_order", "steps": []}], "jobs": {"read_order": "read_order"}}
+    assert uiteam.main_job(plan) == "read_order"
+    assert uiteam.main_job({**plan, "jobs": {}}) == "read_order"
+    monkeypatch.setattr(uiteam, "saved_plans", lambda: {"django-administration": {}})
+    assert uiteam.new_plan_id("Django administration", "x") == "django-administration-2"
+    assert uiteam.new_plan_id("", "127-0-0-1-8320") == "127-0-0-1-8320"
+
+
+def test_a_login_kept_on_this_computer_is_never_shown_to_the_caller_and_is_filled_in(monkeypatch, tmp_path):
+    from autoharness import config
+    monkeypatch.setattr(config, "HOME", tmp_path)
+    (tmp_path / "logins.json").write_text('{"backoffice": {"username": "manager", "password": "demo-pass"}}')
+    kept = uiteam.kept_logins("backoffice")
+    plan = shipped("backoffice")
+    tool = next(t for t in uiteam.plan_tools(plan, kept) if t["name"] == "read_order")
+    assert set(tool["inputSchema"]["properties"]) == {"number"} and "demo-pass" not in str(tool)
+    assert uiteam.check_tool_call(plan, "read_order", {"number": "ORD-1"}, kept) == {"number": "ORD-1", "username": "manager", "password": "demo-pass"}
+    with pytest.raises(ValueError, match="not inputs of this job: password"):
+        uiteam.check_tool_call(plan, "read_order", {"number": "ORD-1", "password": "guess"}, kept)
+    assert uiteam.kept_logins("calculator") == {}
+
+
+def test_a_whole_number_sent_as_a_float_is_typed_as_a_whole_number():
+    plan = shipped("portal")
+    props = uiteam.plan_tools(plan)[0]["inputSchema"]["properties"]
+    assert props["quantity"]["type"] == ["integer", "string"]
+    args = {**plan["samples"]["save_request"], "quantity": 30.0, "days": 30.0}
+    args["trials"] = [{**args["trials"][0], "drug": "Lamotrigine 200 mg"}]
+    out = uiteam.check_tool_call(plan, "save_request", args)
+    assert out["quantity"] == 30 and isinstance(out["quantity"], int) and out["days"] == 30

@@ -1,0 +1,16 @@
+7 jobs offered by http://127.0.0.1:4140/mcp/ui: backoffice__ship_order, backoffice__read_order, calculator__calculate, openemr__report_patient_dob, openemr__update_patient_home_phone, openemr-chart__read_patient_chart, portal__save_request
+
+You: Has order ORD-10530 shipped? And what's its total?
+
+muse-spark-1.3 calls backoffice__read_order {"number": "ORD-10530"}
+  running on this computer; watch it at http://127.0.0.1:4140
+  verified in 41 s: {"order": {"number": "ORD-10530", "customer": "Theo Rasmussen", "total": "541.43"}}
+
+muse-spark-1.3: Order **ORD-10530** verified:
+
+* Total: **541.43**
+* Customer: Theo Rasmussen
+
+Shipped status: not reported by the order lookup — it only verifies number, total, and customer.
+
+The asking model cost $0.0048 in the cloud. The interface ran on this computer, for $0.

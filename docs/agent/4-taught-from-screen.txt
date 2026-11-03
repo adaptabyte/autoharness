@@ -1,0 +1,13 @@
+8 jobs offered by http://127.0.0.1:4140/mcp/ui: backoffice__ship_order, backoffice__read_order, calculator__calculate, django-administration__lookup_customer, openemr__report_patient_dob, openemr__update_patient_home_phone, openemr-chart__read_patient_chart, portal__save_request
+
+You: What email and city do we have on file for Astrid Kowalczyk?
+
+muse-spark-1.3 calls django-administration__lookup_customer {"customer_name": "Astrid Kowalczyk"}
+  running on this computer; watch it at http://127.0.0.1:4140
+  verified in 34 s: {"customer": {"name": "Astrid Kowalczyk", "email": "astrid.kowalczyk@example.test", "city": "Ridgeway"}}
+
+muse-spark-1.3: On file for Astrid Kowalczyk:
+- Email: astrid.kowalczyk@example.test
+- City: Ridgeway
+
+The asking model cost $0.0041 in the cloud. The interface ran on this computer, for $0.

@@ -599,29 +599,141 @@ def saved_plans() -> dict[str, dict]:
 
 def plan_brief(p: dict) -> dict:
     return {"id": p["id"], "app": p.get("app") or p["id"], "how": p.get("how_it_behaves", ""), "target": p.get("target"), "cost": p.get("compile_usd"), "repairs": p.get("repairs", 0), "samples": p.get("samples") or {}, "swarm": len(p.get("swarm_inputs") or []),
-            "skills": [{"name": s["name"], "does": s.get("does", ""), "inputs": s.get("inputs") or {}, "size": count_steps(s["steps"])} for s in p["skills"]], "jobs": p.get("jobs") or {}}
+            "skills": [{"name": s["name"], "does": s.get("does", ""), "inputs": s.get("inputs") or {}, "size": count_steps(s["steps"])} for s in p["skills"]], "jobs": p.get("jobs") or {},
+            "tools": [{"name": t["name"], "inputs": list(t["inputSchema"]["properties"])} for t in plan_tools(p, kept_logins(p["id"]))], "kept": sorted(kept_logins(p["id"]))}
+
+
+TOOL_NOTE = ("Runs on the user's own computer: a small local model operates the real interface, one narrow question per screen, "
+             "and code checks every step. It takes seconds to minutes. It either finishes verified, stops for a person "
+             "(such as a signature), or stops and says why.")
+
+
+def _schema(sample) -> dict:
+    if isinstance(sample, list):
+        return {"type": "array", "items": _schema(sample[0]) if sample else {}}
+    if isinstance(sample, dict):
+        return {"type": "object", "properties": {k: _schema(v) for k, v in sample.items()}, "required": list(sample)}
+    if isinstance(sample, bool):
+        return {"type": "boolean"}
+    if isinstance(sample, int):
+        return {"type": ["integer", "string"]}
+    if isinstance(sample, float):
+        return {"type": ["number", "string"]}
+    return {"type": "string"}
+
+
+def _whole(value):
+    """30.0 from a caller means 30. Typed into a box, "30.0" is a different, often refused, answer."""
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    if isinstance(value, list):
+        return [_whole(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _whole(v) for k, v in value.items()}
+    return value
+
+
+def kept_logins(app_id: str) -> dict:
+    """Values kept on this computer for an interface, like its login, in ~/.autoharness/logins.json. They're filled in at run time
+    and left out of the tools, so a calling model never sees them."""
+    try:
+        return {str(k): v for k, v in (json.loads((config.HOME / "logins.json").read_text()).get(app_id) or {}).items()}
+    except (OSError, ValueError, AttributeError):
+        return {}
+
+
+def keep_login(app_id: str, values: dict) -> None:
+    """Saves an interface's login on this computer only, readable by this user alone."""
+    if not values:
+        return
+    file = config.HOME / "logins.json"
+    try:
+        saved = json.loads(file.read_text())
+    except (OSError, ValueError):
+        saved = {}
+    saved[app_id] = {**(saved.get(app_id) or {}), **{str(k): v for k, v in values.items()}}
+    file.parent.mkdir(parents=True, exist_ok=True)
+    file.touch(mode=0o600, exist_ok=True)
+    file.chmod(0o600)
+    file.write_text(json.dumps(saved, indent=1))
+
+
+def plan_tools(plan: dict, kept: dict | None = None) -> list[dict]:
+    """A compiled interface, offered to other models as tools. Each whole job is one tool; the smaller skills it's built from
+    aren't offered, so a caller can't start halfway through a job. Input types come from the samples the plan was proven on."""
+    by = {s["name"]: s for s in plan["skills"]}
+    names = [n for n in dict.fromkeys((plan.get("jobs") or {}).values()) if n in by] or list(by)
+    tools = []
+    for name in names:
+        skill, sample = by[name], (plan.get("samples") or {}).get(name) or {}
+        props = {k: {**_schema(sample.get(k, "")), "description": str(text)} for k, text in (skill.get("inputs") or {}).items() if k not in (kept or {})}
+        tools.append({"name": name, "title": f"{plan.get('app') or plan.get('id')}: {name.replace('_', ' ')}",
+                      "description": f"{skill.get('does', '').strip()} {TOOL_NOTE}".strip(),
+                      "inputSchema": {"type": "object", "properties": props, "required": list(props), "additionalProperties": False}})
+    return tools
+
+
+def check_tool_call(plan: dict, name: str, inputs, kept: dict | None = None) -> dict:
+    """Refuses a call before anything is opened: an unknown job, a missing input or an unexpected one. A plan never fills a gap
+    with a guess. Returns the inputs for the run, with the values kept on this computer added."""
+    tools = plan_tools(plan, kept)
+    tool = next((t for t in tools if t["name"] == name), None)
+    if not tool:
+        raise ValueError(f"{plan.get('app') or plan.get('id')} has no job called {name!r}; it has {', '.join(t['name'] for t in tools)}")
+    if not isinstance(inputs, dict):
+        raise ValueError("arguments must be an object")
+    props = tool["inputSchema"]["properties"]
+    missing = [k for k in props if inputs.get(k) in (None, "")]
+    extra = [k for k in inputs if k not in props]
+    if missing or extra:
+        raise ValueError("; ".join(filter(None, [missing and f"missing: {', '.join(missing)}", extra and f"not inputs of this job: {', '.join(extra)}"])))
+    for k, v in inputs.items():
+        want = props[k]["type"]
+        if want == "array" and not isinstance(v, list) or want == "object" and not isinstance(v, dict) or want == "string" and isinstance(v, (list, dict)):
+            raise ValueError(f"{k} should be {'a list' if want == 'array' else 'an object' if want == 'object' else 'text'}")
+    needed = set((next(s for s in plan["skills"] if s["name"] == name).get("inputs") or {}))
+    return {**_whole(inputs), **{k: v for k, v in (kept or {}).items() if k in needed}}
 
 
 def count_steps(steps: list) -> int:
     return sum(1 + count_steps(s.get("steps") or []) + count_steps(s.get("then") or []) + count_steps(s.get("else") or []) for s in steps)
 
 
+def main_job(plan: dict) -> str:
+    """The skill that does the whole job: the one the plan lists under jobs, or else its last skill."""
+    names = {s["name"] for s in plan["skills"]}
+    return next((v for v in (plan.get("jobs") or {}).values() if v in names), plan["skills"][-1]["name"])
+
+
+def new_plan_id(app_name: str, fallback: str) -> str:
+    """A readable id from the interface's own name, like django-administration, that never overwrites a plan already learned."""
+    base = re.sub(r"[^a-z0-9]+", "-", app_name.lower()).strip("-")[:32].strip("-") or fallback
+    taken = set(saved_plans())
+    return next(c for c in [base] + [f"{base}-{n}" for n in range(2, 999)] if c not in taken)
+
+
 def teach(app_id: str, spec: dict, goal: str, inputs: dict, display: Display, target, emit: Emit, stop: threading.Event, repairs: int = 4, limit_usd: float = 4.0) -> dict:
     """Explore, compile, prove, repair. Passing here means the plan finished and a separate model, shown only the final screen, agrees."""
     from .teacher import judge_final_screen
 
-    folder = config.HOME / "uiteam" / app_id
-    folder.mkdir(parents=True, exist_ok=True)
     meter = Meter()
     full_goal = goal + (f"\nInputs: {json.dumps(inputs)}" if inputs else "")
     emit({"type": "stage", "stage": "explore", "text": "Muse Spark is using the interface for the first time."})
     record = explore(display, target, full_goal, meter, limit_usd=min(1.0, limit_usd), emit=lambda e: emit({**e, "usd": round(meter.usd, 4)}), stop=stop)
     emit({"type": "stage", "stage": "compile", "text": "Muse Wonder is writing the plan.", "usd": round(meter.usd, 4)})
-    note = ("Name the job's skill run_job. Every value a run needs that could change, including any login, name or number stated in the job, must be an input used as {name}, "
-            'and must also appear with the value from this job in a top-level "defaults" object in your reply, so a run with no other inputs still works.')
+    note = ("Give the skill that does the whole job a short snake_case name another program could call it by, like read_order or ship_order, and list it in jobs under that same name. "
+            "Every value a run needs that could change, including any login, name or number stated in the job, must be an input used as {name}, "
+            'and must also appear with the value from this job in a top-level "defaults" object in your reply, so a run with no other inputs still works. '
+            'The one exception is a login: put its values, like username and password, in a top-level "login" object instead of "defaults". '
+            "A login is kept on this computer and never shown to programs that call the job.")
     plan = compile_plan([record], note, meter=meter, limit_usd=min(1.5, limit_usd))
-    inputs = {**(plan.get("defaults") or {}), **inputs}
-    plan.update(target=spec, samples={"run_job": inputs}, repairs=0, goal=goal)
+    login = plan.pop("login", None)
+    login = {str(k): v for k, v in login.items()} if isinstance(login, dict) else {}
+    inputs = {**(plan.get("defaults") or {}), **login, **inputs}
+    job = main_job(plan)
+    plan.update(target=spec, samples={job: {k: v for k, v in inputs.items() if k not in login}}, jobs={job: job}, repairs=0, goal=goal)
+    app_id = new_plan_id(plan.get("app") or "", app_id)
+    folder = config.HOME / "uiteam" / app_id
     emit({"type": "plan", "plan": plan_brief({**plan, "id": app_id}), "usd": round(meter.usd, 4)})
     frames: list[np.ndarray] = []
     last_reason = None
@@ -631,7 +743,7 @@ def teach(app_id: str, spec: dict, goal: str, inputs: dict, display: Display, ta
         emit({"type": "stage", "stage": "prove", "text": "Muse Glimmer is running the plan on its own.", "usd": round(meter.usd, 4)})
         target.reset()
         runner = PlanRunner(plan, display, emit=emit, stop=stop)
-        result = runner.run("run_job" if "run_job" in runner.skills else plan["skills"][-1]["name"], inputs)
+        result = runner.run(main_job(plan), inputs)
         frames = runner.frames
         verdict = {"achieved": False, "why": result["reason"]}
         if result["status"] in ("done", "stopped_for_person"):
@@ -639,7 +751,9 @@ def teach(app_id: str, spec: dict, goal: str, inputs: dict, display: Display, ta
         emit({"type": "proof", "attempt": attempt + 1, "status": result["status"], "achieved": verdict["achieved"], "why": verdict["why"], "seconds": result["seconds"], "questions": result["questions"], "usd": round(meter.usd, 4)})
         if verdict["achieved"]:
             plan.update(compile_usd=round(meter.usd, 4))
+            folder.mkdir(parents=True, exist_ok=True)
             (folder / "plan.json").write_text(json.dumps(plan, indent=1))
+            keep_login(app_id, login)
             emit({"type": "learned", "id": app_id, "usd": round(meter.usd, 4)})
             return {"ok": True, "plan": plan, "usd": meter.usd}
         if attempt == repairs or meter.usd >= limit_usd or result["reason"] == last_reason:
@@ -650,7 +764,9 @@ def teach(app_id: str, spec: dict, goal: str, inputs: dict, display: Display, ta
         try:
             fixed = repair_plan(plan, failure, frames, meter=meter)
             inputs = {**(fixed.get("defaults") or {}), **inputs}
-            plan = {**fixed, "target": spec, "samples": {"run_job": inputs}, "goal": goal, "repairs": attempt + 1}
+            job = main_job(fixed)
+            fixed.pop("login", None)
+            plan = {**fixed, "target": spec, "samples": {job: {k: v for k, v in inputs.items() if k not in login}}, "jobs": {job: job}, "goal": goal, "repairs": attempt + 1}
         except (ValueError, CloudError) as e:
             emit({"type": "log", "text": f"The repair didn't work: {e}"[:300]})
     emit({"type": "not_learned", "why": "It didn't pass within its repair limit, so nothing was saved.", "usd": round(meter.usd, 4)})

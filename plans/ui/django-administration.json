@@ -1,0 +1,206 @@
+{
+ "app": "Django administration",
+ "how_it_behaves": "Django admin opens on a centered Log in form. Pressing Enter after typing the password does not reliably submit it, so the blue Log in button below the Password field must be clicked. After a successful login a browser 'Save password?' popup may appear on the right side of the Site administration page and must be dismissed with 'Not now' before clicking anything underneath it. The Site administration home page groups models under headings; Customers is a row under the SHOP heading. The Customers page is a scrolling table headed NAME, EMAIL and CITY with a search box and Search button above it that filters the rows.",
+ "skills": [
+  {
+   "name": "log_in",
+   "does": "Log in to Django administration with the given credentials and land on the Site administration home page.",
+   "inputs": {
+    "username": "the login username",
+    "password": "the login password"
+   },
+   "outputs": [],
+   "steps": [
+    {
+     "do": "ensure",
+     "question": "Is the Django administration login form showing, with Username and Password boxes and a Log in button?",
+     "why": "Confirm we start on the login screen before typing credentials."
+    },
+    {
+     "do": "type",
+     "target": "the Username text box, directly below the 'Username:' label in the centered Django administration login form, above the Password box",
+     "text": "{username}"
+    },
+    {
+     "do": "type",
+     "target": "the Password text box, directly below the 'Password:' label in the centered login form, above the blue Log in button",
+     "text": "{password}",
+     "secret": true
+    },
+    {
+     "do": "click",
+     "target": "the blue 'Log in' button centered below the Password box in the login form"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "dismiss",
+     "question": "Is a browser 'Save password?' popup open on the right side of the screen, with Username and Password fields and 'Not now' and 'Save' buttons?",
+     "target": "the light-blue 'Not now' button in the 'Save password?' popup on the right side of the screen, to the left of the blue 'Save' button"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the Site administration home page showing, with the 'Site administration' heading and a 'WELCOME' greeting in the top bar?",
+     "why": "Confirm login succeeded and we reached the admin home page, not back on the login form or an error page."
+    }
+   ]
+  },
+  {
+   "name": "open_customers",
+   "does": "Open the Shop Customers list from the Site administration home page.",
+   "inputs": {},
+   "outputs": [],
+   "steps": [
+    {
+     "do": "dismiss",
+     "question": "Is a browser 'Save password?' popup open on the right side of the screen?",
+     "target": "the light-blue 'Not now' button in the 'Save password?' popup on the right side of the screen, to the left of the blue 'Save' button"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the Site administration home page showing, with section headings AUTHENTICATION AND AUTHORIZATION and SHOP?",
+     "why": "Confirm we are on the admin home page before choosing a model list."
+    },
+    {
+     "do": "click",
+     "target": "the 'Customers' link text on the left of the Customers row under the dark-blue SHOP heading in the main Site administration table, not the '+ Add' or 'Change' links on the right of the same row and not the Orders row below it"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "dismiss",
+     "question": "Is a browser 'Save password?' popup open on the right side of the screen?",
+     "target": "the light-blue 'Not now' button in the 'Save password?' popup on the right side of the screen, to the left of the blue 'Save' button"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the 'Select customer to change' page showing, with a customers table headed NAME, EMAIL and CITY?",
+     "why": "Confirm the click opened the Customers list and not Add customer, Orders, or another model."
+    }
+   ]
+  },
+  {
+   "name": "read_customer",
+   "does": "Filter the Customers list by the given customer name and read that customer's email and city, confirming the row name matches.",
+   "inputs": {
+    "customer_name": "the customer's full name, e.g. first name then last name"
+   },
+   "outputs": [
+    "customer"
+   ],
+   "steps": [
+    {
+     "do": "dismiss",
+     "question": "Is a browser 'Save password?' popup open on the right side of the screen?",
+     "target": "the light-blue 'Not now' button in the 'Save password?' popup on the right side of the screen, to the left of the blue 'Save' button"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the 'Select customer to change' page showing, with a search box and Search button above a table headed NAME, EMAIL and CITY?",
+     "why": "Confirm we are on the Customers list before searching it."
+    },
+    {
+     "do": "type",
+     "target": "the long empty search text box with a magnifying-glass icon to its left, directly above the Action dropdown and to the left of the 'Search' button, under the 'Select customer to change' heading",
+     "text": "{customer_name}"
+    },
+    {
+     "do": "click",
+     "target": "the 'Search' button immediately to the right of the long search text box, under the 'Select customer to change' heading"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "ensure",
+     "question": "Is the customers table showing at least one data row under the NAME, EMAIL and CITY headers?",
+     "why": "Confirm the search returned a row before reading it; an empty table means no matching customer was found."
+    },
+    {
+     "do": "read",
+     "into": "customer",
+     "fields": {
+      "name": "the value in the NAME column of the first data row of the customers table, the blue linked name text in that row, not any name in the left sidebar",
+      "email": "the value in the EMAIL column of that same first data row, on the same horizontal line as the name, not an email from any other row above or below",
+      "city": "the value in the CITY column of that same first data row, on the same horizontal line as the name and email, at the right of the table"
+     },
+     "types": {
+      "name": "name",
+      "email": "text",
+      "city": "text"
+     }
+    },
+    {
+     "do": "compare",
+     "a": "{customer.name}",
+     "b": "{customer_name}",
+     "kind": "name"
+    }
+   ]
+  },
+  {
+   "name": "lookup_customer",
+   "does": "Log in, open the Customers list, and report the named customer's email and city.",
+   "inputs": {
+    "username": "the login username",
+    "password": "the login password",
+    "customer_name": "the customer's full name, e.g. first name then last name"
+   },
+   "outputs": [
+    "customer"
+   ],
+   "steps": [
+    {
+     "do": "call",
+     "skill": "log_in",
+     "with": {
+      "username": "{username}",
+      "password": "{password}"
+     }
+    },
+    {
+     "do": "call",
+     "skill": "open_customers",
+     "with": {}
+    },
+    {
+     "do": "call",
+     "skill": "read_customer",
+     "with": {
+      "customer_name": "{customer_name}"
+     }
+    },
+    {
+     "do": "ensure",
+     "question": "Is the customers table still showing a row whose NAME matches the searched customer, with EMAIL and CITY values on the same row?",
+     "why": "Read the result back at the end so a wrong-row read is caught before reporting the email and city."
+    }
+   ]
+  }
+ ],
+ "jobs": {
+  "lookup_customer": "lookup_customer"
+ },
+ "defaults": {
+  "customer_name": "Theo Rasmussen"
+ },
+ "target": {
+  "id": "custom",
+  "name": "127.0.0.1:8320",
+  "kind": "web",
+  "url": "http://127.0.0.1:8320/admin/"
+ },
+ "samples": {
+  "lookup_customer": {
+   "customer_name": "Theo Rasmussen"
+  }
+ },
+ "repairs": 0,
+ "goal": "Log in with username manager and password demo-pass. Find the customer named Theo Rasmussen and report their email and city.",
+ "compile_usd": 0.1295
+}

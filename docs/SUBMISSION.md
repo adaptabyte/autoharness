@@ -1,71 +1,108 @@
 # Submission kit
 
-Everything to paste. Deadline: **Wed Nov 4, 9 PM ET**. Check every field against the live form, because I can only go by the rules you shared.
+Everything here is ready to paste. Deadline: **Wed Nov 4, 9 PM ET**. Check each field against the live form, because I could only go by the rules you shared.
 
-## Name
+## The message, in one place
 
-Autoharness
+Use the same words everywhere: the form, the video, the README, X. Repeating one message is what makes judges remember it.
 
-## One line
+| | |
+|---|---|
+| **Name** | Autoharness |
+| **Tagline** | Any interface, compiled for a small model. |
+| **Hook** | AI agents pay a genius to click every button. |
+| **Thesis** | Computer use should be the compiler, not the runtime. |
+| **Proof in one line** | Same small model, same job: 0 for 6 given the whole job, 5 for 5 compiled. |
+| **Three beats** | Learn once. Run locally. Check everything. |
+| **Vision** | Every interface was built for people. Now models build the model-facing version themselves. By the models, for the models. |
 
-Any interface, compiled once by a frontier model into a plan a small open model can run on your own computer, ending verified or stopping to ask.
+Rules for every claim:
+- Say "no silent errors" or "it ends verified or stops and asks", never "error-free".
+- Say "no cloud at run time", never "free".
+- Say it matched Spark's pass rate, never that it beat Spark on accuracy.
+- Attach "made-up records" to every medical example.
 
-## Track
+## One line (under 140 characters)
 
-Build for Your World if you lead with the clinic story, which I recommend: Impact is worth the most, and you're the person with the problem.
+Meta's frontier models learn any app once. Then a small open model runs it on your computer, as a tool any agent can call.
 
-Prizes to enter, if one project can compete for several, which you should confirm in Discord: Indie, **Open Weight** (the run time is entirely open-weight Muse Glimmer), **Agentic**, Community Vote, Most Viral.
+## Short description (about 50 words)
 
-## Description
+Autoharness compiles any interface for a small model. Muse Spark uses an app once, and Muse Wonder turns that into a plan. From then on, open-weight Muse Glimmer runs the job on your own computer, with every step checked. Each job is also a tool any agent can call over MCP. Across 35 runs on four kinds of interface, nothing wrong was saved.
 
-Every interface on earth was built for human eyes and hands, and nobody is going to rebuild them all. Today's agents cope by sending a frontier model a screenshot at nearly every step, which is slow, costs money on every run, and sends everything on your screen to the cloud.
+## Full description
 
-Autoharness compiles the interface instead. Muse Spark uses it once through computer use. Muse Wonder turns that record into a plan, with every decision made in advance. Then open-weight Muse Glimmer runs it on your own computer, answering one narrow question per screen while plain code holds the memory and checks every step. What it types gets read back. What it reads gets read twice. A run ends verified, or it stops and asks.
+Nearly every interface was built for human eyes and hands: records systems, insurer portals, back offices, desktop apps. Nobody is going to rebuild them all for AI. Today's agents cope by sending a frontier model a screenshot at almost every step. That's slow, it costs money on every run, and everything on your screen goes to the cloud.
 
-The finding that makes this work: the same small model that went 0 of 6 reading a chart in a real records system when asked to do the whole job went 5 of 5 on patients it had never seen once the job was compiled. That took about 205 seconds with no cloud, where Muse Spark took about 218 seconds and 9 cents. It's been tested on OpenEMR, a made-up insurer's portal, a Django admin and a native desktop calculator: 35 of 35 runs across seven jobs on the final code, with nothing wrong saved. On the portal it took 157 seconds against Spark's 556. Paperwork works the same way: a stack of pages is an interface too. I'm a psychiatrist, and in the demo a medication request with one wrong digit comes to me side by side, and a clean one fills the portal and stops at the signature.
+Autoharness uses computer use as a compiler instead of a runtime. Muse Spark uses an interface once, and everything it does is recorded. Muse Wonder compiles that record into a plan: data, not code, with every decision made in advance. Then open-weight Muse Glimmer runs the plan on your own computer. It answers one narrow question per screen, while plain code holds the memory and checks every step. What it types gets read back, and what it reads gets read twice. A run ends verified, or it stops and asks. Every compiled job is also an MCP tool, so any agent can use apps that never had an API. The agent gets back only verified results, never your screen or your login.
 
-It isn't ready for real patients. All data is made up, samples are small, and Spark is still better at anything it wasn't taught. Pass bars were committed to git before each test, and every failure is in the repo.
+The finding that makes this work: the same small model went 0 for 6 reading a chart in OpenEMR when given the whole job, and 5 for 5 on unseen patients once the job was compiled. Across OpenEMR, a made-up insurer's portal, a Django admin and a native desktop calculator, it passed 35 of 35 runs on the final code and saved nothing wrong. It matched Muse Spark's pass rate with no cloud at run time. On the portal it was 3.5 times faster, 157 seconds against 556.
+
+I'm a psychiatrist. In the demo, a medication request where one page has a member ID off by one digit comes to me side by side. A clean stack fills the insurer's portal and stops at the signature.
+
+It isn't ready for real patients. All data is made up, the samples are small, and Spark is still better at jobs it wasn't taught. Pass bars were committed to git before each test, and every failure is in the repo.
+
+## Track and prizes
+
+**Track: Build for Your World.** Lead with the clinic story. Impact is worth the most points, and you're the person who has the problem.
+
+Enter every prize the rules allow. Ask in Discord whether one project can compete for several:
+
+| Prize | Why it fits |
+|---|---|
+| **Indie** | The whole product |
+| **Open Weight** | Run time is entirely open-weight Muse Glimmer, on your own GPUs |
+| **Agentic** | Models build tools for models. Spark acts as an agent, calling compiled apps over MCP |
+| **Community Vote** | The 0/6 → 5/5 story and the clinic demo travel well |
+| **Most Viral** | X posts below |
 
 ## How Meta's models are used
 
-- **Muse Spark 1.3**: explores the interface through computer use, and judges when teaching from the app.
-- **Muse Wonder 1.0**: compiles what Spark did into a plan, repairs the plan from failed runs, and designs reading plans for new paperwork.
-- **Muse Glimmer** (open weights, on my own GPUs): runs everything at run time, with no cloud. A plan never needs another model.
+- **Muse Spark 1.3:** explores each interface through computer use, and judges the final screen while teaching. It's also the example agent that calls compiled jobs over MCP (`scripts/ask.py`).
+- **Muse Wonder 1.0:** compiles what Spark did into a plan, repairs the plan from failed runs, and designs reading plans for new paperwork.
+- **Muse Glimmer**, open weights, served by vLLM on four 16 GB GPUs: runs every job at run time, with no cloud. A plan never needs another model.
 
 ## Built during the event
 
-All of it. The repo's history shows the work from Oct 28 on. I directed it, and Claude Code wrote most of the code; no Claude model runs in the product.
+All of it. The repo's history shows the work from Oct 28 on. I directed it, and Claude Code wrote most of the code. No Claude model runs in the product.
 
 ## Links
 
 - Repo: https://github.com/adaptabyte/autoharness
-- Proof, with every failed round: docs/PROOF.md
-- Video: (yours to upload; `clips/draft.mp4` is ready if you need it)
-- X post: (yours to post; the link goes on the platform)
+- Proof, including every failed round: https://github.com/adaptabyte/autoharness/blob/master/docs/PROOF.md
+- Video: yours to upload. `clips/draft.mp4` is a complete captioned cut.
 
-## X post
+## X posts
 
-Attach the clip of the chart run, or the 8-screen swarm. Say only what your video shows. **Check first:** the participant guide said Most Viral counts engagement "after the Event", so ask in Discord whether posting before Nov 4 counts.
+Post the main one with the video or `clips/teaser.mp4`. Only claim what the video shows. **Check first:** the participant guide said Most Viral counts engagement "after the Event", so ask in Discord whether posts before Nov 4 count.
 
-> AI agents pay a genius to click buttons.
+Main post:
+
+> AI agents pay a genius to click every button.
 >
-> So I had Meta's models learn an app once and compile it into a plan a tiny open model can run on my own PC.
+> So I had Meta's frontier models learn an app once and compile it. Now a small open model runs it on my own PC, and every step is checked.
 >
-> Same model, same job, reading a medical chart in a real records system (made-up patients):
-> Asked to do the whole job: 0 for 6
-> Compiled: 5 for 5, no cloud
->
-> Every failure is in the repo. [link]
+> Same small model, same job (reading a medical chart, made-up patients):
+> Given the whole job: 0 for 6
+> Compiled: 5 for 5
 
-Shorter:
+Reply 1, with the agent clip:
 
-> The same small model went from 0 for 6 to 5 for 5 on the same job. Nothing about the model changed. A frontier model just did all of its thinking in advance. [clip]
+> Every compiled job is also a tool. Here Muse Spark asks for a customer's email. A small model does the work in the app, on my machine. Spark gets the verified answer back, and never sees the screen or the password.
 
-If you did the cable pull on camera, add: "Then I pulled the ethernet cable. It kept going."
+Reply 2:
+
+> 35 of 35 runs on inputs it hadn't seen: OpenEMR, an insurer portal, a Django admin and a desktop app. Nothing wrong saved. Bars were committed before the runs, and every failure is in the repo: [repo link]
+
+Reply 3:
+
+> I'm a psychiatrist. I built this during the Meta AI hackathon, with Claude Code writing most of the code. Computer use should be the compiler, not the runtime.
+
+If you filmed the cable pull, add this to the main post: "Then I pulled the ethernet cable. It kept going."
 
 ## Before you press submit
 
 1. The repo is public, and `master` has the final work.
-2. The video is under 3 minutes, and says that Claude Code wrote most of the code.
-3. No real patient data anywhere. There isn't any in the repo, but check anything you add, including your own photos.
+2. The video is under 3 minutes and says that Claude Code wrote most of the code.
+3. There's no real patient data anywhere. The repo has none, but check anything you add, including your own photos.
 4. Don't link the Tailscale address or token anywhere.

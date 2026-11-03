@@ -1,56 +1,72 @@
 # Demo: 3 minutes
 
-The video is the main judging artifact. Everything in it is a real run. Numbers come from [PROOF.md](PROOF.md). If your recording shows a different number, say the number your recording shows.
+The video is the main thing judges look at. Everything in it is a real run, and the numbers come from [PROOF.md](PROOF.md). If your recording shows a different number, say the number it shows.
 
-`clips/draft.mp4` is a complete captioned cut, made from real runs by `scripts/make_clips.py` and `scripts/make_video.py`. You can submit it as it is. It's much stronger with your voice and your face in two shots, listed under "Only you can do".
+`clips/draft.mp4` is a complete captioned cut, made from real runs by `scripts/make_clips.py` and `scripts/make_video.py`. You can submit it as it is. It's much stronger with your voice over it and your face in one shot (see "Only you can do").
+
+## The story in five beats
+
+1. **Hook:** the same small model went from 0 for 6 to 5 for 5, and the model didn't change.
+2. **Problem:** software is built for people, and today's agents pay a frontier model at every click.
+3. **Idea:** computer use is the compiler, not the runtime. Learn once, run locally, check everything.
+4. **Proof:** it learns an app it has never seen, an agent calls the result as a tool, and the numbers hold up.
+5. **Why it matters:** your own clinic paperwork, and the vision: by the models, for the models.
+
+## Script
+
+Speak at a normal pace. The script is about 400 words, which fills about 2:50.
+
+| Time | On screen | You say |
+|---|---|---|
+| 0:00 | **Swarm:** eight screens, all moving | "These are eight apps built for people, and nobody here is a person. It's one small open model, on my desk, with no cloud." |
+| 0:07 | **Card:** 0 of 6 → 5 of 5 | "When I gave this model a whole job, reading a patient's chart, it went zero for six. Then a frontier model compiled that job for it, and it went five for five. The model didn't change." |
+| 0:16 | **Card:** the problem. Or your face, if you film it | "I'm a psychiatrist, and a lot of my week goes into records systems and insurer portals that have no API. AI agents can use them, but they pay a frontier model to look at a screenshot at almost every click. That's slow, every run costs money, and my screen goes to the cloud." |
+| 0:31 | **Home page** | "So I built a compiler. Meta's frontier models learn an interface once, and from then on a small open model runs it on my own computer." |
+| 0:39 | **Teach:** typing the address and the job | "Here's an app it has never seen. I give it the address and the job, in plain words." |
+| 0:46 | **Teach:** Spark exploring, then the plan | "Muse Spark uses it once, and everything gets recorded. Muse Wonder turns that into a plan, with every decision made in advance. Then Glimmer has to pass on its own before the plan is kept." |
+| 1:00 | **Teach:** Learned | "That cost thirteen cents, once." |
+| 1:04 | **Agent:** terminal on the left, the app on the right | "And now it's a tool any agent can call. Here Muse Spark is the agent, asking about a customer the plan was never taught on. It picks the job, and the small model does the work on my machine. Spark gets back the verified answer, never my screen and never my password." |
+| 1:24 | **Run:** live screen and the feed of checks | "The small model only answers one narrow question per screen. Code holds the memory and checks everything. What it types gets read back, and what it reads gets read twice. A run ends verified, or it stops and asks." |
+| 1:38 | **Cable pull, in one shot.** The pill turns to `Internet off`, and it keeps running | "And it doesn't need the internet." |
+| 1:45 | **Results table** | "I measured it, with pass bars committed before the runs. Thirty-five of thirty-five on inputs it hadn't seen, and nothing wrong saved. It matched Spark's pass rate with no cloud, and on the portal it was three and a half times faster. Spark still does better on jobs it wasn't taught." |
+| 2:05 | **One wrong digit:** a stack is read, and two values come up side by side | "Paper is an interface too. This medication request has one wrong digit in a member ID. The pages disagree, so instead of picking one, it brings both to me." |
+| 2:20 | **Clean stack:** approve, the portal fills, it stops at the signature | "A clean stack fills the insurer's portal and stops at the signature, because only a person signs." |
+| 2:30 | **Card:** what it isn't | "It isn't ready for real patients. The records are made up, the samples are small, and every failure is in the repo." |
+| 2:40 | **Card:** the vision | "Every interface was built for people. Now models can build the version for models themselves, once, and hand it to a small model. By the models, for the models." |
+| 2:52 | **End card** | "Autoharness. Built with Meta's Muse models. Claude Code wrote most of the code." |
 
 ## Before recording
 
 ```bash
 cd ~/muse
-bash serve/serve_glimmer.sh                                   # wait for it to answer on :8001
+bash serve/serve_glimmer.sh                                   # wait until it answers on :8001
 .venv-app/bin/python scripts/priorauth/portal.py &            # the made-up portal, :8310
 ~/.autoharness/backoffice-venv/bin/python scripts/backoffice/run.py &   # the Django admin, :8320
 .venv-app/bin/python -m autoharness serve                     # http://127.0.0.1:4140
 ```
 
-OpenEMR has to be up on :8300. Its patient list has leftover test patients. To clean it: `cd scripts/openemr && sudo docker compose down -v && sudo docker compose up -d`, then `.venv-app/bin/python scripts/priorauth/seed_chart.py` and `.venv-app/bin/python scripts/priorauth/seed_chart.py cases2.json`.
+OpenEMR has to be up on :8300. Its patient list has leftover test patients. To clean it, run `cd scripts/openemr && sudo docker compose down -v && sudo docker compose up -d`, then `.venv-app/bin/python scripts/priorauth/seed_chart.py` and `.venv-app/bin/python scripts/priorauth/seed_chart.py cases2.json`.
 
-Watch the app on this machine or over your LAN, not over Tailscale, or pulling the cable will cut your view too. **The cable pull hasn't been tested with a real cable. Do one dry run first.**
+Watch the app on this machine or over your LAN, not over Tailscale. Otherwise pulling the cable cuts your view too. **The cable pull hasn't been tested with a real cable, so do one dry run first.**
 
-## The cut
-
-| Time | On screen | You say |
-|---|---|---|
-| 0:00 | The swarm: eight screens, all moving | "Every one of these is an app built for human eyes and hands. Nobody on this screen is a person, and none of it is in the cloud. It's one small open model on my desk, keeping eight jobs straight." |
-| 0:12 | Home page | "AI agents today pay a genius to look at a screenshot and click a button. So I built a compiler. Give it any interface, and Meta's strongest models learn it once, then hand it to a small model for good." |
-| 0:25 | `teach`: typing an address and a job, then Spark exploring | "I'll give it a Django admin it has never seen. No API and no instructions. Muse Spark uses it once, and everything it sees and does gets recorded." |
-| 0:45 | `teach`: the plan appears | "Muse Wonder turns that into a plan. It isn't code, and it isn't a prompt. It's every decision made in advance, so the small model never has to think about what to do next." |
-| 1:00 | `run`: live screen with the feed of checks | "Now Muse Glimmer runs it on my machine. It only ever answers one narrow question per screen. Where's this button? Is this the right page? What does this say? Code holds all the memory." |
-| 1:20 | The feed: a read-back, and a compare | "And code checks everything. What it types gets read back. What it reads gets read twice. So a run ends verified, or it stops and asks. It doesn't quietly get it wrong." |
-| 1:35 | **Pull the cable, in one shot.** The pill turns to `Internet off`. Keep it running | "And it doesn't need the internet." |
-| 1:45 | The table from PROOF.md | "Is that as good as a frontier model? I measured it, with bars I committed before running. Reading a whole chart in a real records system: this same small model used to go 0 for 6. Now it's 5 for 5 on patients it's never seen, with no cloud, in about the time Spark takes: 205 seconds against 218. On a long form it's 157 seconds against 556. Spark still costs only cents on small jobs, and it does better on anything it wasn't taught. So this is for repeated, long or private work." |
-| 2:10 | `digit`: drop a stack, the disagreement side by side | "I'm a psychiatrist, and paper's an interface too. Here's a medication request with one wrong digit in a member ID. The pages disagree, so it comes to me. It doesn't pick one." |
-| 2:30 | `clean`: approve, Glimmer fills the portal, stops at signature | "When I approve a clean stack, the same small model fills the insurer's portal, a compiled interface with no connector anyone wrote, and stops at the signature. Only a person can sign." |
-| 2:45 | README: What failed | "It isn't ready for real patients. These are all made-up records and a small sample, and every failure's in the repo." |
-| 2:52 | Home page | "Computer use becomes the compiler, not the runtime. For the models, by the models." |
+To rebuild the draft from fresh recordings: `.venv-app/bin/python scripts/make_clips.py home teach agent`, then `.venv-app/bin/python scripts/make_video.py`. Recording `teach` spends about $0.20 of real API budget.
 
 ## Only you can do
 
-These take about 20 minutes and do more for the entry than anything else left:
+These take about 20 minutes, and they do more for the entry than anything else left:
 
-1. **Your voice** over the script above. A person who has the problem beats any narration.
+1. **Your voice** over the script above. A person who has the problem is more convincing than any narration.
 2. **The cable pull**, filmed in one shot with your phone, with the screen visible.
-3. **Ten seconds of your face** at 2:10: "I'm a psychiatrist." The credibility is the point.
-4. **Real pen and paper, optional but strong.** Print [print-and-fill.pdf](print-and-fill.pdf), fill it in by hand with the made-up patient, change one digit on the order form, photograph the pages, and drop them in on camera. All my tests use fonts and simulated damage, so this would be the first real handwriting it has seen. Try it before you film. If it fails, don't use it, and tell me what it did.
+3. **Your face for about ten seconds** at 0:16: "I'm a psychiatrist." That credibility is the point.
+4. **Real pen and paper.** This is optional but strong. Print [print-and-fill.pdf](print-and-fill.pdf), fill it in by hand for the made-up patient, change one digit on the order form, photograph the pages, and drop them in on camera. All my tests use fonts and simulated damage, so this would be the first real handwriting it has seen. Try it before you film. If it fails, leave it out and tell me what it did.
 
 ## Don't
 
-- Don't say "free" without "in the cloud": electricity and the GPUs are real.
-- Don't say "error-free." Say it either finishes verified or stops and asks. Say "in these tests."
-- Don't say "replaces computer use." The learning phase is computer use.
-- Don't imply the plan handles jobs it wasn't taught. Spark wins those.
+- Don't say "free" without "in the cloud". The electricity and the GPUs are real.
+- Don't say "error-free". Say it finishes verified or stops and asks, and add "in these tests".
+- Don't say it "replaces computer use". Computer use is how it learns.
+- Don't imply a plan can handle jobs it wasn't taught. Spark does better on those.
 - Don't show real patient data, or imply it's ready for it.
-- Don't say it's more accurate than Spark. Spark also passed every job here.
-- Don't say the swarm is faster. On this rig it isn't, really: about 34 jobs an hour at 8 at once against about 30 one at a time. Use it to show that copies don't get confused, not for speed.
-- Say that Claude Code wrote most of the code. Judges must be able to tell what was built during the event and how, and hiding it risks disqualification.
+- Don't say it's more accurate than Spark. Spark passed every job here too.
+- Don't say the swarm is faster. On this rig it isn't, really: about 34 jobs an hour at 8 at once, against about 30 one at a time. Use the swarm to show that copies don't get mixed up.
+- Do say that Claude Code wrote most of the code. Judges must be able to tell what was built during the event and how, and leaving it unclear risks disqualification.
