@@ -36,6 +36,19 @@ def _budget() -> float:
 
 BUDGET_USD = _budget()
 
+# The public demo: its own home and budget, a login for judges, and its browser and apps jailed (see jail.py, egress.py).
+DEMO = os.environ.get("AUTOHARNESS_DEMO") == "1"
+def _demo_apps() -> tuple[str, ...]:
+    """The desktop apps a judge may teach on, from plans/demo_apps.json. The engine itself names no app."""
+    try:
+        return tuple(json.loads((REPO / "plans" / "demo_apps.json").read_text())["apps"])
+    except (OSError, ValueError, KeyError):
+        return ()
+
+
+DEMO_APPS = _demo_apps()
+DEMO_LESSON_USD = float(os.environ.get("AUTOHARNESS_DEMO_LESSON_USD", "1.5"))
+
 
 @dataclass(frozen=True)
 class Price:
@@ -52,11 +65,24 @@ PRICES = {
 SAM_PER_IMAGE = 2.50 / 1000
 
 
+def key_file() -> Path:
+    return HOME / "api_key"
+
+
 def api_key() -> str | None:
-    """MODEL_API_KEY, then ./.env, then the key Muse Code stored. Returns None if there is none."""
+    """MODEL_API_KEY, then the key saved in Autoharness's settings, then ./.env, then the key Muse Code stored. The demo
+    uses only its own: never the owner's .env or Muse Code's. Returns None if there is none."""
     key = os.environ.get("MODEL_API_KEY")
     if key:
         return key.strip()
+    try:
+        saved = key_file().read_text().strip()
+        if saved:
+            return saved
+    except OSError:
+        pass
+    if DEMO:
+        return None
     env = REPO / ".env"
     if env.exists():
         for line in env.read_text().splitlines():
@@ -69,6 +95,19 @@ def api_key() -> str | None:
         except (KeyError, ValueError, TypeError):
             return None
     return None
+
+
+def save_api_key(key: str) -> None:
+    """Kept on this computer, readable by this user only, and never shown again."""
+    key = key.strip()
+    if not key or len(key) > 400 or any(c.isspace() for c in key):
+        raise ValueError("that doesn't look like an API key")
+    HOME.mkdir(parents=True, exist_ok=True)
+    path = key_file()
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(key)
+    os.chmod(path, 0o600)
 
 
 def ensure_dirs() -> None:

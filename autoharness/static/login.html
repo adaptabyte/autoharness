@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Autoharness live demo</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23116149'/%3E%3Cpath d='M9 17l5 5 9-12' stroke='%23fff' stroke-width='3.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+:root{--bg:#f6f5f1;--paper:#fff;--ink:#17201c;--muted:#5f6a64;--line:#e1dfd7;--ok:#116149;--bad:#b3261e}
+@media (prefers-color-scheme:dark){:root{--bg:#141815;--paper:#1c211e;--ink:#e8ece9;--muted:#9aa59f;--line:#2e3631;--ok:#2f9c78;--bad:#ef7b73}}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,-apple-system,"Segoe UI",Roboto,sans-serif;padding:16px}
+main{width:100%;max-width:420px}.card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:26px 24px}
+h1{font-size:26px;letter-spacing:-.02em;margin:0 0 6px}p{color:var(--muted);margin:0 0 18px;font-size:15px}
+label{display:block;font-size:13.5px;font-weight:600;margin:12px 0 4px}input{width:100%;font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:10px 12px;outline:0}input:focus{border-color:var(--ok)}
+button{margin-top:18px;width:100%;font:inherit;font-weight:650;padding:11px;border-radius:10px;border:0;background:var(--ok);color:#fff;cursor:pointer}button:disabled{opacity:.5}
+.err{color:var(--bad);font-size:14.5px;min-height:1.5em;margin-top:10px}.foot{font-size:13px;color:var(--muted);text-align:center;margin-top:14px}.foot a{color:inherit}
+</style>
+</head>
+<body>
+<main>
+  <form class="card" id="f">
+    <h1>Autoharness, live</h1>
+    <p>For the Meta hackathon judges. Sign in with the details from the submission, then point it at any public website and watch it learn.</p>
+    <label for="u">User name</label><input id="u" autocomplete="username" required>
+    <label for="p">Password</label><input id="p" type="password" autocomplete="current-password" required>
+    <button id="b">Sign in</button>
+    <div class="err" id="e" role="alert"></div>
+  </form>
+  <div class="foot"><a href="https://github.com/adaptabyte/autoharness">The code</a> · <a href="https://autoharness.adaptabyte.com/docsdb/">docsdb</a></div>
+</main>
+<script>
+document.getElementById("f").addEventListener("submit",async ev=>{ev.preventDefault();const b=document.getElementById("b"),e=document.getElementById("e");b.disabled=true;e.textContent="";
+  try{const r=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user:document.getElementById("u").value,password:document.getElementById("p").value})});
+    const d=await r.json();if(!r.ok)throw new Error(d.error||"That didn't work");location.reload()}catch(x){e.textContent=x.message;b.disabled=false}});
+</script>
+</body>
+</html>

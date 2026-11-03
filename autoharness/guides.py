@@ -35,8 +35,7 @@ from .local import extract_json
 REPO = "adaptabyte/autoharness"
 BRANCH = "master"
 RAW = f"https://raw.githubusercontent.com/{REPO}/{BRANCH}/docsdb"
-# GitHub Pages serves it here, and sends visitors on to autoharness.adaptabyte.com/docsdb once that domain points at it.
-SITE = "https://adaptabyte.github.io/autoharness/docsdb"
+SITE = "https://autoharness.adaptabyte.com/docsdb"
 LICENSE = "CC-BY-SA-4.0"  # docs are often CC BY-SA themselves, so what's built on them is shared the same way
 
 

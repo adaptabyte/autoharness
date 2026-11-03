@@ -77,7 +77,8 @@ function renderPills(){if(!T)return;const net=T.internet;const p=$("#pills");p.r
   ...(T.running||[]).map(j=>h("a",{class:"pill live-pill",href:(j.kind==="ui_swarm"?"#/swarm/":"#/job/")+j.id},h("i",{class:"dot on pulse"}),j.title)),
   h("span",{class:"pill"},h("i",{class:"dot "+(net===false?"warn":"on")}),net===false?"Internet off":"Internet on"),
   h("span",{class:"pill"},h("i",{class:"dot "+(T.glimmer?"on":"off")}),T.glimmer?"Readers ready, on this computer":"Readers not running"),
-  h("a",{class:"pill",href:"/apps"},"Program mode"))}
+  T.demo?h("span",{class:"pill"},`$${T.demo.left_usd.toFixed(2)} left for new lessons`):null,
+  T.demo?h("button",{class:"pill",style:"cursor:pointer",onclick:async()=>{await api("/api/logout",{});location.reload()}},"Sign out"):h("a",{class:"pill",href:"/apps"},"Program mode"))}
 setInterval(loadState,5000);
 
 const plural=(n,w)=>`${n} ${w}${n===1?"":"s"}`;
@@ -86,19 +87,28 @@ function zoom(src){const b=h("div",{class:"big",onclick:()=>b.remove()},h("img",
 function interfaces(){
   const R=T.ui_results||{};
   const err=h("div",{class:"error"});
-  const tIn=h("input",{type:"text",placeholder:"A web address, a command, or vnc://another-computer, like http://127.0.0.1:8310/login, gnome-calculator or vnc://gamepc","aria-label":"The interface"});
+  const tIn=h("input",{type:"text",placeholder:T.demo?`Any public website, like https://www.saucedemo.com, or one of the apps here: ${T.demo.apps.join(", ")}`:"A web address, a command, or vnc://another-computer, like http://127.0.0.1:8310/login, gnome-calculator or vnc://gamepc","aria-label":"The interface"});
+  const uIn=h("input",{type:"text",placeholder:"Its user name, if it needs a login","aria-label":"User name for the app",autocomplete:"off"});
+  const pwIn=h("input",{type:"password",placeholder:"Its password","aria-label":"Password for the app",autocomplete:"new-password",style:"width:100%;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:7px 10px;outline:0"});
+  const keyIn=h("input",{type:"password",placeholder:"Paste a Meta API key: it's kept on this computer only","aria-label":"Meta API key",autocomplete:"off",style:"flex:1;min-width:220px;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:7px 10px;outline:0"});
+  const keyBox=h("div",{class:"row",style:"margin-top:10px",hidden:T.demo||T.has_key},keyIn,h("button",{class:"btn small",onclick:async()=>{err.textContent="";try{await api("/api/settings/key",{key:keyIn.value});keyIn.value="";keyBox.hidden=true;await loadState();go("")}catch(e){err.textContent=e.message}}},"Save the key"));
   const gIn=h("input",{type:"text",placeholder:"What should it learn to do? For example: log in and save a request","aria-label":"The job"});
   const pIn=h("input",{type:"text",placeholder:'Optional sample inputs as JSON, like {"username":"demo"}',"aria-label":"Sample inputs"});
   const dIn=h("input",{type:"text",placeholder:"Optional docs: links to its manual, its shortcuts or a page about it, separated by spaces","aria-label":"Links to docs"});
   let docFiles=[];const dNames=h("span",{class:"hint"},"or a PDF manual, a picture of the controls, a list of shortcuts");
   const dFile=h("input",{type:"file",multiple:true,hidden:true,accept:".pdf,image/*,.txt,.md,.html,.htm,.docx,.json,.csv,.rst",onchange:e=>{docFiles=[...e.target.files];dNames.textContent=docFiles.length?docFiles.map(f=>f.name).join(", "):"or a PDF manual, a picture of the controls, a list of shortcuts"}});
   const dBtn=h("button",{class:"btn small",onclick:()=>dFile.click()},"Add docs");
-  const go2=h("button",{class:"btn primary",onclick:async()=>{err.textContent="";let inputs={};try{inputs=pIn.value.trim()?JSON.parse(pIn.value):{}}catch(e){err.textContent="The sample inputs aren't valid JSON.";return}go2.disabled=true;try{const docs=dIn.value.split(/\s+/).filter(Boolean);for(const f of docFiles){const r=await fetch("/api/upload?name="+encodeURIComponent(f.name),{method:"POST",body:f});const d=await r.json();if(!r.ok)throw new Error(d.error);docs.push(d.path)}const j=await api("/api/ui/teach",{target:tIn.value,goal:gIn.value,inputs,docs});go("job/"+j.id)}catch(e){err.textContent=e.message;go2.disabled=false}}},"Teach it");
+  const go2=h("button",{class:"btn primary",onclick:async()=>{err.textContent="";let inputs={};try{inputs=pIn.value.trim()?JSON.parse(pIn.value):{}}catch(e){err.textContent="The sample inputs aren't valid JSON.";return}go2.disabled=true;try{const docs=dIn.value.split(/\s+/).filter(Boolean);for(const f of docFiles){const r=await fetch("/api/upload?name="+encodeURIComponent(f.name),{method:"POST",body:f});const d=await r.json();if(!r.ok)throw new Error(d.error);docs.push(d.path)}let goal=gIn.value.trim();if(uIn.value.trim()&&pwIn.value)goal+=` Log in with username ${uIn.value.trim()} and password ${pwIn.value}.`;const j=await api("/api/ui/teach",{target:tIn.value,goal,inputs,docs});go("job/"+j.id)}catch(e){err.textContent=e.message;go2.disabled=false}}},"Teach it");
+  const learned=[T.interfaces.length?h("h2",{},T.demo?"Try one it already learned: free, on this machine":"Already compiled"):null,
+    h("div",{class:"samples",style:T.demo?"margin-bottom:22px":""},T.interfaces.map(p=>{const res=R[p.id]||{};const rows=Object.values(res);const pass=rows.reduce((a,x)=>a+x.passes,0),runs=rows.reduce((a,x)=>a+x.runs,0);return h("button",{class:"sample",onclick:()=>go("ui/"+p.id)},h("b",{},p.app),h("span",{},runs?`${pass} of ${runs} proof runs passed, no cloud`:p.kind==="program"?"a program, proven on its own":`${plural(p.skills.length,"skill")}`))}))];
   return [
+    T.demo?h("div",{class:"card",style:"padding:16px 20px;margin-bottom:14px;border-color:var(--ok)"},h("b",{style:"font-size:17px"},"The live demo, on one computer with four small GPUs"),
+      h("p",{class:"hint",style:"margin:4px 0 0"},`Running anything already learned is free: pick one below, and Muse Glimmer does it on this machine while you watch. A new lesson spends at most $${T.demo.lesson_usd.toFixed(2)} of the $${T.demo.left_usd.toFixed(2)} the demo has left, and one runs at a time. Teach it on any public website, or on ${T.demo.apps.join(", ")}. Don't use a real account or real data: what's learned here is shared with the other judges.`)):null,
+    ...(T.demo?learned:[]),
     h("div",{class:"card",style:"padding:18px 20px"},h("b",{style:"font-size:18px;letter-spacing:-.01em"},"Teach it a new interface"),h("p",{class:"hint",style:"margin:2px 0 12px"},"Muse Spark tries the job once, Muse Wonder writes the plan, and Muse Glimmer has to run it alone before it's kept. Add the app's docs and Wonder reads them first, so Spark checks what they say instead of trying every control. This step uses the cloud, once. Don't teach it on real records."),
-      h("div",{style:"display:grid;gap:8px"},tIn,gIn,pIn,dIn,h("div",{class:"row"},dBtn,dNames,dFile)),h("div",{class:"row",style:"margin-top:12px"},go2,T.has_key?null:h("span",{class:"hint"},"No API key is set, so this can't run.")),err),
-    T.interfaces.length?h("h2",{},"Already compiled"):null,
-    h("div",{class:"samples"},T.interfaces.map(p=>{const res=R[p.id]||{};const rows=Object.values(res);const pass=rows.reduce((a,x)=>a+x.passes,0),runs=rows.reduce((a,x)=>a+x.runs,0);return h("button",{class:"sample",onclick:()=>go("ui/"+p.id)},h("b",{},p.app),h("span",{},runs?`${pass} of ${runs} proof runs passed, no cloud`:`${plural(p.skills.length,"skill")}`))}))].filter(Boolean)}
+      h("div",{style:"display:grid;gap:8px"},tIn,gIn,h("div",{style:"display:grid;grid-template-columns:1fr 1fr;gap:8px"},uIn,pwIn),pIn,dIn,h("div",{class:"row"},dBtn,dNames,dFile)),
+      h("div",{class:"row",style:"margin-top:12px"},go2,T.has_key?(T.demo?null:h("button",{class:"btn small",style:"border:0;background:none;color:var(--muted)",onclick:()=>{keyBox.hidden=!keyBox.hidden}},"Change the API key")):h("span",{class:"hint"},T.demo?"Teaching is off in this demo right now.":"Add a Meta API key to teach. Running what's learned never needs one.")),keyBox,err),
+    ...(T.demo?[]:learned)].filter(Boolean)}
 
 async function uiPlan(id){
   await loadState();const p=T.interfaces.find(x=>x.id===id);if(!p)throw new Error("Not found");
@@ -159,7 +169,7 @@ function jobView(id){
     if(e.type==="stage"){if(!(e.stage==="run"&&/ is using /.test(stage.textContent)))stage.textContent=(STAGES.find(s=>s[0]===e.stage)||[,e.stage])[1];sub.textContent=e.text||""}
     if(e.type==="explore"&&e.said)add(null,"Spark: "+e.said);
     if(e.type==="guides_found")add(null,"It already has a guide to this app, and reads it first",e.found.map(g=>`${g.id} (${g.where})`).join(", "));
-    if(e.type==="guide"&&e.ok){add(true,`The guide to this app is ${e.new?"written":e.changed?"updated":"unchanged"}: ${e.id}`,`${e.removed&&e.removed.length?"Taken out as possibly private: "+e.removed.join(", ")+". ":""}Others can use it too, once you've read it.`);feed.firstChild.querySelector("div").append(h("button",{class:"btn small",style:"margin-top:6px",onclick:()=>guideDialog(e.id)},"Read it, then share"))}
+    if(e.type==="guide"&&e.ok){add(true,`The guide to this app is ${e.new?"written":e.changed?"updated":"unchanged"}: ${e.id}`,`${e.removed&&e.removed.length?"Taken out as possibly private: "+e.removed.join(", ")+". ":""}${T&&T.demo?"It's kept with the demo.":"Others can use it too, once you've read it."}`);if(!(T&&T.demo))feed.firstChild.querySelector("div").append(h("button",{class:"btn small",style:"margin-top:6px",onclick:()=>guideDialog(e.id)},"Read it, then share"))}
     if(e.type==="guide_shared")add(true,"The guide was offered for review, as you asked",e.url);
     if(e.type==="docs")add(null,"Muse Wonder is reading the docs first",[...e.read,...(e.cut||[]).map(c=>"Left out, to keep the reading affordable: "+c)].join(" · "));
     if(e.type==="brief"){const b=e.brief||{};add(true,`Wonder's brief for Spark: ${plural((b.controls||[]).length,"control")}, ${plural((b.how_to||[]).length,"step")} for this job`,(b.check_first||[]).map((c,i)=>`${i+1}. ${c}`).join("  "))}

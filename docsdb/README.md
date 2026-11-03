@@ -1,6 +1,6 @@
 # docsdb
 
-Guides to apps, one per app, written by Autoharness from real use and checked on the real screen. Browse them at [adaptabyte.github.io/autoharness/docsdb](https://adaptabyte.github.io/autoharness/docsdb/), which will also be served at autoharness.adaptabyte.com/docsdb.
+Guides to apps, one per app, written by Autoharness from real use and checked on the real screen. Browse them at [autoharness.adaptabyte.com/docsdb](https://autoharness.adaptabyte.com/docsdb/).
 
 Each guide is `docsdb/<name>/SKILL.md`, an [Agent Skill](https://agentskills.io): a name, a one-sentence description, and then the guide.
 

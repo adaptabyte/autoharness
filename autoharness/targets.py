@@ -12,6 +12,7 @@ import subprocess
 import tempfile
 import threading
 import time
+import urllib.parse
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -103,6 +104,18 @@ class _QuietHandler(SimpleHTTPRequestHandler):
         pass
 
 
+def _jailed(cmd: list[str], profile: str, ports: list[int]) -> list[str]:
+    """For the public demo: the app can read system files and write only its own fresh profile, never this user's home,
+    and connect only to the given ports."""
+    from . import jail
+    exe = Path(shutil.which(cmd[0]) or cmd[0]).resolve()
+    read = ["/usr", "/lib", "/lib64", "/bin", "/sbin", "/etc", "/opt", "/sys", "/proc", "/dev", "/tmp/.X11-unix", "/tmp/.ICE-unix",
+            str(exe.parent), str(config.SYS_ROOT), *[str(Path(p).resolve()) for p in glob.glob("/tmp/autoharness-*") if Path(p).is_symlink()]]
+    if "ms-playwright" in str(exe):
+        read.append(str(exe.parents[1]))
+    return jail.command(read, [profile, "/dev/shm", "/dev/null"], ports, cmd)
+
+
 class Target:
     def __init__(self, spec: dict, display: Display):
         self.spec = spec
@@ -135,12 +148,28 @@ class Target:
         s = self.spec
         if s["kind"] == "web":
             w, h = self.display.width, self.display.height
-            return [chromium_path(), "--no-sandbox", "--no-first-run", "--no-default-browser-check",
-                    "--disable-gpu", "--disable-infobars", "--disable-translate", "--password-store=basic",
-                    "--disable-features=Translate,InfiniteSessionRestore", f"--window-size={w},{h}",
-                    "--window-position=0,0", f"--user-data-dir={self.profile}", f"--app={self._url()}"]
+            url = self._url()
+            cmd = [chromium_path(), "--no-sandbox", "--no-first-run", "--no-default-browser-check",
+                   "--disable-gpu", "--disable-infobars", "--disable-translate", "--password-store=basic",
+                   "--disable-features=Translate,InfiniteSessionRestore", f"--window-size={w},{h}",
+                   "--window-position=0,0", f"--user-data-dir={self.profile}", f"--app={url}"]
+            if config.DEMO:
+                from . import egress
+                port = egress.start()
+                u = urllib.parse.urlsplit(url)
+                if u.hostname in egress.LOCAL and (s.get("serve") or s.get("id") not in (None, "custom")):
+                    egress.allow_local(u.port or 80)  # one of the built-in demo apps on this machine, never an address someone typed
+                # Everything goes through the proxy, which refuses private addresses, and the jail allows no other way out.
+                cmd[1:1] = [f"--proxy-server=http://127.0.0.1:{port}", "--proxy-bypass-list=<-loopback>", "--disable-quic",
+                            "--force-webrtc-ip-handling-policy=disable_non_proxied_udp", "--disable-background-networking"]
+                return _jailed(cmd, self.profile, [port])
+            return cmd
         cmd = list(s["command"])
         exe = find_tool(cmd[0]) or cmd[0]
+        if config.DEMO:
+            if Path(cmd[0]).name not in config.DEMO_APPS:
+                raise RuntimeError(f"{cmd[0]} isn't one of the demo's apps")
+            return _jailed([exe, *cmd[1:]], self.profile, [])  # no session bus: the app needs none, and the jail would refuse its socket
         return ["dbus-run-session", "--", exe, *cmd[1:]]
 
     def alive(self) -> bool:
@@ -178,6 +207,8 @@ class Target:
                    XDG_CACHE_HOME=self.profile + "/cache", XDG_RUNTIME_DIR=self.profile,
                    XDG_DATA_HOME=self.profile + "/data")
         env.update(self.spec.get("env", {}))
+        if config.DEMO:
+            env.update(TMPDIR=self.profile, DBUS_SESSION_BUS_ADDRESS="disabled:")  # the jail allows writing only here
         log = open(self.profile + "/app.log", "wb")
         self.proc = subprocess.Popen(self._command(), env=env, stdout=log, stderr=log, start_new_session=True,
                                      cwd=self.profile, preexec_fn=die_with_parent)

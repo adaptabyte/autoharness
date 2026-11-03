@@ -35,7 +35,7 @@ JOBS: dict[str, "Job"] = {}
 _jobs_lock = threading.Lock()
 _status = {"internet": None, "glimmer": False}
 TOKEN: str | None = None
-UPLOADS = Path(tempfile.gettempdir()) / f"autoharness-uploads-{os.getuid()}"
+UPLOADS = config.HOME / "uploads" if config.DEMO else Path(tempfile.gettempdir()) / f"autoharness-uploads-{os.getuid()}"
 
 
 class Job:
@@ -314,6 +314,79 @@ def benchmark_summary() -> dict:
                 for app, rows in apps.items() if not app.startswith("unseen_")} for c, apps in runs.items()}
 
 
+# ---- The public demo: a login for judges, and only what's safe to offer ------------------------------------------------
+
+DEMO_SESSIONS: dict[str, float] = {}
+DEMO_FAILS: dict[str, list[float]] = {}
+DEMO_GET = [re.compile(p) for p in (r"/", r"/api/state", r"/api/team", r"/api/health", r"/api/package/[a-z0-9-]+", r"/api/guides/[a-z0-9-]+",
+                                    r"/api/team/stack/[0-9a-f]+(/page/\d+|/closeup/\d+|/approved\.json)?",
+                                    r"/api/jobs/[0-9a-f]+/(events|last|shot/\w+|live/\w+)")]
+DEMO_POST = [re.compile(p) for p in (r"/api/upload", r"/api/ui/run", r"/api/ui/teach", r"/api/ui/swarm", r"/api/team/read", r"/api/team/design",
+                                     r"/api/team/stack/[0-9a-f]+/(decide|portal)", r"/api/jobs/[0-9a-f]+/(stop|confirm)", r"/api/logout")]
+LOGIN_PAGE = STATIC / "login.html"
+
+
+def demo_file() -> Path:
+    return config.HOME / "demo.json"
+
+
+def demo_login_ok(user: str, password: str) -> bool:
+    import hashlib
+    import hmac
+    try:
+        d = json.loads(demo_file().read_text())
+    except (OSError, ValueError):
+        return False
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(d["salt"]), 200_000)
+    return hmac.compare_digest(digest.hex(), d["hash"]) and hmac.compare_digest(user.strip().lower(), str(d["user"]).lower())
+
+
+def demo_throttled(ip: str) -> bool:
+    now = time.time()
+    recent = [t for t in DEMO_FAILS.get(ip, []) if now - t < 900]
+    DEMO_FAILS[ip] = recent
+    return len(recent) >= 8
+
+
+def demo_allows_local() -> None:
+    """The made-up demo apps on this machine that learned interfaces use. The demo's browser may open these, and nothing
+    else here."""
+    from . import egress
+    specs = [*targets.catalog(), *(p.get("target") or {} for p in uiteam.saved_plans().values())]
+    for spec in specs:
+        u = urllib.parse.urlsplit(str(spec.get("url") or ""))
+        if u.scheme in ("http", "https") and u.hostname in egress.LOCAL:
+            egress.allow_local(u.port or (443 if u.scheme == "https" else 80))
+
+
+def demo_check_target(target_text: str, spec: dict) -> None:
+    """A judge may teach on a public website, a public VNC address, or one of the games and apps installed for the demo."""
+    from . import egress
+    try:
+        targets.get_spec(target_text.strip())
+        return  # one of the apps that ship with the demo
+    except KeyError:
+        pass
+    kind = spec.get("kind")
+    if kind == "desktop":
+        cmd = spec.get("command") or []
+        if len(cmd) == 1 and Path(cmd[0]).name in config.DEMO_APPS:
+            return
+        raise ValueError(f"the demo can't start programs on this computer, only these apps: {', '.join(config.DEMO_APPS)}. Or give a public website")
+    if kind == "web":
+        u = urllib.parse.urlsplit(str(spec.get("url") or ""))
+        if u.scheme in ("http", "https") and u.hostname and not u.username and egress.public_host(u.hostname, u.port or 443):
+            return
+        raise ValueError("the demo only opens public websites, not addresses on a private network")
+    if kind == "vnc":
+        from .vnc import parse_address
+        host, port, _ = parse_address(spec["url"])
+        if egress.public_host(host, port):
+            return
+        raise ValueError("the demo can reach a screen shared over VNC only at a public address")
+    raise ValueError("the demo can't open that. Give a public website, or one of: " + ", ".join(config.DEMO_APPS))
+
+
 def state() -> dict:
     with _jobs_lock:
         jobs = [j.brief() for j in sorted(JOBS.values(), key=lambda j: -j.created)][:20]
@@ -321,7 +394,8 @@ def state() -> dict:
     catalog = [{k: s.get(k) for k in ("id", "name", "blurb", "suggested_goal", "kind")} for s in targets.catalog()]
     return {"version": __version__, "library": [p.summary() for p in library.all_packages()], "catalog": catalog, "jobs": jobs,
             "spent_usd": ledger["spent_usd"], "budget_usd": config.BUDGET_USD, "internet": _status["internet"],
-            "glimmer": _status["glimmer"], "has_key": bool(config.api_key()), "benchmark": benchmark_summary()}
+            "glimmer": _status["glimmer"], "has_key": bool(config.api_key()), "benchmark": benchmark_summary(),
+            "demo": {"lesson_usd": config.DEMO_LESSON_USD, "apps": list(config.DEMO_APPS)} if config.DEMO else None}
 
 
 def ui_results() -> dict:
@@ -491,6 +565,8 @@ def ui_mcp_reply(app_id: str | None, message: dict, caller: str = "An agent", wa
 
 def start_ui_swarm(app_id: str, skill: str, count: int) -> Job:
     """Many copies of the interface at once, one runner each, all sharing the one served small model."""
+    if config.DEMO:
+        count = min(int(count), 4)  # a shared demo machine
     plan = uiteam.saved_plans().get(app_id)
     if not plan or not plan.get("swarm_inputs"):
         raise ValueError("this plan has no sample inputs for a swarm")
@@ -545,6 +621,23 @@ def start_ui_teach(target_text: str, goal: str, inputs: dict, name: str | None =
         raise ValueError("way must be auto, plan or program")
     if not 0.2 <= float(limit) <= 20:
         raise ValueError("the limit must be between $0.20 and $20")
+    if config.DEMO:
+        limit = min(float(limit), config.DEMO_LESSON_USD)
+        if len(goal) > 1500:
+            raise ValueError("say the job in under 1,500 characters")
+        if Ledger.remaining() < 0.3:
+            raise ValueError("the demo's budget for new lessons is used up. Everything already learned still runs, for free")
+        with _jobs_lock:
+            if any(j.kind == "ui_teach" and j.status == "running" for j in JOBS.values()):
+                raise ValueError("another lesson is running right now, one at a time. Watch it from the home page, or start yours when it ends")
+        demo_check_target(target_text, spec)
+        for d in docs or []:
+            d = str(d).strip()
+            if re.match(r"https?://", d, re.I):
+                from . import egress
+                host = urllib.parse.urlsplit(d).hostname or ""
+                if not egress.public_host(host):
+                    raise ValueError(f"the demo only reads docs from public websites, not {host}")
     sources = [str(d).strip() for d in docs or [] if str(d).strip()]
     files = [s for s in sources if not re.match(r"https?://|docsdb:", s, re.I)]
     _uploaded(files)  # only files sent to this app, never a path that names anything else on the disk
@@ -660,7 +753,8 @@ def team_state() -> dict:
     return {"interfaces": [uiteam.plan_brief(p) for p in uiteam.saved_plans().values()], "ui_results": ui_results(), "targets": [{k: s.get(k) for k in ("id", "name", "blurb", "suggested_goal")} for s in targets.catalog()], "has_key": bool(config.api_key()), "plans": [team_app.plan_brief(p) for p in team_app.all_plans().values()], "samples": team_app.all_samples(), "internet": _status["internet"], "glimmer": _status["glimmer"],
             "spent_usd": Ledger.read()["spent_usd"], "budget_usd": config.BUDGET_USD, "proof": team_app.proof(),
             "running": [{"id": j.id, "title": j.title, "kind": j.kind} for j in jobs if j.status == "running" and j.kind.startswith("ui_")],
-            "command": autoharness_command()}
+            "command": "autoharness" if config.DEMO else autoharness_command(),
+            "demo": {"lesson_usd": config.DEMO_LESSON_USD, "apps": list(config.DEMO_APPS), "left_usd": round(max(0.0, Ledger.remaining()), 2)} if config.DEMO else None}
 
 
 def autoharness_command() -> str:
@@ -756,7 +850,41 @@ class Handler(BaseHTTPRequestHandler):
         host = re.sub(r"[^\w.:\[\]-]", "", self.headers.get("Host") or "")
         return f"http://{host}" if host else ""
 
+    def _client_ip(self) -> str:
+        return (self.headers.get("CF-Connecting-IP") or (self.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+                or self.client_address[0])
+
+    def _demo_session(self) -> str | None:
+        for part in (self.headers.get("Cookie") or "").split(";"):
+            k, _, v = part.strip().partition("=")
+            if k == "ahdemo" and DEMO_SESSIONS.get(v, 0) > time.time():
+                return v
+        return None
+
+    def _demo_login(self) -> None:
+        body = self._body()
+        ip = self._client_ip()
+        if demo_throttled(ip):
+            return self._json({"error": "too many tries. Wait 15 minutes"}, 429)
+        if not demo_login_ok(str(body.get("user", "")), str(body.get("password", ""))):
+            DEMO_FAILS.setdefault(ip, []).append(time.time())
+            time.sleep(1)
+            return self._json({"error": "that user name and password don't match"}, 401)
+        token = secrets.token_urlsafe(24)
+        DEMO_SESSIONS[token] = time.time() + 7 * 86400
+        secure = "; Secure" if (self.headers.get("X-Forwarded-Proto") == "https" or "https" in (self.headers.get("CF-Visitor") or "")) else ""
+        data = json.dumps({"ok": True}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Set-Cookie", f"ahdemo={token}; HttpOnly; SameSite=Lax; Path=/; Max-Age={7 * 86400}{secure}")
+        self.end_headers()
+        self.wfile.write(data)
+        return None
+
     def _authorized(self, query: dict) -> bool:
+        if config.DEMO:
+            return self._demo_session() is not None  # nothing is trusted by where it comes from: the tunnel arrives locally
         # Loopback is this machine's own user. Any other listener needs the token.
         if TOKEN is None or self.server.server_address[0] == "127.0.0.1":
             return True
@@ -769,7 +897,18 @@ class Handler(BaseHTTPRequestHandler):
         query = urllib.parse.parse_qs(url.query)
         path = url.path
         if not self._authorized(query):
-            return self._json({"error": "add ?token=... to the address"}, 401)
+            if config.DEMO and not path.startswith(("/api/", "/mcp")):
+                data = LOGIN_PAGE.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(data)
+                return None
+            return self._json({"error": "sign in first" if config.DEMO else "add ?token=... to the address"}, 401)
+        if config.DEMO and not any(p.fullmatch(path) for p in DEMO_GET):
+            return self._json({"error": "not in the demo"}, 404)
         try:
             if path in ("/", "/apps"):
                 data = (STATIC / ("paperwork.html" if path == "/" else "index.html")).read_bytes()
@@ -862,13 +1001,21 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):  # noqa: N802
         url = urllib.parse.urlsplit(self.path)
         query = urllib.parse.parse_qs(url.query)
-        if not self._authorized(query):
-            return self._json({"error": "unauthorized"}, 401)
-        # A page on another site must not be able to start jobs on this machine.
+        # A page on another site must not be able to start jobs on this machine, or sign in to the demo.
         origin = self.headers.get("Origin")
         if origin and urllib.parse.urlsplit(origin).netloc != self.headers.get("Host"):
             return self._json({"error": "cross-site request refused"}, 403)
+        if config.DEMO and url.path == "/api/login":
+            return self._demo_login()
+        if not self._authorized(query):
+            return self._json({"error": "unauthorized"}, 401)
         path = url.path
+        if config.DEMO:
+            if not any(p.fullmatch(path) for p in DEMO_POST):
+                return self._json({"error": "not in the demo"}, 404)
+            if path == "/api/logout":
+                DEMO_SESSIONS.pop(self._demo_session() or "", None)
+                return self._json({"ok": True})
         try:
             if path == "/api/import":
                 n = int(self.headers.get("Content-Length") or 0)
@@ -891,6 +1038,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(start_ui_run(str(body["id"]), str(body["skill"]), body.get("inputs") or {}).brief())
             if path == "/api/ui/swarm":
                 return self._json(start_ui_swarm(str(body["id"]), str(body["skill"]), int(body.get("count", 8))).brief())
+            if path == "/api/settings/key":
+                config.save_api_key(str(body.get("key", "")))
+                return self._json({"ok": True})
             m = re.fullmatch(r"/api/guides/([a-z0-9-]+)/share", path)
             if m:
                 return self._json(share_guide(m.group(1), bool(body.get("always"))))
@@ -1094,6 +1244,11 @@ def _tailscale_address() -> str:
 def serve(host: str = "127.0.0.1", port: int = 4140, tailscale: bool = False) -> None:
     global TOKEN
     config.ensure_dirs()
+    if config.DEMO:
+        if not demo_file().exists():
+            raise SystemExit("The demo has no login yet: run autoharness demo setup")
+        host, tailscale = "127.0.0.1", False  # reached only through the tunnel, and every request signs in
+        demo_allows_local()
     for pkg in library.all_packages():  # no job survives a restart, so nothing can still be learning
         if pkg.manifest.get("status") == "teaching":
             pkg.update(status="stopped", failure="interrupted before it finished")

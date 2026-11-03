@@ -112,8 +112,13 @@ MAX_LINKED = 24
 
 def _fetch(url: str) -> tuple[bytes, str, str]:
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Autoharness reading an app's docs)", "Accept": "*/*"})
+    if config.DEMO:
+        from .egress import opener  # in the public demo, docs come only from public websites, redirects included
+        open_url = opener().open
+    else:
+        open_url = urllib.request.urlopen
     try:
-        with urllib.request.urlopen(req, timeout=30) as r:
+        with open_url(req, timeout=30) as r:
             data = r.read(MAX_BYTES + 1)
             ctype = (r.headers.get("Content-Type") or "").split(";")[0].strip().lower()
             final = r.geturl()
@@ -130,7 +135,7 @@ def from_url(url: str, follow: bool = True) -> Doc:
     name = (parts.netloc + parts.path).rstrip("/")
     name = name if len(name) <= 70 else name[:40] + "..." + name[-27:]
     doc = from_bytes(name, data, ctype)
-    if doc.kind == "web page" and len(doc.text) < 600:
+    if doc.kind == "web page" and len(doc.text) < 600 and not config.DEMO:
         # Many docs sites build the page with JavaScript, so the raw HTML is nearly empty. A real browser sees the text.
         rendered = _rendered_text(final)
         if len(rendered) > len(doc.text):

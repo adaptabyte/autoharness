@@ -43,6 +43,8 @@ def main() -> None:
                    help="a manual, a list of shortcuts, a picture of the controls, a web page about the app, or a folder of them. "
                         "Muse Wonder reads them first, so Spark checks what they say instead of trying every control")
     t.add_argument("--no-guides", action="store_true", help="don't read the guide to this app from earlier lessons or from docsdb")
+    dm = sub.add_parser("demo", help="the live demo for judges: a locked-down copy, behind a login, through a Cloudflare Tunnel")
+    dm.add_argument("action", choices=("setup", "tunnel", "up", "down", "status", "key", "password"))
     sc = sub.add_parser("screens", help="other computers it can reach, which share their screen, and how to turn sharing on")
     sc.add_argument("address", nargs="?", help="a vnc:// address to try: it says what it sees and saves a screenshot")
     gl = sub.add_parser("guides", help="the guides to apps written by lessons on this computer")
@@ -75,6 +77,10 @@ def main() -> None:
         return serve(args.host, args.port, args.tailscale)
     if args.cmd == "program":
         return run_program(args)
+    if args.cmd == "demo":
+        from . import demo
+        return {"setup": demo.setup, "tunnel": demo.tunnel, "up": demo.up, "down": demo.down, "status": demo.status,
+                "key": lambda: demo.key_prompt() or 0, "password": demo.password}[args.action]()
     from . import cli
     try:
         code = {"up": lambda: cli.up(not args.no_demo, args.tailscale), "check": cli.check, "down": cli.down, "connect": cli.connect,

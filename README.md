@@ -18,6 +18,8 @@ Point it at an app made for people, on this computer or any other, and describe 
 
 > **The finding.** One small model, one job: reading a patient's chart in OpenEMR, a real medical-records system, with made-up patients. When Glimmer was given the whole job, it went **0 for 6**. When the job was compiled, it went **5 for 5** on patients it had never seen. The model was the same both times. The only change was that a frontier model did the thinking in advance.
 
+**Judges:** a live copy runs at [demo.adaptabyte.com](https://demo.adaptabyte.com). The sign-in is in the submission. Run anything it already learned for free, or point it at a public website and watch it learn ([how it's kept safe](#the-live-demo)).
+
 ## Try it in three commands
 
 ```bash
@@ -179,7 +181,7 @@ Every job is a tool over MCP, the standard way AI agents use tools. `autoharness
 
 Every lesson leaves a guide to the app on your computer, in `~/.autoharness/guides/<app>/SKILL.md`. The guide brings together the docs you gave, what Spark checked on the real screen, and how the job is done. Each control is marked "seen on screen" or "from the docs". The next lesson on that app reads the guide first, then updates it.
 
-With your yes, a guide joins [docsdb](https://adaptabyte.github.io/autoharness/docsdb/), a shared library of them:
+With your yes, a guide joins [docsdb](https://autoharness.adaptabyte.com/docsdb/), a shared library of them:
 
 ```bash
 autoharness guides                         # the guides on this computer
@@ -198,6 +200,24 @@ autoharness share gnome-robots --always    # also offers later updates, each one
 Other shared libraries exist for neighbouring things. [Context7](https://github.com/upstash/context7) collects code-library docs for coding agents, and llms.txt lets websites describe themselves to models. I found none for using apps through their screens.
 
 A guide alone doesn't make a small model capable: written guides went 0 of 6 on reading a chart ([below](#honest-answers)). A guide is what the big model reads before it teaches, and it's enough for any big agent.
+
+## The live demo
+
+A second copy of Autoharness on the same machine, open to the internet through a Cloudflare Tunnel, behind a judge login. It shares Glimmer and the made-up demo apps, and nothing else:
+
+- **Its own key and budget.** It has its own Meta API key, separate from mine and revocable, and a $25 cap for new lessons, at most $1.50 each, one at a time. Running anything already learned is free.
+- **Only what's safe to offer.** Judges can run learned tools, watch them live, and teach new ones on public websites or a few installed games. Settings, sharing, importing and deleting are refused, as is anything not on that list.
+- **Nothing private reachable.** The demo's browser and apps run in a Landlock jail, a Linux kernel feature that needs no root:
+  - They can read only system files and their own fresh profile, never my home folder or any key.
+  - Their only connection is a small proxy, which refuses this machine, the home network and Tailscale, except the made-up demo apps.
+  - Code that Wonder writes already runs that way, in every copy, with no network at all.
+- **Nothing trusted for being local.** The tunnel arrives on this machine, so the demo never trusts a request for where it comes from. Every request needs a signed-in session, and guessing passwords is cut off after eight tries.
+
+```bash
+autoharness demo setup     # its own folder, copies of what you've vetted, a judge login, its own key
+autoharness demo tunnel    # once, after cloudflared tunnel login: the public address
+autoharness demo up        # start it; status, down, password and key do what they say
+```
 
 ## Why
 
@@ -384,6 +404,7 @@ autoharness check                  # run again until everything is ready
 | `autoharness screens [vnc://...]` | Other computers it can reach, which share their screen, and how to turn sharing on; with an address, what it sees there |
 | `autoharness guides` | The guide to each app that lessons wrote on this computer |
 | `autoharness share <guide>` | Offers a guide to docsdb, after you've read it. It's reviewed before it's live |
+| `autoharness demo setup\|tunnel\|up\|down\|status` | A locked-down copy for other people to try, behind a login, through a Cloudflare Tunnel ([details](#the-live-demo)) |
 | `autoharness tools` | Every job an agent can call, with its inputs |
 | `autoharness call <tool> key=value ...` | Runs one job and prints the verified result |
 | `autoharness connect` | Settings for MCP clients, with your paths filled in |

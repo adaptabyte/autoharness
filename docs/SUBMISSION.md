@@ -40,7 +40,7 @@ It's plug and play. `autoharness up` starts it and checks what's ready. `autohar
 
 It reaches apps on other computers too. The address can be a web address, a Linux app's command, or `vnc://` for a Windows PC, a Mac or a game machine, using the screen sharing they already have. Spark reads the job and picks how to learn it: a plan when the same steps work every time, or a program, written by Muse Wonder, when each move depends on the screen. Pointed at Minesweeper on another screen over VNC with one command, Spark chose a program. For $1.24, once, it then won five of five fresh games on its own with no cloud, and now it's a tool like any other. VNC was tested here against a Linux server; Mac and Windows servers speak the same protocol but weren't tested, and nothing that needs fast reflexes will work.
 
-It can start from the manual. `--docs` takes a PDF, a picture of the controls, or a link to a help site. Muse Wonder reads it all once and tells Spark what to check, so Spark confirms the documented controls instead of trying every key. Given the online manual for GNOME Robots, a game whose keys can't be guessed, the program it wrote moved with exactly the documented keys and cleared level 1 in five of five runs on its own, for $1.64 once. Every lesson then leaves a guide to the app, an Agent Skill, which the next lesson on that app reads first. With the person's yes, a guide joins docsdb, a shared library at adaptabyte.github.io/autoharness/docsdb, after a person reviews it. Then anyone's lesson on that app starts from it, and any agent that takes skills can load it. Nothing typed or read during a lesson goes into a guide.
+It can start from the manual. `--docs` takes a PDF, a picture of the controls, or a link to a help site. Muse Wonder reads it all once and tells Spark what to check, so Spark confirms the documented controls instead of trying every key. Given the online manual for GNOME Robots, a game whose keys can't be guessed, the program it wrote moved with exactly the documented keys and cleared level 1 in five of five runs on its own, for $1.64 once. Every lesson then leaves a guide to the app, an Agent Skill, which the next lesson on that app reads first. With the person's yes, a guide joins docsdb, a shared library at autoharness.adaptabyte.com/docsdb, after a person reviews it. Then anyone's lesson on that app starts from it, and any agent that takes skills can load it. Nothing typed or read during a lesson goes into a guide.
 
 The finding that makes this work: the same small model went 0 for 6 reading a chart in OpenEMR when given the whole job, and 5 for 5 on unseen patients once the job was compiled. Across OpenEMR, a made-up insurer's portal, a Django admin and a native desktop calculator, it passed 35 of 35 runs on the final code and saved nothing wrong. It matched Muse Spark's pass rate with no cloud at run time. On the portal it was 3.5 times faster, 157 seconds against 556.
 
@@ -77,6 +77,12 @@ All of it. The repo's history shows the work from Oct 28 on. I directed it, and 
 - Repo: https://github.com/adaptabyte/autoharness
 - Proof, including every failed round: https://github.com/adaptabyte/autoharness/blob/master/docs/PROOF.md
 - Video: yours to upload. `clips/draft.mp4` is a complete captioned cut.
+- Live demo, for judges: https://demo.adaptabyte.com. Put the user name and password only in the field that judges alone see. If the platform has no private field, send them to the organisers instead of putting them in the public description.
+- docsdb, the shared guides: https://autoharness.adaptabyte.com/docsdb/
+
+Text for the judges' private field:
+
+> Try it live at https://demo.adaptabyte.com. User name: judge. Password: (from `autoharness demo password`). Pick anything under "Try one it already learned" and watch a small model run it on my GPUs, for free. Or teach it something new on any public website, with or without a manual (`Add docs`). One lesson runs at a time, at most $1.50 each. Please don't use real accounts.
 
 ## X posts
 
@@ -120,3 +126,5 @@ If you filmed the cable pull, add this to the main post: "Then I pulled the ethe
 2. The video is under 3 minutes and says that Claude Code wrote most of the code.
 3. There's no real patient data anywhere. The repo has none, but check anything you add, including your own photos.
 4. Don't link the Tailscale address or token anywhere.
+5. The live demo is up (`autoharness demo status`), and Glimmer is loaded. Keep both running until judging ends, and don't switch those GPUs to another model in the meantime.
+6. The judge password is only in the private field. After judging, revoke the demo's API key and run `autoharness demo down`.
