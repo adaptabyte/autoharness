@@ -25,7 +25,9 @@ GREY, BOLD, GREEN, AMBER, END = "\033[90m", "\033[1m", "\033[32m", "\033[33m", "
 
 def rpc(server: str, method: str, params: dict | None = None, caller: str = "Muse Spark") -> dict:
     body = json.dumps({"jsonrpc": "2.0", "id": int(time.time() * 1000), "method": method, "params": params or {}}).encode()
-    req = urllib.request.Request(server, data=body, headers={"Content-Type": "application/json", "Accept": "application/json, text/event-stream", "X-Caller": caller})
+    # This client waits as long as a job takes, so it asks the server not to hand back a job id after 50 s.
+    url = server + ("&" if "?" in server else "?") + "wait=1800"
+    req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json", "Accept": "application/json, text/event-stream", "X-Caller": caller})
     with urllib.request.urlopen(req, timeout=1900) as r:
         reply = json.load(r)
     if "error" in reply:

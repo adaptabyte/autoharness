@@ -712,7 +712,15 @@ def new_plan_id(app_name: str, fallback: str) -> str:
     return next(c for c in [base] + [f"{base}-{n}" for n in range(2, 999)] if c not in taken)
 
 
-def teach(app_id: str, spec: dict, goal: str, inputs: dict, display: Display, target, emit: Emit, stop: threading.Event, repairs: int = 4, limit_usd: float = 4.0) -> dict:
+def without_login(text: str, login: dict) -> str:
+    """The job as it's kept in the plan, with any login value replaced by its name, so a saved plan never holds a password."""
+    for key, value in sorted(login.items(), key=lambda kv: -len(str(kv[1]))):
+        if str(value).strip():
+            text = text.replace(str(value), "{" + str(key) + "}")
+    return text
+
+
+def teach(app_id: str, spec: dict, goal: str, inputs: dict, display: Display, target, emit: Emit, stop: threading.Event, repairs: int = 4, limit_usd: float = 4.0, name: str | None = None) -> dict:
     """Explore, compile, prove, repair. Passing here means the plan finished and a separate model, shown only the final screen, agrees."""
     from .teacher import judge_final_screen
 
@@ -731,8 +739,9 @@ def teach(app_id: str, spec: dict, goal: str, inputs: dict, display: Display, ta
     login = {str(k): v for k, v in login.items()} if isinstance(login, dict) else {}
     inputs = {**(plan.get("defaults") or {}), **login, **inputs}
     job = main_job(plan)
+    goal = without_login(goal, login)
     plan.update(target=spec, samples={job: {k: v for k, v in inputs.items() if k not in login}}, jobs={job: job}, repairs=0, goal=goal)
-    app_id = new_plan_id(plan.get("app") or "", app_id)
+    app_id = new_plan_id(name or plan.get("app") or "", app_id)
     folder = config.HOME / "uiteam" / app_id
     emit({"type": "plan", "plan": plan_brief({**plan, "id": app_id}), "usd": round(meter.usd, 4)})
     frames: list[np.ndarray] = []

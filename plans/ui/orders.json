@@ -1,0 +1,225 @@
+{
+ "app": "Django administration",
+ "how_it_behaves": "A centered Django administration login form leads to a Site administration home page. After login a browser 'Save password?' popup may overlay the right side of the screen and must be dismissed before working. Orders are reached from the Orders link under the SHOP section, not from the ORD links in Recent actions. The Orders list has a search box that filters to matching rows with NUMBER, CUSTOMER, STATUS, TOTAL and TRACKING columns; clicking a blue order number opens a Change order form where Number and Tracking are text boxes and Status and Customer are dropdowns.",
+ "skills": [
+  {
+   "name": "log_in",
+   "does": "Log in to Django administration and dismiss the save-password popup if it appears.",
+   "inputs": {
+    "username": "the login username",
+    "password": "the login password"
+   },
+   "outputs": [],
+   "steps": [
+    {
+     "do": "ensure",
+     "question": "Is the Django administration login form showing, with Username and Password boxes and a Log in button?",
+     "why": "Confirm the run starts on the login page before entering credentials."
+    },
+    {
+     "do": "type",
+     "target": "the Username text box in the centered login form, directly below the 'Username:' label and above the 'Password:' label",
+     "text": "{username}"
+    },
+    {
+     "do": "type",
+     "target": "the Password text box in the centered login form, directly below the 'Password:' label and above the blue Log in button",
+     "text": "{password}",
+     "secret": true
+    },
+    {
+     "do": "click",
+     "target": "the blue 'Log in' button centered at the bottom of the login form, below the Password box"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "dismiss",
+     "question": "Is a 'Save password?' popup panel open on the right side of the screen?",
+     "target": "the small X close icon at the top-right corner of the Save password popup panel"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the Site administration home page showing, with AUTHENTICATION AND AUTHORIZATION and SHOP section headers?",
+     "why": "Confirm login succeeded and the admin home page loaded."
+    }
+   ]
+  },
+  {
+   "name": "open_orders",
+   "does": "Open the Orders list from the Site administration home page.",
+   "inputs": {},
+   "outputs": [],
+   "steps": [
+    {
+     "do": "dismiss",
+     "question": "Is a 'Save password?' popup panel open on the right side of the screen?",
+     "target": "the small X close icon at the top-right corner of the Save password popup panel"
+    },
+    {
+     "do": "click",
+     "target": "the 'Orders' text link in the SHOP section on the left side of the main content, below the 'Customers' row and distinct from the ORD links in the Recent actions panel on the right"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "dismiss",
+     "question": "Is a 'Save password?' popup panel open on the right side of the screen?",
+     "target": "the small X close icon at the top-right corner of the Save password popup panel"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the 'Select order to change' page showing, with a search box and a table headed NUMBER, CUSTOMER, STATUS, TOTAL, TRACKING?",
+     "why": "Confirm the Orders list opened before searching."
+    }
+   ]
+  },
+  {
+   "name": "open_order",
+   "does": "Search the Orders list for one order number and open its detail form.",
+   "inputs": {
+    "order_number": "the order number to find, for example an ORD-prefixed code"
+   },
+   "outputs": [],
+   "steps": [
+    {
+     "do": "type",
+     "target": "the long search text box with a magnifying-glass icon at its left, below the 'Select order to change' heading and to the left of the 'Search' button",
+     "text": "{order_number}",
+     "enter": true
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "ensure",
+     "question": "Is the results table showing a row whose NUMBER column reads {order_number}?",
+     "why": "Confirm the search found the requested order before opening it."
+    },
+    {
+     "do": "click",
+     "target": "the blue order-number link reading {order_number} in the NUMBER column, the first data column, of the matching search-result row"
+    },
+    {
+     "do": "wait",
+     "seconds": 2
+    },
+    {
+     "do": "dismiss",
+     "question": "Is a 'Save password?' popup panel open on the right side of the screen?",
+     "target": "the small X close icon at the top-right corner of the Save password popup panel"
+    },
+    {
+     "do": "ensure",
+     "question": "Is the 'Change order' form showing, with Number, Customer, Status, Total and Tracking fields?",
+     "why": "Confirm the order detail form opened before reading it."
+    }
+   ]
+  },
+  {
+   "name": "read_order_details",
+   "does": "Read and verify the number, customer, status and tracking number from an open Change order form.",
+   "inputs": {
+    "order_number": "the expected order number, used to verify the open record"
+   },
+   "outputs": [
+    "order"
+   ],
+   "steps": [
+    {
+     "do": "read",
+     "into": "order",
+     "fields": {
+      "number": "the value in the text box to the right of the 'Number:' label near the top of the Change order form, below the bold order-number heading and not the breadcrumb at the top",
+      "customer": "the selected value in the dropdown to the right of the 'Customer:' label, below the Number field",
+      "status": "the selected value in the dropdown to the right of the 'Status:' label, below the Customer field and above the Total field",
+      "tracking": "the value in the text box to the right of the 'Tracking:' label, below the Total text box and above the Notes area"
+     },
+     "types": {
+      "number": "code",
+      "customer": "name",
+      "status": "text",
+      "tracking": "code"
+     }
+    },
+    {
+     "do": "compare",
+     "a": "{order.number}",
+     "b": "{order_number}",
+     "kind": "code"
+    }
+   ]
+  },
+  {
+   "name": "read_order",
+   "does": "Log in, open a given order, and report its status and tracking number.",
+   "inputs": {
+    "username": "the login username",
+    "password": "the login password",
+    "order_number": "the order number to find, for example an ORD-prefixed code"
+   },
+   "outputs": [
+    "order"
+   ],
+   "steps": [
+    {
+     "do": "call",
+     "skill": "log_in",
+     "with": {
+      "username": "{username}",
+      "password": "{password}"
+     }
+    },
+    {
+     "do": "call",
+     "skill": "open_orders",
+     "with": {}
+    },
+    {
+     "do": "call",
+     "skill": "open_order",
+     "with": {
+      "order_number": "{order_number}"
+     }
+    },
+    {
+     "do": "call",
+     "skill": "read_order_details",
+     "with": {
+      "order_number": "{order_number}"
+     }
+    },
+    {
+     "do": "ensure",
+     "question": "Is the Change order form still showing the order {order_number} with its Status dropdown and Tracking box visible?",
+     "why": "Read the result back on the final screen so a wrong-record or wrong-field report is caught."
+    }
+   ]
+  }
+ ],
+ "jobs": {
+  "read_order": "read_order"
+ },
+ "defaults": {
+  "order_number": "ORD-10530"
+ },
+ "target": {
+  "id": "custom",
+  "name": "127.0.0.1:8320",
+  "kind": "web",
+  "url": "http://127.0.0.1:8320/admin/"
+ },
+ "samples": {
+  "read_order": {
+   "order_number": "ORD-10530"
+  }
+ },
+ "repairs": 0,
+ "goal": "Log in with username {username} and password {password}. Open order ORD-10530 and report its status and tracking number.",
+ "compile_usd": 0.1368
+}

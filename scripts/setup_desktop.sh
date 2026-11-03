@@ -20,6 +20,8 @@ os.chmod(f"{root}/patched/gnome-mines", 0o755)
 open(f"{root}/patched/links.txt", "w").write(f"/tmp/.ahs/gnome-mines0 {root}/root/usr/share/gnome-mines\n")
 PY
 fi
-# A real browser for web targets.
-python -m playwright install chromium
+# A real browser for web targets, installed with the same Python that runs Autoharness.
+PY="${PYTHON:-$(dirname "$0")/../.venv-app/bin/python}"
+[ -x "$PY" ] || PY=python3
+"$PY" -m playwright install chromium
 echo "Ready."

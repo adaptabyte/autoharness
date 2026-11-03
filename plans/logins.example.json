@@ -3,5 +3,6 @@
  "backoffice": {"username": "manager", "password": "demo-pass"},
  "django-administration": {"username": "manager", "password": "demo-pass"},
  "openemr": {"username": "admin", "password": "pass"},
- "openemr-chart": {"username": "admin", "password": "pass"}
+ "openemr-chart": {"username": "admin", "password": "pass"},
+ "orders": {"username": "manager", "password": "demo-pass"}
 }

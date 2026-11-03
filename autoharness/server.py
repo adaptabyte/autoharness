@@ -10,6 +10,7 @@ import subprocess
 import shutil
 import socket
 import statistics
+import sys
 import tempfile
 import threading
 import time
@@ -374,27 +375,62 @@ def start_ui_run(app_id: str, skill: str, inputs: dict, caller: str | None = Non
     return _start("ui_run", title, None, body)
 
 
-def call_ui_tool(app_id: str, name: str, inputs, caller: str = "An agent", wait: float = 1800) -> dict:
-    """One whole job, called like a function. It's an ordinary run, so it can be watched live in the app, and the caller
-    gets back only what the plan verified, never a screenshot."""
-    plan = uiteam.saved_plans().get(app_id)
-    if not plan:
-        raise KeyError(app_id)
-    inputs = uiteam.check_tool_call(plan, name, inputs, uiteam.kept_logins(app_id))
-    job = start_ui_run(app_id, name, inputs, caller=caller)
+# Most MCP clients give up on a call after 60 s, and jobs take 15 s to a few minutes. So a tool call answers within this
+# many seconds: with the result, or with a job id that wait_for_job collects. A client with a longer limit can add ?wait=.
+TOOL_WAIT = float(os.environ.get("AUTOHARNESS_TOOL_WAIT", 50))
+WAIT_TOOL = {"name": "wait_for_job", "title": "Autoharness: wait for a job",
+             "description": ("Collects the result of a job that another tool here reported as still running. Jobs run on the user's own "
+                             "computer and take seconds to minutes. If it's still running when this returns, call this again with the same job."),
+             "inputSchema": {"type": "object", "properties": {"job": {"type": "string", "description": "The job id the earlier call returned"}},
+                             "required": ["job"], "additionalProperties": False}}
+
+
+def glimmer_ready() -> None:
+    """A call that can't run is refused at once, with the fix, instead of failing minutes later."""
+    if not Glimmer().available(2):
+        raise ValueError(f"Muse Glimmer isn't answering at {config.GLIMMER_URL}, so nothing was opened. "
+                         "Start it with bash serve/serve_glimmer.sh, or set GLIMMER_URL to a server that runs it")
+
+
+def start_ui_call(app_id: str, name: str, inputs, caller: str = "An agent") -> Job:
+    """One whole job, called like a function. Anything wrong with the call is refused before anything opens."""
+    plans = uiteam.saved_plans()
+    if app_id not in plans:
+        raise ValueError(f"no compiled interface called {app_id!r}; there are {', '.join(plans) or 'none yet'}")
+    inputs = uiteam.check_tool_call(plans[app_id], name, inputs, uiteam.kept_logins(app_id))
+    glimmer_ready()
+    return start_ui_run(app_id, name, inputs, caller=caller)
+
+
+def ui_call_result(job: Job, wait: float, base: str = "") -> dict:
+    """What the caller gets back: only what the plan verified, never a screenshot. A job still running after `wait` keeps
+    running, and the reply says how to collect it."""
     with job.cond:
-        job.cond.wait_for(lambda: job.status != "running", wait)
+        job.cond.wait_for(lambda: job.status != "running", max(0.0, wait))
+    watch = f"{base}/#/job/{job.id}"
     if job.status == "running":
-        job.stop.set()
+        return {"ok": None, "status": "running", "job": job.id, "seconds_so_far": round(time.time() - job.created),
+                "next": f'It is still running on this computer. Call wait_for_job with {{"job": "{job.id}"}} to get the result.', "watch": watch}
     result = next((e for e in reversed(job.events) if e["type"] == "result"), None)
     error = next((e["text"] for e in job.events if e["type"] == "error"), "")
     status = result["status"] if result else "failed"
-    return {"ok": status in ("done", "stopped_for_person"), "status": status,
+    return {"ok": status in ("done", "stopped_for_person"), "status": status, "job": job.id,
             "outputs": {k: v for k, v in ((result or {}).get("outputs") or {}).items() if not k.startswith("_")},
             "stopped_for_person": ((result or {}).get("outputs") or {}).get("_stopped_for_person") if status == "stopped_for_person" else None,
-            "reason": (result or {}).get("reason") or error or ("it ran out of time" if job.status == "running" else ""),
+            "reason": (result or {}).get("reason") or error,
             "seconds": (result or {}).get("seconds"), "steps_checked": (result or {}).get("steps"), "questions_to_local_model": (result or {}).get("questions"),
-            "ran_on": f"this computer, {config.GLIMMER_MODEL}", "watch": f"/#/job/{job.id}"}
+            "ran_on": f"this computer, {config.GLIMMER_MODEL}", "watch": watch}
+
+
+def call_ui_tool(app_id: str, name: str, inputs, caller: str = "An agent", wait: float = 1800, base: str = "") -> dict:
+    return ui_call_result(start_ui_call(app_id, name, inputs, caller), wait, base)
+
+
+def called_job(job_id: str) -> Job:
+    job = JOBS.get(str(job_id))
+    if not job or job.kind != "ui_run":
+        raise ValueError(f"no job {job_id!r} on this computer; use the job id a tool call returned")
+    return job
 
 
 def _tool_owner(name: str) -> tuple[str, str]:
@@ -405,9 +441,10 @@ def _tool_owner(name: str) -> tuple[str, str]:
     return app_id, job
 
 
-def ui_mcp_reply(app_id: str | None, message: dict, caller: str = "An agent") -> dict | None:
+def ui_mcp_reply(app_id: str | None, message: dict, caller: str = "An agent", wait: float = TOOL_WAIT, base: str = "") -> dict | None:
     """Model Context Protocol, over plain JSON-RPC: compiled interfaces as tools any MCP client can call.
-    /mcp/ui/<id> offers one interface's jobs; /mcp/ui offers every compiled interface's, named <interface>__<job>."""
+    /mcp/ui/<id> offers one interface's jobs; /mcp/ui offers every compiled interface's, named <interface>__<job>.
+    Both also offer wait_for_job, for a job still running when its call answered."""
     method, mid, params = message.get("method"), message.get("id"), message.get("params") or {}
     if mid is None:
         return None  # a notification
@@ -429,15 +466,19 @@ def ui_mcp_reply(app_id: str | None, message: dict, caller: str = "An agent") ->
         return ok({})
     if method == "tools/list":
         if app_id:
-            return ok({"tools": uiteam.plan_tools(plans[app_id], uiteam.kept_logins(app_id))})
-        return ok({"tools": [{**t, "name": f"{k}__{t['name']}"} for k, p in plans.items() for t in uiteam.plan_tools(p, uiteam.kept_logins(k))]})
+            return ok({"tools": uiteam.plan_tools(plans[app_id], uiteam.kept_logins(app_id)) + [WAIT_TOOL]})
+        return ok({"tools": [{**t, "name": f"{k}__{t['name']}"} for k, p in plans.items() for t in uiteam.plan_tools(p, uiteam.kept_logins(k))] + [WAIT_TOOL]})
     if method == "tools/call":
+        args = params.get("arguments") or {}
         try:
-            owner, job = (app_id, params.get("name")) if app_id else _tool_owner(params.get("name"))
-            out = call_ui_tool(owner, str(job), params.get("arguments") or {}, caller=caller)
+            if params.get("name") == WAIT_TOOL["name"]:
+                out = ui_call_result(called_job(args.get("job", "") if isinstance(args, dict) else ""), wait, base)
+            else:
+                owner, job = (app_id, params.get("name")) if app_id else _tool_owner(params.get("name"))
+                out = call_ui_tool(owner, str(job), args, caller=caller, wait=wait, base=base)
         except (KeyError, ValueError) as e:
             return ok({"content": [{"type": "text", "text": f"Refused before anything was opened: {e}"}], "isError": True})
-        return ok({"content": [{"type": "text", "text": json.dumps(out, default=str)}], "structuredContent": out, "isError": not out["ok"]})
+        return ok({"content": [{"type": "text", "text": json.dumps(out, default=str)}], "structuredContent": out, "isError": out["ok"] is False})
     return {"jsonrpc": "2.0", "id": mid, "error": {"code": -32601, "message": f"unknown method {method}"}}
 
 
@@ -481,7 +522,7 @@ def start_ui_swarm(app_id: str, skill: str, count: int) -> Job:
     return _start("ui_swarm", f"A swarm on {plan.get('app') or app_id}", None, body)
 
 
-def start_ui_teach(target_text: str, goal: str, inputs: dict) -> Job:
+def start_ui_teach(target_text: str, goal: str, inputs: dict, name: str | None = None) -> Job:
     spec = _resolve_target(target_text)
     goal = goal.strip() or spec.get("suggested_goal", "")
     if not goal:
@@ -493,7 +534,7 @@ def start_ui_teach(target_text: str, goal: str, inputs: dict) -> Job:
         job.displays["main"] = display
         tgt = targets.Target(spec, display)
         try:
-            out = uiteam.teach(app_id, spec, goal, inputs, display, tgt, job.emit, job.stop)
+            out = uiteam.teach(app_id, spec, goal, inputs, display, tgt, job.emit, job.stop, name=name)
             _keep_last_frame(job, display)
             job.finish("done" if out["ok"] else "failed")
         finally:
@@ -507,7 +548,14 @@ def team_state() -> dict:
         jobs = sorted(JOBS.values(), key=lambda j: j.created)
     return {"interfaces": [uiteam.plan_brief(p) for p in uiteam.saved_plans().values()], "ui_results": ui_results(), "targets": [{k: s.get(k) for k in ("id", "name", "blurb", "suggested_goal")} for s in targets.catalog()], "has_key": bool(config.api_key()), "plans": [team_app.plan_brief(p) for p in team_app.all_plans().values()], "samples": team_app.all_samples(), "internet": _status["internet"], "glimmer": _status["glimmer"],
             "spent_usd": Ledger.read()["spent_usd"], "budget_usd": config.BUDGET_USD, "proof": team_app.proof(),
-            "running": [{"id": j.id, "title": j.title, "kind": j.kind} for j in jobs if j.status == "running" and j.kind.startswith("ui_")]}
+            "running": [{"id": j.id, "title": j.title, "kind": j.kind} for j in jobs if j.status == "running" and j.kind.startswith("ui_")],
+            "command": autoharness_command()}
+
+
+def autoharness_command() -> str:
+    """The full path an MCP client needs to start `autoharness mcp` on this computer."""
+    beside = Path(sys.executable).parent / "autoharness"
+    return str(beside) if beside.exists() else shutil.which("autoharness") or "autoharness"
 
 
 def stack_view(stack_id: str) -> dict:
@@ -586,6 +634,16 @@ class Handler(BaseHTTPRequestHandler):
     def _caller(self) -> str:
         """Who to show in the app as using an interface. Callers may name themselves; it's a label, not a credential."""
         return re.sub(r"[^\w .,()-]", "", self.headers.get("X-Caller") or "")[:40].strip() or "An agent"
+
+    def _wait(self, query: dict, default: float) -> float:
+        try:
+            return min(max(float(query.get("wait", [default])[0]), 0.0), 1800.0)
+        except ValueError:
+            return default
+
+    def _base(self) -> str:
+        host = re.sub(r"[^\w.:\[\]-]", "", self.headers.get("Host") or "")
+        return f"http://{host}" if host else ""
 
     def _authorized(self, query: dict) -> bool:
         # Loopback is this machine's own user. Any other listener needs the token.
@@ -671,10 +729,15 @@ class Handler(BaseHTTPRequestHandler):
             m = re.fullmatch(r"/api/jobs/([0-9a-f]+)/live/(\w+)", path)
             if m:
                 return self._mjpeg(m.group(1), m.group(2))
+            if path == "/api/health":
+                return self._json({"ok": True, "version": __version__, "glimmer": _status["glimmer"]})
+            m = re.fullmatch(r"/api/ui/call/([0-9a-f]+)", path)
+            if m:
+                return self._json(ui_call_result(called_job(m.group(1)), self._wait(query, 50), self._base()))
             if path.startswith("/mcp/"):
                 return self._json({"error": "this MCP server answers POST only, with JSON responses"}, 405)
             return self._json({"error": "not found"}, 404)
-        except (KeyError, IndexError, FileNotFoundError) as e:
+        except (KeyError, IndexError, FileNotFoundError, ValueError) as e:
             return self._json({"error": f"not found: {e}"}, 404)
         except (BrokenPipeError, ConnectionResetError):
             return None
@@ -715,7 +778,7 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/ui/swarm":
                 return self._json(start_ui_swarm(str(body["id"]), str(body["skill"]), int(body.get("count", 8))).brief())
             if path == "/api/ui/teach":
-                return self._json(start_ui_teach(str(body.get("target", "")), str(body.get("goal", "")), body.get("inputs") or {}).brief())
+                return self._json(start_ui_teach(str(body.get("target", "")), str(body.get("goal", "")), body.get("inputs") or {}, str(body.get("name") or "") or None).brief())
             if path == "/api/team/read":
                 return self._json(start_team_read(body).brief())
             if path == "/api/team/design":
@@ -738,12 +801,14 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/session":
                 return self._json(start_session(str(body["id"])).brief())
             if path == "/api/ui/call":
-                return self._json(call_ui_tool(str(body.get("id", "")), str(body.get("job", "")), body.get("inputs") or {}, caller=self._caller()))
+                app_id, job = _tool_owner(body["tool"]) if body.get("tool") else (str(body.get("id", "")), str(body.get("job", "")))
+                wait = min(max(float(body.get("wait", 1800)), 0.0), 1800.0)
+                return self._json(call_ui_tool(app_id, job, body.get("inputs") or {}, caller=self._caller(), wait=wait, base=self._base()))
             m = re.fullmatch(r"/mcp/ui(?:/([a-z0-9-]+))?/?", path)
             if m:
                 if not isinstance(body, dict):
                     return self._json({"jsonrpc": "2.0", "id": None, "error": {"code": -32600, "message": "send one JSON-RPC message per request"}}, 400)
-                reply = ui_mcp_reply(m.group(1), body, caller=self._caller())
+                reply = ui_mcp_reply(m.group(1), body, caller=self._caller(), wait=self._wait(query, TOOL_WAIT), base=self._base())
                 if reply is None:
                     self.send_response(202)
                     self.send_header("Content-Length", "0")

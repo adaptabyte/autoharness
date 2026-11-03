@@ -1,0 +1,7 @@
+{
+ "about": "The made-up apps the shipped plans were proven on. autoharness up starts any that isn't answering. All their data is made up.",
+ "apps": {
+  "portal": {"name": "A made-up insurer's portal", "url": "http://127.0.0.1:8310/login", "start": ["scripts/priorauth/portal.py"]},
+  "backoffice": {"name": "A Django admin with made-up orders", "url": "http://127.0.0.1:8320/admin/", "start": ["scripts/backoffice/run.py"], "needs": "django"}
+ }
+}

@@ -36,6 +36,8 @@ Nearly every interface was built for human eyes and hands: records systems, insu
 
 Autoharness uses computer use as a compiler instead of a runtime. Muse Spark uses an interface once, and everything it does is recorded. Muse Wonder compiles that record into a plan: data, not code, with every decision made in advance. Then open-weight Muse Glimmer runs the plan on your own computer. It answers one narrow question per screen, while plain code holds the memory and checks every step. What it types gets read back, and what it reads gets read twice. A run ends verified, or it stops and asks. Every compiled job is also an MCP tool, so any agent can use apps that never had an API. The agent gets back only verified results, never your screen or your login.
 
+It's plug and play. `autoharness up` starts it and checks what's ready. `autoharness teach <address> "<the job, in plain words>"` teaches a new job, and `autoharness call` runs one. Any MCP client connects with one line, by address or by command, and a job still running after 50 seconds hands back a job id, so clients with a 60-second limit still work. When Muse Spark, acting as an agent, was asked whether an order had shipped, no job could tell it. One `teach` command fixed that in 141 seconds for $0.14, and Spark then answered correctly.
+
 The finding that makes this work: the same small model went 0 for 6 reading a chart in OpenEMR when given the whole job, and 5 for 5 on unseen patients once the job was compiled. Across OpenEMR, a made-up insurer's portal, a Django admin and a native desktop calculator, it passed 35 of 35 runs on the final code and saved nothing wrong. It matched Muse Spark's pass rate with no cloud at run time. On the portal it was 3.5 times faster, 157 seconds against 556.
 
 I'm a psychiatrist. In the demo, a medication request where one page has a member ID off by one digit comes to me side by side. A clean stack fills the insurer's portal and stops at the signature.
@@ -52,7 +54,7 @@ Enter every prize the rules allow. Ask in Discord whether one project can compet
 |---|---|
 | **Indie** | The whole product |
 | **Open Weight** | Run time is entirely open-weight Muse Glimmer, on your own GPUs |
-| **Agentic** | Models build tools for models. Spark acts as an agent, calling compiled apps over MCP |
+| **Agentic** | Models build tools for models. Spark acts as an agent, calling compiled apps over MCP, and a job it lacked was taught with one command |
 | **Community Vote** | The 0/6 → 5/5 story and the clinic demo travel well |
 | **Most Viral** | X posts below |
 
@@ -97,6 +99,10 @@ Reply 2:
 Reply 3:
 
 > I'm a psychiatrist. I built this during the Meta AI hackathon, with Claude Code writing most of the code. Computer use should be the compiler, not the runtime.
+
+Reply 4, if there's room:
+
+> Plug and play: `autoharness teach <address> "<the job, in plain words>"`, and the job becomes a tool any MCP client can call. Teaching a Django admin to report an order's shipping status took 141 s and $0.14, once. Every run after that: $0 in the cloud.
 
 If you filmed the cable pull, add this to the main post: "Then I pulled the ethernet cable. It kept going."
 

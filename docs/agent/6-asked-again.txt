@@ -1,0 +1,11 @@
+10 jobs offered by http://127.0.0.1:4140/mcp/ui: backoffice__ship_order, backoffice__read_order, calculator__calculate, django-administration__lookup_customer, openemr__report_patient_dob, openemr__update_patient_home_phone, openemr-chart__read_patient_chart, orders__read_order, portal__save_request, wait_for_job
+
+You: Has order ORD-10530 shipped? If so, what's the tracking number?
+
+muse-spark-1.3 calls orders__read_order {"order_number": "ORD-10530"}
+  running on this computer; watch it at http://127.0.0.1:4140
+  verified in 35 s: {"order": {"number": "ORD-10530", "customer": "Theo Rasmussen", "status": "Shipped", "tracking": "TRK942213"}}
+
+muse-spark-1.3: Yes — ORD-10530 has shipped. Tracking: TRK942213.
+
+The asking model cost $0.0069 in the cloud. The interface ran on this computer, for $0.

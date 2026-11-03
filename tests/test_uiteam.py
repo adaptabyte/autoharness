@@ -259,8 +259,8 @@ def test_the_mcp_server_lists_every_interface_and_refuses_bad_calls_without_runn
     init = server.ui_mcp_reply(None, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18"}})
     assert init["result"]["capabilities"] == {"tools": {}}
     names = [t["name"] for t in server.ui_mcp_reply(None, {"id": 2, "method": "tools/list"})["result"]["tools"]]
-    assert names == ["backoffice__ship_order", "backoffice__read_order", "calculator__calculate"]
-    assert [t["name"] for t in server.ui_mcp_reply("calculator", {"id": 3, "method": "tools/list"})["result"]["tools"]] == ["calculate"]
+    assert names == ["backoffice__ship_order", "backoffice__read_order", "calculator__calculate", "wait_for_job"]
+    assert [t["name"] for t in server.ui_mcp_reply("calculator", {"id": 3, "method": "tools/list"})["result"]["tools"]] == ["calculate", "wait_for_job"]
     refused = server.ui_mcp_reply(None, {"id": 4, "method": "tools/call", "params": {"name": "backoffice__read_order", "arguments": {"number": "ORD-1"}}})
     assert refused["result"]["isError"] and "missing: username, password" in refused["result"]["content"][0]["text"]
     assert server.ui_mcp_reply(None, {"id": 5, "method": "tools/call", "params": {"name": "nobody__x", "arguments": {}}})["result"]["isError"]
@@ -300,3 +300,76 @@ def test_a_whole_number_sent_as_a_float_is_typed_as_a_whole_number():
     args["trials"] = [{**args["trials"][0], "drug": "Lamotrigine 200 mg"}]
     out = uiteam.check_tool_call(plan, "save_request", args)
     assert out["quantity"] == 30 and isinstance(out["quantity"], int) and out["days"] == 30
+
+
+def test_a_long_job_answers_within_a_client_time_limit_and_is_collected_later(monkeypatch, tmp_path):
+    """Most MCP clients give up on a call after 60 s. A job still running answers with its id, keeps running, and
+    wait_for_job collects the verified result."""
+    from autoharness import config, server
+    monkeypatch.setattr(config, "HOME", tmp_path)
+    monkeypatch.setattr(uiteam, "saved_plans", lambda: {"calculator": shipped("calculator")})
+    monkeypatch.setattr(server, "glimmer_ready", lambda: None)
+    job = server.Job("ui_run", "test")
+    monkeypatch.setitem(server.JOBS, job.id, job)
+    monkeypatch.setattr(server, "start_ui_run", lambda *a, **k: job)
+    call = {"id": 1, "method": "tools/call", "params": {"name": "calculator__calculate", "arguments": {"expression": "1+1"}}}
+    first = server.ui_mcp_reply(None, call, wait=0)["result"]
+    assert not first["isError"] and first["structuredContent"]["status"] == "running" and job.id in first["structuredContent"]["next"]
+    assert not job.stop.is_set()
+    job.emit({"type": "result", "status": "done", "reason": "", "outputs": {"result": {"answer": "2"}, "_internal": 1}, "seconds": 7, "steps": 11, "questions": 9})
+    job.finish("done")
+    later = server.ui_mcp_reply(None, {"id": 2, "method": "tools/call", "params": {"name": "wait_for_job", "arguments": {"job": job.id}}}, wait=0)["result"]
+    assert not later["isError"] and later["structuredContent"]["outputs"] == {"result": {"answer": "2"}}
+    unknown = server.ui_mcp_reply(None, {"id": 3, "method": "tools/call", "params": {"name": "wait_for_job", "arguments": {"job": "nope"}}})["result"]
+    assert unknown["isError"] and "no job" in unknown["content"][0]["text"]
+
+
+def test_a_call_is_refused_at_once_when_the_local_model_is_not_answering(monkeypatch, tmp_path):
+    from autoharness import config, server
+    monkeypatch.setattr(config, "HOME", tmp_path)
+    monkeypatch.setattr(uiteam, "saved_plans", lambda: {"calculator": shipped("calculator")})
+    monkeypatch.setattr(server.Glimmer, "available", lambda self, timeout=2: False)
+    started = []
+    monkeypatch.setattr(server, "start_ui_run", lambda *a, **k: started.append(a))
+    reply = server.ui_mcp_reply("calculator", {"id": 1, "method": "tools/call", "params": {"name": "calculate", "arguments": {"expression": "1+1"}}})["result"]
+    assert reply["isError"] and "Glimmer isn't answering" in reply["content"][0]["text"] and started == []
+
+
+def test_terminal_inputs_keep_numbers_and_lists_and_everything_else_is_text():
+    from autoharness import cli
+    assert cli.parse_inputs(["quantity=30", "member_id=MBR-20863", "dob=1983-05-14", "zip=02139", 'trials=[{"drug": "x"}]', "name=Theo Rasmussen"], None) == \
+        {"quantity": 30, "member_id": "MBR-20863", "dob": "1983-05-14", "zip": "02139", "trials": [{"drug": "x"}], "name": "Theo Rasmussen"}
+    assert cli.parse_inputs(["a=1"], '{"b": 2}') == {"a": 1, "b": 2}
+    with pytest.raises(cli.AppError):
+        cli.parse_inputs(["nonsense"], None)
+
+
+def test_the_stdio_server_passes_messages_through_and_names_the_client(monkeypatch):
+    """Only protocol messages reach stdout, notifications get no answer, and the app is told which client is calling."""
+    import io
+    import json
+    import sys
+    from autoharness import cli
+    seen = []
+
+    def fake_http(method, path, body=None, timeout=15, caller=None):
+        seen.append((path, body.get("method"), caller))
+        return None if "id" not in body else {"jsonrpc": "2.0", "id": body["id"], "result": {"echo": body["method"]}}
+    monkeypatch.setattr(cli, "http", fake_http)
+    monkeypatch.setattr(cli, "ensure_app", lambda **k: None)
+    lines = [{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"clientInfo": {"name": "some-client"}}},
+             {"jsonrpc": "2.0", "method": "notifications/initialized"}]
+    monkeypatch.setattr(sys, "stdin", io.StringIO("\n".join(json.dumps(m) for m in lines) + "\nnot json\n"))
+    out = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", out)
+    assert cli.mcp_stdio("calculator", 5) == 0
+    replies = [json.loads(line) for line in out.getvalue().splitlines()]
+    assert {"jsonrpc": "2.0", "id": 1, "result": {"echo": "initialize"}} in replies
+    assert any(r.get("error", {}).get("code") == -32700 for r in replies) and len(replies) == 2
+    assert ("/mcp/ui/calculator?wait=5", "initialize", "some-client") in seen
+
+
+def test_a_saved_plan_keeps_the_job_but_never_the_login():
+    goal = "Log in with username manager and password demo-pass. Open order ORD-10530."
+    assert uiteam.without_login(goal, {"username": "manager", "password": "demo-pass"}) == "Log in with username {username} and password {password}. Open order ORD-10530."
+    assert uiteam.without_login(goal, {}) == goal

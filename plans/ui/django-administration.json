@@ -201,6 +201,6 @@
   }
  },
  "repairs": 0,
- "goal": "Log in with username manager and password demo-pass. Find the customer named Theo Rasmussen and report their email and city.",
+ "goal": "Log in with username {username} and password {password}. Find the customer named Theo Rasmussen and report their email and city.",
  "compile_usd": 0.1295
 }

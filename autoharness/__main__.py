@@ -1,4 +1,4 @@
-"""Command line. `python -m autoharness serve` starts the app; the rest is for scripting and for the gauntlet."""
+"""Command line. `autoharness up` starts everything; `autoharness --help` lists the rest."""
 from __future__ import annotations
 
 import argparse
@@ -23,12 +23,60 @@ def printer(event: dict) -> None:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(prog="autoharness")
-    sub = ap.add_subparsers(dest="cmd", required=True)
-    s = sub.add_parser("serve", help="start the web app")
+    ap = argparse.ArgumentParser(prog="autoharness", formatter_class=argparse.RawDescriptionHelpFormatter,
+                                 description="Teach an AI an app once. Then any agent can call its jobs as tools,\n"
+                                             "run by a small open model on this computer, with every step checked.",
+                                 epilog="Start here:  autoharness up")
+    sub = ap.add_subparsers(dest="cmd", required=True, metavar="command")
+    u = sub.add_parser("up", help="start it, with the made-up demo apps, and check what's ready")
+    u.add_argument("--no-demo", action="store_true", help="don't start the made-up demo apps")
+    u.add_argument("--tailscale", action="store_true", help="also open the app on this machine's Tailscale address, with a token")
+    sub.add_parser("check", help="what's ready, what's missing, and the fix for each")
+    t = sub.add_parser("teach", help='teach it a new interface: autoharness teach <address> "<the job, in plain words>"')
+    t.add_argument("address", help="a web address, or a desktop app's command")
+    t.add_argument("job", help="what it should do, in plain words. Put any login in it; it's kept on this computer")
+    t.add_argument("--input", action="append", default=[], metavar="KEY=VALUE", help="a sample input to teach on")
+    t.add_argument("--name", help="what to call the interface, like orders. Otherwise it's named after the app")
+    o = sub.add_parser("tools", help="every job an agent can call, with its inputs")
+    o.add_argument("interface", nargs="?", help="only this interface")
+    c = sub.add_parser("call", help="run one job: autoharness call <tool> key=value ...")
+    c.add_argument("tool", help="a name from autoharness tools, like backoffice__read_order")
+    c.add_argument("inputs", nargs="*", metavar="KEY=VALUE")
+    c.add_argument("--json", help="the inputs as one JSON object instead")
+    sub.add_parser("connect", help="plug it into an agent: the settings for MCP clients, with this computer's paths")
+    m = sub.add_parser("mcp", help="an MCP server on stdin and stdout, for agents that start a command")
+    m.add_argument("--interface", help="offer only this interface's jobs")
+    m.add_argument("--wait", type=float, default=50, help="seconds a call waits before answering with a job id (default 50)")
+    sub.add_parser("down", help="stop what autoharness up started")
+    s = sub.add_parser("serve", help="run the app in this terminal instead of in the background")
     s.add_argument("--host", default="127.0.0.1")
     s.add_argument("--port", type=int, default=4140)
     s.add_argument("--tailscale", action="store_true", help="also listen on this machine's Tailscale address, with a token")
+    pr = sub.add_parser("program", help="the earlier Program mode, which writes a Python harness (see docs/BENCHMARK.md)")
+    program(pr)
+    args = ap.parse_args()
+
+    if args.cmd == "serve":
+        from .server import serve
+        return serve(args.host, args.port, args.tailscale)
+    if args.cmd == "program":
+        return run_program(args)
+    from . import cli
+    try:
+        code = {"up": lambda: cli.up(not args.no_demo, args.tailscale), "check": cli.check, "down": cli.down, "connect": cli.connect,
+                "teach": lambda: cli.teach(args.address, args.job, args.input, args.name), "tools": lambda: cli.tools(args.interface),
+                "call": lambda: cli.call(args.tool, args.inputs, args.json),
+                "mcp": lambda: cli.mcp_stdio(args.interface, args.wait)}[args.cmd]()
+    except cli.AppError as e:
+        print(e, file=sys.stderr)
+        code = 1
+    except KeyboardInterrupt:
+        code = 130
+    sys.exit(code)
+
+
+def program(pr: argparse.ArgumentParser) -> None:
+    sub = pr.add_subparsers(dest="pcmd", required=True)
     t = sub.add_parser("teach", help="teach an app")
     t.add_argument("target", help="a catalog id, URL or command")
     t.add_argument("goal", nargs="?", help="what it should do")
@@ -51,11 +99,11 @@ def main() -> None:
     i.add_argument("--limit", type=float, default=3.0)
     i.add_argument("--verify", type=int, default=5)
     sub.add_parser("list", help="list taught apps")
-    args = ap.parse_args()
 
-    if args.cmd == "serve":
-        from .server import serve
-        return serve(args.host, args.port, args.tailscale)
+
+def run_program(args) -> None:
+    """Program mode: Spark explores, Wonder writes a Python harness, and Glimmer answers the questions it asks."""
+    args.cmd = args.pcmd
     if args.cmd == "list":
         print(json.dumps([p.summary() for p in library.all_packages()], indent=1))
         return None

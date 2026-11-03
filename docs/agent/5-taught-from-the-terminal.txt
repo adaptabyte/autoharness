@@ -1,0 +1,99 @@
+$ autoharness teach http://127.0.0.1:8320/admin/ "Log in with username manager and password demo-pass. Open order ORD-10530 and report its status and tracking number." --name orders
+
+Teaching spends Meta API budget once, usually $0.10 to $4. $40.67 of the $50.00 cap is spent so far.
+Watch it live: http://127.0.0.1:4140/#/job/00604b67
+
+Muse Spark is using the interface for the first time.
+  Spark I see the login page and will sign in and locate your order.
+  Spark Credentials are entered, so I'll submit the login.
+  Spark Logged in, so I'll dismiss the prompt and open the orders list.
+  Spark Popup cleared, so I'll open Orders to find the requested order.
+  Spark Orders are listed, so I'll search for ORD-10530.
+  Spark Found the order in search results, so I'll open it to verify the details.
+  Spark Order ORD-10530: Status = Shipped, Tracking number = TRK942213
+Muse Wonder is writing the plan.
+  ✓ plan written: read_order(username, password, order_number)
+Muse Glimmer is running the plan on its own.
+  ✓ Glimmer's run 1: passed (34 s)
+
+Learned, for $0.14, once. It's now a tool any agent can call:
+
+  autoharness call orders__read_order order_number=ORD-10530
+
+$ autoharness call orders__read_order order_number=ORD-26616
+orders__read_order {"order_number": "ORD-26616"}
+Running on this computer. Watch it live: http://127.0.0.1:4140/#/job/c2cdaf51
+
+Opening the interface.
+Muse Glimmer is running the plan, with no cloud.
+  ✓ skill    log_in
+  ✓ check    Is the Django administration login form showing, with Username and Password boxes and a Log in …
+  ✓ type     the Username text box in the centered login form, directly below the 'Username:' label and abov…
+  ✓ type     the Password text box in the centered login form, directly below the 'Password:' label and abov…
+  ✓ click    the blue 'Log in' button centered at the bottom of the login form, below the Password box
+  ✓ dismiss  the small X close icon at the top-right corner of the Save password popup panel
+  ✓ check    Is the Site administration home page showing, with AUTHENTICATION AND AUTHORIZATION and SHOP se…
+  ✓ skill    open_orders
+  ✓ dismiss  the small X close icon at the top-right corner of the Save password popup panel
+  ✓ click    the 'Orders' text link in the SHOP section on the left side of the main content, below the 'Cus…
+  ✓ dismiss  the small X close icon at the top-right corner of the Save password popup panel
+  ✓ check    Is the 'Select order to change' page showing, with a search box and a table headed NUMBER, CUST…
+  ✓ skill    open_order
+  ✓ type     the long search text box with a magnifying-glass icon at its left, below the 'Select order to c…
+  ✓ check    Is the results table showing a row whose NUMBER column reads ORD-26616?
+  ✓ click    the blue order-number link reading ORD-26616 in the NUMBER column, the first data column, of th…
+  ✓ dismiss  the small X close icon at the top-right corner of the Save password popup panel
+  ✓ check    Is the 'Change order' form showing, with Number, Customer, Status, Total and Tracking fields?
+  ✓ skill    read_order_details
+  ✓ read     order
+  ✓ compare  ORD-26616 / ORD-26616
+  ✓ check    Is the Change order form still showing the order ORD-26616 with its Status dropdown and Trackin…
+
+✓ Verified in 22 s, 26 checks, $0 in the cloud
+{
+  "order": {
+    "number": "ORD-26616",
+    "customer": "Priscilla Tovar",
+    "status": "Shipped",
+    "tracking": "TRK953690"
+  }
+}
+
+$ autoharness call orders__read_order order_number=ORD-40632
+orders__read_order {"order_number": "ORD-40632"}
+Running on this computer. Watch it live: http://127.0.0.1:4140/#/job/86d54c7b
+
+Opening the interface.
+Muse Glimmer is running the plan, with no cloud.
+  ✓ skill    log_in
+  ✓ check    Is the Django administration login form showing, with Username and Password boxes and a Log in …
+  ✓ type     the Username text box in the centered login form, directly below the 'Username:' label and abov…
+  ✓ type     the Password text box in the centered login form, directly below the 'Password:' label and abov…
+  ✓ click    the blue 'Log in' button centered at the bottom of the login form, below the Password box
+  ✓ dismiss  the small X close icon at the top-right corner of the Save password popup panel
+  ✓ check    Is the Site administration home page showing, with AUTHENTICATION AND AUTHORIZATION and SHOP se…
+  ✓ skill    open_orders
+  ✓ dismiss  the small X close icon at the top-right corner of the Save password popup panel
+  ✓ click    the 'Orders' text link in the SHOP section on the left side of the main content, below the 'Cus…
+  ✓ dismiss  the small X close icon at the top-right corner of the Save password popup panel
+  ✓ check    Is the 'Select order to change' page showing, with a search box and a table headed NUMBER, CUST…
+  ✓ skill    open_order
+  ✓ type     the long search text box with a magnifying-glass icon at its left, below the 'Select order to c…
+  ✓ check    Is the results table showing a row whose NUMBER column reads ORD-40632?
+  ✓ click    the blue order-number link reading ORD-40632 in the NUMBER column, the first data column, of th…
+  ✓ dismiss  the small X close icon at the top-right corner of the Save password popup panel
+  ✓ check    Is the 'Change order' form showing, with Number, Customer, Status, Total and Tracking fields?
+  ✓ skill    read_order_details
+  ✓ read     order
+  ✓ compare  ORD-40632 / ORD-40632
+  ✓ check    Is the Change order form still showing the order ORD-40632 with its Status dropdown and Trackin…
+
+✓ Verified in 25 s, 26 checks, $0 in the cloud
+{
+  "order": {
+    "number": "ORD-40632",
+    "customer": "Zainab Pemberton",
+    "status": "New",
+    "tracking": ""
+  }
+}
