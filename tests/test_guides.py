@@ -92,7 +92,9 @@ def test_a_guide_that_still_holds_something_private_is_never_shared(home):
 def test_finding_guides_here_and_in_docsdb(monkeypatch, home):
     (home / "guides" / "gnome-robots").mkdir(parents=True)
     (home / "guides" / "gnome-robots" / "SKILL.md").write_text("---\nname: gnome-robots\n---\n")
-    monkeypatch.setattr(guides, "fetch_shared", lambda gid, timeout=6: "shared" if gid == "gnome-robots" else None)
+    monkeypatch.setattr(guides, "fetch_shared", lambda gid, timeout=6: "---\nname: gnome-robots\n---\n" if gid == "gnome-robots" else None)
+    assert [f["where"] for f in guides.find({"kind": "desktop", "command": ["gnome-robots"]})] == ["this computer"]  # the same text once
+    monkeypatch.setattr(guides, "fetch_shared", lambda gid, timeout=6: "shared, and improved by someone" if gid == "gnome-robots" else None)
     found = guides.find({"kind": "desktop", "command": ["/usr/games/gnome-robots"]})
     assert [(f["id"], f["where"]) for f in found] == [("gnome-robots", "this computer"), ("gnome-robots", "docsdb")]
     assert found[1]["source"] == f"{guides.RAW}/gnome-robots/SKILL.md"

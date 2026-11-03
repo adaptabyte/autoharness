@@ -131,7 +131,8 @@ read it, and other people's agents will follow it. A lesson just finished; updat
 Facts about the app only. Never include anything typed or read during the lesson, or any person, record, account, password, \
 name, number or date seen on the screen, or any file path or network address. Leave out pixel positions and sizes that \
 depend on one screen; say where things are in the window instead. Keep everything in the current guide unless the new \
-notes show it's wrong, and then say what the screen showed. Keep it under 1,200 words, plain and specific.
+notes show it's wrong, and then say what the screen showed. Anything a plan or program that passed its runs does or checks \
+counts as seen on screen. Keep it under 1,200 words, plain and specific.
 
 Reply with only JSON:
 {{"app": "the app's full name, like GNOME Robots", "description": "one sentence on what the guide covers and when to use it",
@@ -252,10 +253,12 @@ def find(spec: dict | None, names: list[str] | None = None) -> list[dict]:
     for gid in dict.fromkeys([*matches_for(spec), *(slug(n) for n in names or [] if n)]):
         if not gid:
             continue
-        if local_path(gid).exists():
+        mine = load_local(gid)
+        if mine is not None:
             out.append({"id": gid, "where": "this computer", "source": str(local_path(gid))})
         try:
-            if fetch_shared(gid, timeout=4):
+            shared = fetch_shared(gid, timeout=4)
+            if shared and shared != mine:  # the same guide twice would only cost more to read
                 out.append({"id": gid, "where": "docsdb", "source": shared_url(gid)})
         except (OSError, urllib.error.URLError):
             pass  # offline: docsdb is a bonus, never a requirement

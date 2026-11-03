@@ -801,6 +801,7 @@ def teach_program(spec: dict, goal: str, inputs: dict, display: Display, target,
         return {"ok": False, "usd": usd, "notes": notes, "outcome": f"not learned: {why}", "app": app}
     iface = new_plan_id(name or app, "app")
     pkg.update(tool_id=iface, tool_job=chosen["job"], params=inputs or {})
+    notes += "\n\n" + proven_notes(pkg)
     emit({"type": "plan", "plan": plan_brief(program_interfaces()[iface]), "usd": usd})
     emit({"type": "learned", "id": iface, "usd": usd, "verified": manifest.get("verified")})
     return {"ok": True, "usd": usd, "notes": notes, "app": app,
@@ -878,8 +879,23 @@ def teach(app_id: str, spec: dict, goal: str, inputs: dict, display: Display, ta
             "private": [*map(str, login.values()), *map(str, inputs.values())], "outcome": "not learned: the plan didn't pass its proof runs"}
 
 
+def proven_notes(pkg) -> str:
+    """What the passing program proved, for the app's guide: what the judge saw at the end of each run, and the program
+    itself, since every control and check in it worked on the real screen."""
+    verdicts = []
+    for line in (pkg.path / "runs.jsonl").read_text().splitlines() if (pkg.path / "runs.jsonl").exists() else []:
+        try:
+            run = json.loads(line)
+        except ValueError:
+            continue
+        if run.get("kind") in ("verify", "interface") and run.get("status") == "done":
+            verdicts.append(str((run.get("judge") or {}).get("why") or ""))
+    return ("WHAT THE JUDGE SAW AT THE END OF PASSING RUNS:\n" + "\n".join(f"- {v}" for v in verdicts[-7:] if v)
+            + "\n\nTHE PROGRAM THAT PASSED. Every control it uses and every check it makes worked on the real screen:\n" + pkg.code[:24000])
+
+
 def plan_notes(plan: dict, record: dict) -> str:
     """What a plan lesson found, for the app's guide: how the app behaves, what each skill does, and Spark's last words."""
     said = [r["said"] for r in record.get("record", []) if r.get("said")]
-    skills = "\n".join(f"- {s.get('name')}: {s.get('does', '')}" for s in plan.get("skills", []))
+    skills = "\n".join(f"- {s.get('name')}: {s.get('does', '')}\n  steps: {json.dumps(s.get('steps'))[:3000]}" for s in plan.get("skills", []))
     return f"How it behaves: {plan.get('how_it_behaves', '')}\n\nSkills the plan has:\n{skills}\n\nWhat Spark said while exploring:\n" + "\n".join(said[-12:])

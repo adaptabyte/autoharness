@@ -68,7 +68,11 @@ def read(sources: list[str]) -> list[Doc]:
             from .guides import shared_url, slug
             s = shared_url(slug(s.split(":", 1)[1]))  # a guide someone shared, by its name
         if re.match(r"https?://", s, re.I):
-            docs.append(from_url(s))
+            doc = from_url(s)
+            m = re.search(r"/docsdb/([a-z0-9-]+)/SKILL\.md$", s)
+            if m:
+                doc.name, doc.kind = f"the docsdb guide to {m.group(1)}", "shared, reviewed"
+            docs.append(doc)
             continue
         path = Path(s).expanduser()
         if path.is_dir():
@@ -77,7 +81,10 @@ def read(sources: list[str]) -> list[Doc]:
                 raise DocsError(f"{s} has no {WHAT_IT_READS} in it")
             docs.extend(from_file(f) for f in found)
         elif path.is_file():
-            docs.append(from_file(path))
+            doc = from_file(path)
+            if path.name == "SKILL.md" and path.parent.parent.name == "guides":
+                doc.name, doc.kind = f"your guide to {path.parent.name}", "from earlier lessons"
+            docs.append(doc)
         else:
             raise DocsError(f"can't find {s}: give a file, a folder or a web address")
     if not docs:

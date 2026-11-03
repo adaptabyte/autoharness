@@ -17,3 +17,117 @@ Why this game: its keys can't be guessed. Moving is y k u h l b j n, the old Uni
 Alt+R. Pressing every key to find them is exactly what reading the manual should save.
 
 The run:
+
+  $ autoharness teach gnome-robots "Clear the first level of Robots: ..." --docs https://help.gnome.org/users/gnome-robots/stable/ --name robots --limit 3
+  Teaching spends Meta API budget once, usually $0.10 to $4, and this lesson at most $3.00. $43.39 of the $50.00 cap is spent so far.
+  Watch it live: http://127.0.0.1:4140/#/job/8d58d75b
+  
+  Muse Wonder is reading the docs first, so Spark can check what they say instead of trying everything.
+    read  help.gnome.org/gnome-robots (web page, Robots, and 7 pages it links to)
+    ✓ Wonder's brief for Spark: 20 controls, 7 steps for this job, $0.05.
+       1. Menu button location and whether New Game and Ctrl+N start a fresh game
+       2. Whether the documented letter keys y/k/u/h/l/b/j/n actually move the character, and whether settings have rema
+       3. Exact on-screen positions of the main character, each robot, and junk heaps
+       4. Current game type, initial robot counts, and remaining safe teleports
+       5. Whether Use safe moves or Use super safe moves is checked in Preferences > Game tab
+       6. Locations and labels of Wait for Robots, Teleport Safely, and Teleport Randomly buttons
+       7. Whether moving the mouse around the character shows the small black direction arrow and clicking moves one squ
+       8. Which theme/enemy pictures are in use, to distinguish high-risk from low-risk robots
+  Spark You must pick each move from robot positions until all robots are destroyed.
+  So it learns this as a program: code that decides each move, written once by Muse Wonder.
+  Muse Spark is using the interface for the first time.
+    Spark Starting exploration of Robots to learn the controls and clear level 1.
+    Spark Confirmed the default movement keys and game settings. Now checking the remaining options.
+    Spark Seen the game variants — now closing settings to test gameplay.
+    Spark A waiting move just got me caught — examining the game-over state.
+    Spark Teleport and movement checks out. Trying to access system settings for a more reliable approach.
+    Spark Exploration time is limited, so I'll try a few more survival moves before wrapping up.
+  Muse Wonder is writing the program and trying it.
+    ✓ Wonder wrote the program, version 1: 545 lines.
+    ✓ Wonder wrote the program, version 2: 543 lines.
+    trial    done, 121 s, 21 actions 
+    ✓ Wonder wrote the program, version 3: 543 lines.
+    ✓ Wonder wrote the program, version 4: 543 lines.
+    trial    stuck, 181 s, 32 actions ran out of time (180 s)
+    ✓ Wonder wrote the program, version 5: 545 lines.
+    trial    stuck, 121 s, 21 actions ran out of time (120 s)
+    ✓ Wonder wrote the program, version 6: 545 lines.
+    trial    stuck, 121 s, 21 actions ran out of time (120 s)
+    ✓ Wonder wrote the program, version 7: 546 lines.
+    ✓ Wonder wrote the program, version 8: 548 lines.
+    ✓ Wonder wrote the program, version 9: 547 lines.
+    ✓ Wonder wrote the program, version 10: 549 lines.
+    ✓ Wonder wrote the program, version 11: 551 lines.
+    ✓ Wonder wrote the program, version 12: 551 lines.
+    ✓ Wonder wrote the program, version 13: 551 lines.
+    trial    done, 65 s, 20 actions 
+    trial    stuck, 122 s, 35 actions ran out of time (120 s)
+    ✓ Wonder wrote the program, version 14: 552 lines.
+    ✓ Wonder wrote the program, version 15: 551 lines.
+    ✓ Wonder wrote the program, version 16: 564 lines.
+    ✓ Wonder wrote the program, version 17: 582 lines.
+    ✓ Wonder wrote the program, version 18: 582 lines.
+    trial    done, 70 s, 20 actions 
+    trial    stuck, 122 s, 35 actions ran out of time (120 s)
+    ✓ Wonder wrote the program, version 19: 592 lines.
+    ✓ Wonder wrote the program, version 20: 595 lines.
+    trial    done, 120 s, 33 actions 
+    ✓ Wonder wrote the program, version 21: 596 lines.
+    ✓ Wonder wrote the program, version 22: 596 lines.
+    trial    done, 84 s, 23 actions 
+    trial    done, 109 s, 30 actions 
+  The program is doing the job on its own, start to finish, with no cloud. Spark judges only the screen, never the code.
+    ✓ On its own, run 1 of 5: passed (67 s). Header shows Level: 2 Score: 120 with player alive.
+    ✓ On its own, run 2 of 5: passed (98 s). Level 2 Score 100 with live player and fresh robots shows level 1 was cleared.
+    ✓ On its own, run 3 of 5: passed (90 s). Level 2 with score 100 and live player shows level 1 was cleared.
+    ✓ On its own, run 4 of 5: passed (279 s). Header shows Level: 2 Score: 100 with live play in progress.
+    ✓ On its own, run 5 of 5: passed (206 s). Title bar shows Level: 2 Score: 100 with live player on board.
+    ✓ The program is offered as: clear_first_level().
+  
+  Learned, for $1.64, once. It's now a tool any agent can call:
+  
+    autoharness call robots__clear_first_level
+
+Against the bar: passed. It was learned: 5 of 5 runs on its own, each judged by Spark from the final screen ("Level: 2"),
+and Glimmer passed the model-interface check 2 of 2. The whole lesson cost $1.64 of the $3 allowed, $0.05 of it for
+Wonder reading the help site (8 pages, about 10,000 characters).
+
+Did the docs save the button-mashing? What the record shows:
+- Wonder's brief listed 20 controls, 7 steps and 8 things to check. Its first check was "whether the documented letter
+  keys y/k/u/h/l/b/j/n actually move the character".
+- Spark explored in about 8 minutes. Its notes say it opened Preferences > Keyboard and found the documented keys there,
+  then pressed l once and watched the player move east.
+- The program Wonder wrote moves with exactly those keys: northwest y, north k, northeast u, west h, east l,
+  southwest b, south j, southeast n.
+There's no run without the docs to compare against, so none of this says the docs made it cheaper or faster.
+
+What went wrong: GNOME Robots never stops moving. Its robot sprites animate, so about 750 pixels change every tenth
+of a second even when nobody acts. "Wait until the screen settles" never settled, and every wait ran its full 3 s.
+Five trials ran out of time, and the lesson took 59 minutes, against 19 for Minesweeper. Fixed after the run:
+app.wait_stable(ignore_small=True) counts small changes that never stop as still. On this game it settles in 0.26 s
+instead of timing out at 3 s, and a trial now tells Wonder when waits are timing out this way. It's opt-in, so plans and
+programs proven before behave exactly as they did. The Robots program was written before the fix, so its runs took
+67 to 279 s.
+
+The guide: the lesson's findings became docsdb/gnome-robots/SKILL.md. Spark wrote it from text only, for $0.017, then
+updated it for $0.033 with what the passing program proved: all eight movement keys moved from "from the docs" to "seen
+on screen", while Alt+S, Alt+R and Space stay "from the docs" because nothing tested them. `autoharness share
+gnome-robots` offered it as pull request #1, and the docsdb check passed on it.
+
+Setup note: Ubuntu's gnome-robots package was unpacked without root, and the binary looks for its game data at a fixed
+path. A same-length path in a copy of the binary points it at the unpacked data. The game itself is unchanged.
+
+Called as a tool afterwards, on the restarted app:
+
+  $ autoharness call robots__clear_first_level
+  Running on this computer. Watch it live: http://127.0.0.1:4140/#/job/5f5dc271
+  
+  Opening the interface.
+  The program is doing the job, with Muse Glimmer for any look it needs. No cloud.
+  
+  ✓ Verified in 157 s, checked on screen, $0 in the cloud
+  {
+    "summary": "First level cleared: the game is on level 2.",
+    "level": 2,
+    "attempts": 1
+  }
