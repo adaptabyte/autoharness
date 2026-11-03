@@ -39,6 +39,7 @@ table{border-collapse:collapse;width:100%;background:#fff;border:1px solid #e1df
 td,th{padding:11px 18px;text-align:left;border-bottom:1px solid #eceae3;font-size:19px}th{font-size:15px;color:#5f6a64;font-weight:600}tr:last-child td{border-bottom:0}td.us{font-weight:800;color:#116149}td.dim{color:#5f6a64}
 .mono{font-family:"JetBrains Mono",monospace;font-size:22px;color:#116149}
 .cap{position:absolute;left:50%;bottom:30px;transform:translateX(-50%);max-width:1080px;background:rgba(20,26,24,.88);color:#fff;font-size:26px;line-height:1.32;font-weight:600;letter-spacing:-.005em;padding:14px 26px;border-radius:14px;text-align:center}
+.term{background:#17201c;border-radius:18px;padding:24px 30px;font:500 21px/1.75 "JetBrains Mono",monospace;color:#e9ece8}.term s{text-decoration:none;color:#7fd1ae;margin-right:12px}.term em{font:500 17px Inter,sans-serif;color:#8b948f;margin-left:18px;font-style:normal}.term .ok{color:#7fd1ae}
 .speed{position:absolute;right:22px;top:20px;background:rgba(20,26,24,.78);color:#fff;font-size:15px;font-weight:700;padding:6px 12px;border-radius:9px}
 </style>"""
 
@@ -63,6 +64,13 @@ def card_html(kind: str) -> str:
 <div class=steps><div class=step><b>Muse Spark explores</b><span>Uses the interface once. Everything is recorded.</span><br><em class="tag cloud">Cloud, once</em></div>
 <div class=step><b>Muse Wonder compiles</b><span>A plan, with every decision made in advance.</span><br><em class="tag cloud">Cloud, once</em></div>
 <div class=step><b>Muse Glimmer runs it</b><span>Small, open, every step checked by code.</span><br><em class="tag local">Your computer, every run</em></div></div>{foot}</div>"""
+    if kind == "plug":
+        return f"""<div class=card style="padding:60px 96px"><p class=kicker>Plug and play</p><h1 style="font-size:54px;margin:0 0 26px">Three commands.<br>One line for any agent.</h1>
+<div class=term><div><s>$</s> autoharness up<em>starts it, and checks what's ready</em></div>
+<div><s>$</s> autoharness teach &lt;address&gt; "&lt;the job, in plain words&gt;"<em>learns it, once</em></div>
+<div><s>$</s> autoharness call orders__read_order order_number=ORD-26616</div>
+<div class=ok>✓ Verified in 22 s, 26 checks, $0 in the cloud</div></div>
+<h2 style="font-size:24px;margin-top:26px">Any MCP client: <span class=mono style="font-size:22px">127.0.0.1:4140/mcp/ui</span>, or the command <span class=mono style="font-size:22px">autoharness mcp</span></h2>{foot}</div>"""
     if kind == "table":
         rows = "".join(f"<tr><td>{escape(r[0])}</td><td class=us>{r[1]}</td><td>{r[2]}</td><td>{r[3]}</td><td class=dim>{escape(r[4])}</td></tr>" for r in proof_rows())
         return f"""<div class=card style="padding:52px 80px"><p class=kicker style="margin:0 0 4px">Measured on inputs it hadn't seen, checked against each app's own data</p>
@@ -94,26 +102,27 @@ def overlay_html(caption: str, speed: float) -> str:
 DRAFT = [
     ("swarm", 60, 6, 40, "Eight apps built for people. One small open model running them, on my desk. No cloud."),
     ("card:hook", 0, 8, 1, ""),
-    ("card:problem", 0, 11, 1, ""),
+    ("card:problem", 0, 10, 1, ""),
     ("card:idea", 0, 8, 1, ""),
     ("home", 1.5, 5, 1, "Autoharness. Point it at any interface."),
     ("teach", 0, 7, 1, "Here's an app it has never seen. Give it the address and the job, in plain words."),
-    ("teach", 16, 10, 6, "Muse Spark uses it once, and everything is recorded."),
+    ("teach", 16, 9, 6, "Muse Spark uses it once, and everything is recorded."),
     ("teach", "plan", 10, 5, "Muse Wonder compiles a plan. Then Glimmer has to pass on its own before it's kept."),
     ("teach", "verdict", 6, 1, "Learned, for $0.13, once. Now it's a tool."),
     ("agent", 1, 8, 1, "Any agent can call it. Here Muse Spark is the agent, asking about a customer it wasn't taught on."),
     ("agent", 10, 8, 5, "Spark picks the job. The small model does the work in the app, on this computer."),
     ("agent", -7, 6, 1, "Spark gets back only the verified answer. Never the screen, never the login."),
+    ("card:plug", 0, 7, 1, ""),
     ("run", 20, 8, 4, "Muse Glimmer answers one narrow question per screen. Code holds the memory."),
     ("run", 95, 8, 2, "What it types is read back. What it reads is read twice.\nA run ends verified, or it stops and asks."),
     ("run", -6, 4, 1, "$0.00 in the cloud."),
-    ("card:table", 0, 14, 1, ""),
+    ("card:table", 0, 12, 1, ""),
     ("digit", 25, 7, 3, "I'm a psychiatrist. Paper is an interface too: each page is read on this computer."),
     ("digit", -9, 8, 1, "One digit differs between pages. It doesn't pick one. It comes to me, side by side."),
-    ("clean", 45, 9, 8, "Approve a clean stack, and a compiled plan fills the insurer's portal."),
+    ("clean", 45, 8, 8, "Approve a clean stack, and a compiled plan fills the insurer's portal."),
     ("clean", -7, 5, 1, "It stops at the signature. Only a person signs."),
-    ("card:honest", 0, 8, 1, ""),
-    ("card:vision", 0, 8, 1, ""),
+    ("card:honest", 0, 7, 1, ""),
+    ("card:vision", 0, 7, 1, ""),
     ("card:end", 0, 6, 1, ""),
 ]
 
@@ -123,6 +132,7 @@ TEASER = [
     ("teach", 16, 5, 12, "Meta's frontier models learn an app once..."),
     ("run", 20, 6, 4, "...and compile it, so a small model runs it on my computer, every step checked."),
     ("agent", 10, 7, 5, "Every job becomes a tool any agent can call. The agent never sees the screen."),
+    ("card:plug", 0, 5, 1, ""),
     ("card:table", 0, 8, 1, ""),
     ("card:end", 0, 4, 1, ""),
 ]
