@@ -52,13 +52,50 @@ def get_spec(target_id: str) -> dict:
 
 
 def spec_from_text(text: str) -> dict:
-    """Build a target from what a user typed: a URL or a command line."""
+    """Build a target from what a user typed: a URL, a VNC address for a screen on another computer, or a command line.
+    A VNC password typed in the address is kept on this computer (~/.autoharness/logins.json), never in the target."""
     text = text.strip()
+    if text.startswith("vnc://"):
+        from .vnc import address, parse_address
+        host, port, password = parse_address(text)
+        where = address(host, port)
+        if password:
+            _keep_secret(where, password)
+        return {"id": "custom", "name": host, "kind": "vnc", "url": where}
     if text.startswith(("http://", "https://")):
         return {"id": "custom", "name": text.split("//", 1)[1].split("/")[0], "kind": "web", "url": text}
     if "." in text and " " not in text and "/" not in text.split(".")[0] and not shutil.which(text):
         return {"id": "custom", "name": text, "kind": "web", "url": "https://" + text}
     return {"id": "custom", "name": text.split()[0], "kind": "desktop", "command": text.split()}
+
+
+def _keep_secret(where: str, password: str) -> None:
+    file = config.HOME / "logins.json"
+    try:
+        saved = json.loads(file.read_text())
+    except (OSError, ValueError):
+        saved = {}
+    saved[where] = {**(saved.get(where) or {}), "password": password}
+    file.parent.mkdir(parents=True, exist_ok=True)
+    file.touch(mode=0o600, exist_ok=True)
+    file.chmod(0o600)
+    file.write_text(json.dumps(saved, indent=1))
+
+
+def _secret(where: str) -> str | None:
+    try:
+        return (json.loads((config.HOME / "logins.json").read_text()).get(where) or {}).get("password")
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def open_screen(spec: dict) -> Display:
+    """The screen a target draws on: a private virtual screen here, or, for a vnc:// target, that computer's own screen."""
+    if spec.get("kind") == "vnc":
+        from .vnc import VncScreen, parse_address
+        host, port, password = parse_address(spec["url"])
+        return VncScreen(host, port, password or _secret(spec["url"]) or os.environ.get("AUTOHARNESS_VNC_PASSWORD")).start()
+    return Display(*spec.get("size", (1280, 800))).start()
 
 
 class _QuietHandler(SimpleHTTPRequestHandler):
@@ -107,6 +144,8 @@ class Target:
         return ["dbus-run-session", "--", exe, *cmd[1:]]
 
     def alive(self) -> bool:
+        if self.spec.get("kind") == "vnc":
+            return getattr(self.display, "error", None) is None  # nothing here started it; it's alive while the screen is
         return self.proc is not None and self.proc.poll() is None
 
     def _kill(self) -> None:
@@ -127,6 +166,10 @@ class Target:
 
     def reset(self, settle: float | None = None) -> np.ndarray:
         """Start a fresh instance with an empty profile and return its first steady frame."""
+        if self.spec.get("kind") == "vnc":
+            # Someone else's screen: nothing here may start or close its apps, so a job begins from what's showing.
+            self.display.wait_stable(timeout=3, quiet=self.spec.get("settle", 1.0))
+            return self.display.shot()
         self._kill()
         self.profile = tempfile.mkdtemp(prefix="autoharness-app-")
         env = dict(self.display.env)

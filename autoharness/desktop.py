@@ -49,6 +49,19 @@ def _ensure_rootless_links() -> None:
             os.symlink(dest, link)
 
 
+def keysym_for(name: str) -> int:
+    """The X keysym for a key name ('Return', 'ctrl', 'F5') or a single character. VNC sends these same numbers."""
+    key = _KEY_ALIASES.get(name.lower(), name)
+    keysym = XK.string_to_keysym(_PUNCT.get(key, key))
+    if not keysym and len(key) == 1:
+        keysym = ord(key) if ord(key) < 256 else 0x01000000 + ord(key)
+    if not keysym:
+        keysym = XK.string_to_keysym(key.capitalize())
+    if not keysym:
+        raise ValueError(f"unknown key: {name}")
+    return keysym
+
+
 def die_with_parent() -> None:
     """Runs in a new child before exec: the kernel ends it if the parent dies, however the parent dies."""
     ctypes.CDLL(None).prctl(1, signal.SIGTERM, 0, 0, 0)
@@ -217,14 +230,7 @@ class Display:
 
     def _keycode(self, name: str):
         """(keycode, needs_shift) for a key name or a single character."""
-        key = _KEY_ALIASES.get(name.lower(), name)
-        keysym = XK.string_to_keysym(_PUNCT.get(key, key))
-        if not keysym and len(key) == 1:
-            keysym = ord(key) if ord(key) < 256 else 0x01000000 + ord(key)
-        if not keysym:
-            keysym = XK.string_to_keysym(key.capitalize())
-        if not keysym:
-            raise ValueError(f"unknown key: {name}")
+        keysym = keysym_for(name)
         code = self._x.keysym_to_keycode(keysym)
         if code:
             shift = self._x.keycode_to_keysym(code, 0) != keysym and self._x.keycode_to_keysym(code, 1) == keysym

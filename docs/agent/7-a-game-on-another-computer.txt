@@ -1,0 +1,67 @@
+A game on another computer, taught with one command (2026-11-03)
+
+The other computer: GNOME Mines on a 1280 x 800 screen, shared over VNC by x11vnc, a standard VNC server,
+started with: python scripts/vnc_box.py --port 5912 --password playtime --size 1280x800 gnome-mines
+It was left showing a game already won, so the teach began from a screen it couldn't reset.
+Nothing told Autoharness it was a game or which way to learn it. Spark chose a program from the job text.
+
+Two lines of this output were worded wrongly at the time and have since been fixed: the phase line now says
+"Spark judges only the screen, never the code" (on a remote screen it sees the start and the end), and a
+learned program is reported as "The program is offered as", not "Wonder wrote the plan".
+
+$ autoharness teach "vnc://:playtime@127.0.0.1:5912" "Win a game of Minesweeper on the 8 x 8 board. Hitting a mine loses that game, so start a new one and keep playing until a game is won." --name mines
+Teaching spends Meta API budget once, usually $0.10 to $4. $42.14 of the $50.00 cap is spent so far.
+Watch it live: http://127.0.0.1:4140/#/job/46414f51
+
+Spark Each move depends on the revealed numbers so it must react to the board.
+So it learns this as a program: code that decides each move, written once by Muse Wonder.
+Muse Spark is using the interface for the first time.
+  Spark Starting fresh — I'll map the board and learn how to win reliably.
+  Spark That results screen is blocking the board — I'll try to clear it.
+  Spark Fresh board ready — I'll probe the cells to see how they react.
+  Spark Board's back — I'll test how flagging works.
+  Spark I've seen how losing works — now I'll check the remaining controls.
+Muse Wonder is writing the program and trying it.
+  ✓ Wonder wrote the program, version 1: 800 lines.
+  ✓ Wonder wrote the program, version 2: 800 lines.
+  trial    done, 20 s, 52 actions
+  trial    done, 27 s, 60 actions
+The program is doing the job on its own, start to finish, with no cloud. Spark judges only the final screen.
+  ✓ On its own, run 1 of 5: passed (35 s). Final Congratulations table shows a new 26-second rank-4 entry absent at start, proving a fresh win
+  ✓ On its own, run 2 of 5: passed (31 s). New 21-second entry and different board prove a fresh win occurred during this run.
+  ✓ On its own, run 3 of 5: passed (26 s). New 16-second entry added to scores and board numbers changed, proving a fresh win this run.
+  ✓ On its own, run 4 of 5: passed (27 s). End shows a new 18-second entry and different board versus start, proving a fresh 8x8 win.
+  ✓ On its own, run 5 of 5: passed (22 s). Final screen shows a new 12-second best score not present at start, proving a fresh win.
+  ✓ Wonder wrote the plan: win_minesweeper().
+
+Learned, for $1.24, once. It's now a tool any agent can call:
+
+  autoharness call mines__win_minesweeper
+
+$ autoharness call mines__win_minesweeper
+mines__win_minesweeper {}
+Running on this computer. Watch it live: http://127.0.0.1:4140/#/job/c7b8df78
+
+Opening the interface.
+The program is doing the job, with Muse Glimmer for any look it needs. No cloud.
+
+✓ Verified in 32 s, checked on screen, $0 in the cloud
+{
+  "summary": "Won an 8x8 Minesweeper game after 1 game(s) in this run; win is visible on screen.",
+  "games_played": 1
+}
+
+The same tool through the official MCP Python SDK, started as a command the way Claude Desktop or Cursor start it,
+with --wait 5 so the job-id handoff is exercised:
+first answer after 5 s: running
+  wait_for_job after 10 s ... 40 s: running
+  wait_for_job after 43 s: done
+result: True {"summary": "Won an 8x8 Minesweeper game after 2 game(s) in this run; win is visible on screen.", "games_played": 2} 41.93 s
+
+Before this run, two attempts didn't count:
+1. The first stopped after a dead connection to Meta's API stalled a SAM call for minutes. SAM calls now give up
+   after 45 s and retry, since SAM normally answers in about a second. About $0.05.
+2. The second "won" five of five in one second each, with zero clicks: it found the game it had already won while
+   being written, and the judge, shown only the end, agreed. It was stopped and not offered as a tool. Since then, on
+   a screen that can't be reset, a run that does nothing fails, and the judge sees the screen from before the run
+   as well as after. $1.26.

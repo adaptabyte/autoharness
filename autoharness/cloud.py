@@ -163,7 +163,8 @@ class Cloud:
     def segment(self, frame: np.ndarray, phrase: str) -> list[dict]:
         """SAM 3.1: every instance of a noun phrase, as pixel boxes."""
         before = self.meter.bytes_sent
-        out = self._post("/responses", dict(
+        # SAM answers in about a second, so a call that hangs is a dead connection: give up on it sooner and try again.
+        out = self._post("/responses", timeout=45, body=dict(
             model=config.SAM_MODEL,
             input=[{"role": "user", "content": [
                 {"type": "input_text", "text": phrase},

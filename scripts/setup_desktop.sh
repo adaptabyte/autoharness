@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # The virtual screen and sample apps. With sudo, install them normally. Without it, unpack them for this user only.
 set -euo pipefail
-PKGS="xvfb openbox gnome-mines"
+PKGS="xvfb openbox gnome-mines x11vnc"  # x11vnc only for scripts/vnc_box.py, a stand-in for another computer
 if sudo -n true 2>/dev/null; then
   sudo apt-get install -y $PKGS
 else
   ROOT="$HOME/.local/autoharness-sys"; mkdir -p "$ROOT/debs" "$ROOT/root" "$ROOT/patched"
   cd "$ROOT/debs"
-  apt-get download $PKGS libgnome-games-support-1-3 libgnome-games-support-common dconf-gsettings-backend libdconf1 libobt2v5 libobrender32v5 libimlib2t64 libid3tag0 2>/dev/null
+  apt-get download $PKGS libgnome-games-support-1-3 libgnome-games-support-common dconf-gsettings-backend libdconf1 libobt2v5 libobrender32v5 libimlib2t64 libid3tag0 libvncserver1 libvncclient1 2>/dev/null
   for f in *.deb; do dpkg -x "$f" "$ROOT/root"; done
   glib-compile-schemas "$ROOT/root/usr/share/glib-2.0/schemas"
   # gnome-mines hard-codes where its art lives. Point it at an equally long path that can be a user-owned link.

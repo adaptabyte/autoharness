@@ -38,6 +38,8 @@ Autoharness uses computer use as a compiler instead of a runtime. Muse Spark use
 
 It's plug and play. `autoharness up` starts it and checks what's ready. `autoharness teach <address> "<the job, in plain words>"` teaches a new job, and `autoharness call` runs one. Any MCP client connects with one line, by address or by command, and a job still running after 50 seconds hands back a job id, so clients with a 60-second limit still work. When Muse Spark, acting as an agent, was asked whether an order had shipped, no job could tell it. One `teach` command fixed that in 141 seconds for $0.14, and Spark then answered correctly.
 
+It reaches apps on other computers too. The address can be a web address, a Linux app's command, or `vnc://` for a Windows PC, a Mac or a game machine, using the screen sharing they already have. Spark reads the job and picks how to learn it: a plan when the same steps work every time, or a program, written by Muse Wonder, when each move depends on the screen. Pointed at Minesweeper on another screen over VNC with one command, Spark chose a program. For $1.24, once, it then won five of five fresh games on its own with no cloud, and now it's a tool like any other. VNC was tested here against a Linux server; Mac and Windows servers speak the same protocol but weren't tested, and nothing that needs fast reflexes will work.
+
 The finding that makes this work: the same small model went 0 for 6 reading a chart in OpenEMR when given the whole job, and 5 for 5 on unseen patients once the job was compiled. Across OpenEMR, a made-up insurer's portal, a Django admin and a native desktop calculator, it passed 35 of 35 runs on the final code and saved nothing wrong. It matched Muse Spark's pass rate with no cloud at run time. On the portal it was 3.5 times faster, 157 seconds against 556.
 
 I'm a psychiatrist. In the demo, a medication request where one page has a member ID off by one digit comes to me side by side. A clean stack fills the insurer's portal and stops at the signature.
@@ -103,6 +105,10 @@ Reply 3:
 Reply 4, if there's room:
 
 > Plug and play: `autoharness teach <address> "<the job, in plain words>"`, and the job becomes a tool any MCP client can call. Teaching a Django admin to report an order's shipping status took 141 s and $0.14, once. Every run after that: $0 in the cloud.
+
+Reply 5, if there's room:
+
+> Not just forms. Point it at a game on another computer over VNC, and Spark sees that a fixed plan won't do: each move depends on the board. So Muse Wonder writes a program instead. It won 5 of 5 fresh games on its own, with no cloud. One command.
 
 If you filmed the cable pull, add this to the main post: "Then I pulled the ethernet cable. It kept going."
 

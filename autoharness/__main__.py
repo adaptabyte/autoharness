@@ -7,7 +7,6 @@ import sys
 import threading
 
 from . import config, library, targets
-from .desktop import Display
 
 
 def printer(event: dict) -> None:
@@ -33,10 +32,12 @@ def main() -> None:
     u.add_argument("--tailscale", action="store_true", help="also open the app on this machine's Tailscale address, with a token")
     sub.add_parser("check", help="what's ready, what's missing, and the fix for each")
     t = sub.add_parser("teach", help='teach it a new interface: autoharness teach <address> "<the job, in plain words>"')
-    t.add_argument("address", help="a web address, or a desktop app's command")
+    t.add_argument("address", help="a web address, a desktop app's command, or vnc://host for an app on any other computer")
     t.add_argument("job", help="what it should do, in plain words. Put any login in it; it's kept on this computer")
     t.add_argument("--input", action="append", default=[], metavar="KEY=VALUE", help="a sample input to teach on")
     t.add_argument("--name", help="what to call the interface, like orders. Otherwise it's named after the app")
+    t.add_argument("--way", choices=("auto", "plan", "program"), default="auto",
+                   help="plan: the same steps every time. program: code that decides each move, as in a game. auto (the default): Spark picks")
     o = sub.add_parser("tools", help="every job an agent can call, with its inputs")
     o.add_argument("interface", nargs="?", help="only this interface")
     c = sub.add_parser("call", help="run one job: autoharness call <tool> key=value ...")
@@ -64,7 +65,7 @@ def main() -> None:
     from . import cli
     try:
         code = {"up": lambda: cli.up(not args.no_demo, args.tailscale), "check": cli.check, "down": cli.down, "connect": cli.connect,
-                "teach": lambda: cli.teach(args.address, args.job, args.input, args.name), "tools": lambda: cli.tools(args.interface),
+                "teach": lambda: cli.teach(args.address, args.job, args.input, args.name, args.way), "tools": lambda: cli.tools(args.interface),
                 "call": lambda: cli.call(args.tool, args.inputs, args.json),
                 "mcp": lambda: cli.mcp_stdio(args.interface, args.wait)}[args.cmd]()
     except cli.AppError as e:
@@ -119,7 +120,7 @@ def run_program(args) -> None:
         if not goal:
             sys.exit("say what it should do")
         pkg = library.create(spec.get("name", args.target), goal, spec)
-        d = Display(*spec.get("size", (1280, 800))).start()
+        d = targets.open_screen(spec)
         tgt = targets.Target(spec, d)
         try:
             m = Teacher(pkg, d, tgt, printer, limit_usd=args.limit, verify_runs=args.verify, effort=args.effort,
@@ -132,7 +133,7 @@ def run_program(args) -> None:
         return None
     pkg = library.get(args.id)
     spec = pkg.manifest["target"]
-    d = Display(*spec.get("size", (1280, 800))).start()
+    d = targets.open_screen(spec)
     tgt = targets.Target(spec, d)
     try:
         if args.cmd == "run":

@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import os
 import signal
+import socket
 import subprocess
 import sys
 import textwrap
@@ -273,7 +274,17 @@ def check(header: bool = True, notes: dict | None = None) -> int:
         demo = next((n for n, a in demo_apps().items() if urllib.parse.urlsplit(a["url"]).netloc == urllib.parse.urlsplit(spec.get("url") or "").netloc), None)
         if demo in notes:
             notes[plan_id] = notes[demo]
-        if spec.get("url"):
+        if spec.get("kind") == "vnc":
+            from .vnc import parse_address
+            host, port, _ = parse_address(spec["url"])
+            try:
+                socket.create_connection((host, port), timeout=2).close()
+                live = True
+            except OSError:
+                live = False
+            row(live, plan_id, f"the screen at {where}" if live else f"no screen answering at {where}",
+                "turn on screen sharing (VNC) on that computer", needed=False, width=width)
+        elif spec.get("url"):
             fix = "autoharness up starts it" if demo else "start that app (the test apps are in scripts/)"
             live = answering(spec["url"])
             row(live, plan_id, where if live else f"{where} isn't answering", fix, needed=False, width=width)
@@ -348,7 +359,8 @@ def call(tool: str, pairs: list[str], raw_json: str | None) -> int:
         return 3
     if out["ok"]:
         extra = f", then stopped for a person: {out['stopped_for_person']}" if out.get("stopped_for_person") else ""
-        print(good(f"✓ Verified in {out['seconds']:.0f} s") + dim(f", {out['steps_checked']} checks, $0 in the cloud{extra}"))
+        checks = f", {out['steps_checked']} checks" if out.get("steps_checked") is not None else ", checked on screen"
+        print(good(f"✓ Verified in {out['seconds']:.0f} s") + dim(f"{checks}, $0 in the cloud{extra}"))
         print(json.dumps(out["outputs"], indent=2, ensure_ascii=False))
         return 0
     print(colour("33", f"! Stopped, with nothing guessed: {out['reason']}"))
@@ -369,25 +381,49 @@ def tools(interface: str | None) -> int:
     return 0
 
 
-def teach(address: str, job: str, pairs: list[str], name: str | None = None) -> int:
+PHASES = {"explore": "Muse Spark is using the interface for the first time.", "compile": "Muse Wonder is writing the program and trying it.",
+          "verify": "The program is doing the job on its own, start to finish, with no cloud. Spark judges only the screen, never the code."}
+
+
+def teach(address: str, job: str, pairs: list[str], name: str | None = None, way: str = "auto") -> int:
     ensure_app()
     from .cloud import Ledger
     spent = Ledger.read()["spent_usd"]
-    print(dim(f"Teaching spends Meta API budget once, usually $0.10 to $4. ${spent:.2f} of the ${config.BUDGET_USD:.2f} cap is spent so far."))
-    brief = http("POST", "/api/ui/teach", {"target": address, "goal": job, "inputs": parse_inputs(pairs, None), "name": name})
+    print(dim(f"Teaching spends Meta API budget once, usually $0.10 to $4. ${spent:.2f} of the ${config.BUDGET_USD:.2f} cap is spent so far."), flush=True)
+    brief = http("POST", "/api/ui/teach", {"target": address, "goal": job, "inputs": parse_inputs(pairs, None), "name": name, "way": way})
     print(dim(f"Watch it live: {APP}/#/job/{brief['id']}\n"), flush=True)
     seen: dict = {}
 
     def on_event(e: dict) -> None:
         kind = e.get("type")
-        if kind == "explore":
+        if kind == "way":
+            if e.get("picked"):
+                print(f"{dim('Spark')} {e.get('why') or ''}".rstrip(), flush=True)
+            print(colour("1", "So it learns this as a program: code that decides each move, written once by Muse Wonder." if e.get("way") == "program"
+                         else "So it learns this as a plan: the same steps every time, run by Muse Glimmer."), flush=True)
+        elif kind == "phase" and e.get("phase") in PHASES:
+            print(colour("1", PHASES[e["phase"]]), flush=True)
+        elif kind == "say" and e.get("phase") == "explore":
+            print(f"  {dim('Spark')} {' '.join(str(e.get('text') or '').split())[:110]}", flush=True)
+        elif kind == "code":
+            print(f"  {good()} Wonder wrote the program, version {e.get('version')}: {e.get('lines')} lines.", flush=True)
+        elif kind == "trial_end":
+            print(f"  {dim('trial')}    {e.get('status')}, {e.get('seconds', 0):.0f} s, {e.get('actions', 0)} actions {dim(str(e.get('reason') or '')[:80])}", flush=True)
+        elif kind == "verify_end":
+            mark = good() if e.get("ok") else colour("33", "!")
+            print(f"  {mark} On its own, run {e.get('n')} of {e.get('of')}: {'passed' if e.get('ok') else 'failed'} ({e.get('seconds', 0):.0f} s). "
+                  f"{dim(str(e.get('why') or '')[:100])}", flush=True)
+        elif kind == "error" and "Traceback" in str(e.get("text")):
+            print(bad("  " + str(e.get("text")).strip().splitlines()[-1][:200]), flush=True)
+        elif kind == "explore":
             print(f"  {dim('Spark')} {str(e.get('said') or '').strip()[:110]}", flush=True)
         elif kind == "plan":
             seen["plan"] = plan = e["plan"]
             for t in plan["tools"]:
                 shown = [k for k in t["inputs"] if k in ((plan.get("samples") or {}).get(t["name"]) or {})]
                 kept = " The login is kept on this computer, out of the tool." if len(shown) < len(t["inputs"]) else ""
-                print(f"  {good()} Wonder wrote the plan: {t['name']}({', '.join(shown)}).{kept}", flush=True)
+                made = "The program is offered as" if plan.get("kind") == "program" else "Wonder wrote the plan"
+                print(f"  {good()} {made}: {t['name']}({', '.join(shown)}).{kept}", flush=True)
         elif kind == "proof":
             mark = good() if e.get("achieved") else colour("33", "!")
             print(f"  {mark} Glimmer's run {e.get('attempt')}: {'passed' if e.get('achieved') else 'failed: ' + str(e.get('why'))[:120]} ({e.get('seconds', 0):.0f} s)", flush=True)
@@ -406,10 +442,10 @@ def teach(address: str, job: str, pairs: list[str], name: str | None = None) -> 
         for t in plan.get("tools", []):
             sample = (plan.get("samples") or {}).get(t["name"]) or {}
             args = " ".join(f"{k}={json.dumps(sample[k]) if not isinstance(sample.get(k), str) or ' ' in sample[k] else sample[k]}" for k in t["inputs"] if k in sample)
-            print(f"  autoharness call {e['id']}__{t['name']} {args}")
+            print(f"  autoharness call {e['id']}__{t['name']} {args}".rstrip())
         return 0
-    why = (seen.get("failed") or {}).get("why", "it stopped")
-    print(colour("33", f"Not learned: {why} Nothing was saved."))
+    why = (seen.get("failed") or {}).get("why", "it stopped.")
+    print(colour("33", f"Not learned: {why}" + ("" if "tool" in why else " Nothing was saved.")))
     return 2
 
 

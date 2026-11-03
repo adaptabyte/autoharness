@@ -580,8 +580,62 @@ def _plans_dirs():
     return [config.HOME / "uiteam", config.REPO / "plans" / "ui"]
 
 
+WAYS = """Autoharness can learn a job in an app in one of two ways.
+
+PLAN: the same steps every time, with only the inputs changing. Clicks, typing, reading values off the screen, yes/no checks, \
+simple if/else and going through a list. Examples: look up an order, fill in a form, export a report, update a record, \
+buy an item in a game's shop, read a character's stats.
+
+PROGRAM: code that has to decide what to do next from what is on the screen, over and over, until a goal is met. Examples: \
+win a game, solve a puzzle, play a turn-based game, keep sorting items until none are left when the rule \
+depends on what each one shows.
+
+App: {address}
+Job: {goal}
+
+Which way fits this job? If the same steps would work every time, it's a plan. Reply with only JSON: {{"way": "plan" or "program", \
+"why": "one short plain sentence for the user", "job": "a short snake_case name for the job, like read_order or win_game", \
+"app": "the app's name in one or two words, from the job or the address, such as the game's title or the site's name"}}"""
+
+
+def choose_way(address: str, goal: str, meter: Meter) -> dict:
+    """Spark reads the job, not the screen, and picks plan or program. It costs about a tenth of a cent."""
+    out = Cloud(meter=meter, limit_usd=0.05).respond(model=config.SPARK_MODEL, reasoning={"effort": "low"}, input=[
+        {"role": "user", "content": [{"type": "input_text", "text": WAYS.format(address=address, goal=goal)}]}])
+    try:
+        a = extract_json(response_text(out))
+    except ValueError:
+        a = {}
+    way = "program" if str(a.get("way", "")).lower().strip() == "program" else "plan"
+    job = re.sub(r"[^a-z0-9_]+", "_", str(a.get("job") or "").lower()).strip("_")[:40] or ("win" if way == "program" else "do_job")
+    return {"way": way, "why": str(a.get("why") or "")[:200], "job": job, "app": str(a.get("app") or "").strip()[:40]}
+
+
+PROGRAM_NOTE = ("Runs on the user's own computer: a program written for this app does the job, asking a small local model "
+                "only when it needs to look, and checks the result. It takes seconds to minutes, and either finishes or stops and says why.")
+
+
+def program_interfaces() -> dict[str, dict]:
+    """Programs learned through `autoharness teach`, for jobs that decide each move from the screen, like a game. Each is
+    offered like a plan with one job, so an agent calls a program and a plan the same way."""
+    from . import library
+    out: dict[str, dict] = {}
+    for pkg in library.all_packages():
+        m = pkg.manifest
+        iface, job = m.get("tool_id"), m.get("tool_job")
+        if m.get("status") != "ready" or not iface or not job:
+            continue
+        params = m.get("params") or {}
+        out.setdefault(iface, {"id": iface, "kind": "program", "package": pkg.id, "app": m.get("name") or iface,
+                               "how_it_behaves": m.get("how", ""), "target": m.get("target"), "compile_usd": m.get("teach_usd"),
+                               "goal": m.get("goal", ""), "jobs": {job: job}, "samples": {job: params},
+                               "skills": [{"name": job, "does": m.get("goal", ""), "inputs": {k: k.replace("_", " ") for k in params},
+                                           "outputs": [], "steps": []}]})
+    return out
+
+
 def saved_plans() -> dict[str, dict]:
-    """Plans learned on this machine, then the ones the repo ships with."""
+    """Plans learned on this machine, then the ones the repo ships with, then programs learned through the same door."""
     out: dict[str, dict] = {}
     for f in sorted((config.HOME / "uiteam").glob("*/plan.json")):
         try:
@@ -594,11 +648,13 @@ def saved_plans() -> dict[str, dict]:
             out.setdefault(f.stem, {**check_plan(json.loads(f.read_text())), "id": f.stem})
         except ValueError:
             continue
+    for iface, p in program_interfaces().items():
+        out.setdefault(iface, p)
     return out
 
 
 def plan_brief(p: dict) -> dict:
-    return {"id": p["id"], "app": p.get("app") or p["id"], "how": p.get("how_it_behaves", ""), "target": p.get("target"), "cost": p.get("compile_usd"), "repairs": p.get("repairs", 0), "samples": p.get("samples") or {}, "swarm": len(p.get("swarm_inputs") or []),
+    return {"id": p["id"], "kind": p.get("kind", "plan"), "app": p.get("app") or p["id"], "how": p.get("how_it_behaves", ""), "target": p.get("target"), "cost": p.get("compile_usd"), "repairs": p.get("repairs", 0), "samples": p.get("samples") or {}, "swarm": len(p.get("swarm_inputs") or []),
             "skills": [{"name": s["name"], "does": s.get("does", ""), "inputs": s.get("inputs") or {}, "size": count_steps(s["steps"])} for s in p["skills"]], "jobs": p.get("jobs") or {},
             "tools": [{"name": t["name"], "inputs": list(t["inputSchema"]["properties"])} for t in plan_tools(p, kept_logins(p["id"]))], "kept": sorted(kept_logins(p["id"]))}
 
@@ -668,7 +724,7 @@ def plan_tools(plan: dict, kept: dict | None = None) -> list[dict]:
         skill, sample = by[name], (plan.get("samples") or {}).get(name) or {}
         props = {k: {**_schema(sample.get(k, "")), "description": str(text)} for k, text in (skill.get("inputs") or {}).items() if k not in (kept or {})}
         tools.append({"name": name, "title": f"{plan.get('app') or plan.get('id')}: {name.replace('_', ' ')}",
-                      "description": f"{skill.get('does', '').strip()} {TOOL_NOTE}".strip(),
+                      "description": f"{skill.get('does', '').strip()} {PROGRAM_NOTE if plan.get('kind') == 'program' else TOOL_NOTE}".strip(),
                       "inputSchema": {"type": "object", "properties": props, "required": list(props), "additionalProperties": False}})
     return tools
 
@@ -720,12 +776,33 @@ def without_login(text: str, login: dict) -> str:
     return text
 
 
+def teach_program(spec: dict, goal: str, inputs: dict, display: Display, target, emit: Emit, stop: threading.Event, chosen: dict,
+                  name: str | None = None, approve=None, limit_usd: float = 4.0) -> dict:
+    """Program mode, through the same door as a plan: Spark explores, Wonder writes a program, and it has to pass its trials
+    on its own before it's offered as a tool."""
+    from . import library
+    from .teacher import Teacher
+
+    app = name or chosen.get("app") or str(spec.get("name") or "app")
+    pkg = library.create(app, goal, spec)
+    manifest = Teacher(pkg, display, target, emit, stop, limit_usd=limit_usd, sample_params=inputs or None, approve=approve).teach()
+    usd = float(manifest.get("teach_usd") or 0)
+    if manifest.get("status") != "ready":
+        emit({"type": "not_learned", "why": f"{str(manifest.get('failure') or 'it did not pass its trials').rstrip('.')}. It isn't offered as a tool.", "usd": usd})
+        return {"ok": False, "usd": usd}
+    iface = new_plan_id(name or app, "app")
+    pkg.update(tool_id=iface, tool_job=chosen["job"], params=inputs or {})
+    emit({"type": "plan", "plan": plan_brief(program_interfaces()[iface]), "usd": usd})
+    emit({"type": "learned", "id": iface, "usd": usd, "verified": manifest.get("verified")})
+    return {"ok": True, "usd": usd}
+
+
 def teach(app_id: str, spec: dict, goal: str, inputs: dict, display: Display, target, emit: Emit, stop: threading.Event, repairs: int = 4, limit_usd: float = 4.0, name: str | None = None) -> dict:
     """Explore, compile, prove, repair. Passing here means the plan finished and a separate model, shown only the final screen, agrees."""
-    from .teacher import judge_final_screen
+    from .teacher import KEPT_SCREEN_NOTE, judge_final_screen, kept_screen
 
     meter = Meter()
-    full_goal = goal + (f"\nInputs: {json.dumps(inputs)}" if inputs else "")
+    full_goal = goal + (f"\nInputs: {json.dumps(inputs)}" if inputs else "") + (KEPT_SCREEN_NOTE if kept_screen(spec) else "")
     emit({"type": "stage", "stage": "explore", "text": "Muse Spark is using the interface for the first time."})
     record = explore(display, target, full_goal, meter, limit_usd=min(1.0, limit_usd), emit=lambda e: emit({**e, "usd": round(meter.usd, 4)}), stop=stop)
     emit({"type": "stage", "stage": "compile", "text": "Muse Wonder is writing the plan.", "usd": round(meter.usd, 4)})
@@ -750,13 +827,14 @@ def teach(app_id: str, spec: dict, goal: str, inputs: dict, display: Display, ta
         if stop.is_set():
             break
         emit({"type": "stage", "stage": "prove", "text": "Muse Glimmer is running the plan on its own.", "usd": round(meter.usd, 4)})
-        target.reset()
+        start = target.reset()
         runner = PlanRunner(plan, display, emit=emit, stop=stop)
         result = runner.run(main_job(plan), inputs)
         frames = runner.frames
         verdict = {"achieved": False, "why": result["reason"]}
         if result["status"] in ("done", "stopped_for_person"):
-            verdict = judge_final_screen(Cloud(meter=meter, limit_usd=limit_usd), full_goal, display.shot(), summary=json.dumps(result["outputs"])[:800])
+            verdict = judge_final_screen(Cloud(meter=meter, limit_usd=limit_usd), full_goal, display.shot(), summary=json.dumps(result["outputs"])[:800],
+                                         start=start if kept_screen(spec) else None)
         emit({"type": "proof", "attempt": attempt + 1, "status": result["status"], "achieved": verdict["achieved"], "why": verdict["why"], "seconds": result["seconds"], "questions": result["questions"], "usd": round(meter.usd, 4)})
         if verdict["achieved"]:
             plan.update(compile_usd=round(meter.usd, 4))

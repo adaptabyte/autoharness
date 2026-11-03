@@ -23,7 +23,7 @@ import numpy as np
 from PIL import Image
 
 from . import __version__, config, library, targets, team_app, uiteam
-from .cloud import Ledger
+from .cloud import Ledger, Meter
 from .desktop import Display
 from .local import Glimmer
 from .runtime import Runner
@@ -120,7 +120,7 @@ def start_teach(target_text: str, goal: str, limit: float, params: dict | None) 
     pkg = library.create(spec.get("name", target_text), goal, spec)
 
     def body(job: Job):
-        display = Display(*spec.get("size", (1280, 800))).start()
+        display = targets.open_screen(spec)
         job.displays["main"] = display
         tgt = targets.Target(spec, display)
         try:
@@ -146,7 +146,7 @@ def start_run(package_id: str, local_only: bool, params: dict | None, repeat: in
         spec = changed_spec(spec)
 
     def body(job: Job):
-        display = Display(*spec.get("size", (1280, 800))).start()
+        display = targets.open_screen(spec)
         job.displays["main"] = display
         tgt = targets.Target(spec, display)
         try:
@@ -230,7 +230,7 @@ def start_session(package_id: str) -> Job:
     opened = threading.Event()
 
     def body(job: Job):
-        display = Display(*spec.get("size", (1280, 800))).start()
+        display = targets.open_screen(spec)
         job.displays["main"] = display
         tgt = targets.Target(spec, display)
         try:
@@ -353,7 +353,7 @@ def start_ui_run(app_id: str, skill: str, inputs: dict, caller: str | None = Non
         raise ValueError("that plan has no such skill")
 
     def body(job: Job):
-        display = Display(*spec.get("size", (1280, 800))).start()
+        display = targets.open_screen(spec)
         job.displays["main"] = display
         tgt = targets.Target(spec, display)
         try:
@@ -361,9 +361,16 @@ def start_ui_run(app_id: str, skill: str, inputs: dict, caller: str | None = Non
                 job.emit({"type": "called", "by": caller, "tool": skill, "app": in_sentence})
             job.emit({"type": "stage", "stage": "run", "text": "Opening the interface."})
             tgt.reset()
-            runner = uiteam.PlanRunner(plan, display, emit=job.emit, stop=job.stop)
-            job.emit({"type": "stage", "stage": "run", "text": "Muse Glimmer is running the plan, with no cloud."})
-            result = runner.run(skill, inputs)
+            if plan.get("kind") == "program":
+                job.emit({"type": "stage", "stage": "run", "text": "The program is doing the job, with Muse Glimmer for any look it needs. No cloud."})
+                r = Runner(library.get(plan["package"]), display, job.emit, inputs, stop=job.stop).execute(local_only=True)
+                library.get(plan["package"]).add_run(r.record("call"))
+                result = {"status": r.status, "reason": r.reason, "seconds": r.seconds, "questions": r.glimmer_calls,
+                          "outputs": {**({"summary": r.summary} if r.summary else {}), **(r.result or {})}}
+            else:
+                runner = uiteam.PlanRunner(plan, display, emit=job.emit, stop=job.stop)
+                job.emit({"type": "stage", "stage": "run", "text": "Muse Glimmer is running the plan, with no cloud."})
+                result = runner.run(skill, inputs)
             _keep_last_frame(job, display)
             job.emit({"type": "result", **{k: v for k, v in result.items() if k in ("status", "reason", "outputs", "seconds", "questions", "steps", "writes")}})
         finally:
@@ -488,6 +495,8 @@ def start_ui_swarm(app_id: str, skill: str, count: int) -> Job:
     if not plan or not plan.get("swarm_inputs"):
         raise ValueError("this plan has no sample inputs for a swarm")
     spec = plan.get("target") or _resolve_target(app_id)
+    if spec.get("kind") == "vnc":
+        raise ValueError("a swarm needs a fresh screen for each worker, and a remote screen is only one")
     inputs = plan["swarm_inputs"][:max(1, min(count, 8))]
 
     def body(job: Job):
@@ -498,7 +507,7 @@ def start_ui_swarm(app_id: str, skill: str, count: int) -> Job:
 
         def worker(n: int, values: dict) -> None:
             lane = f"w{n}"
-            display = Display(*spec.get("size", (1280, 800))).start()
+            display = targets.open_screen(spec)
             job.displays[lane] = display
             tgt = targets.Target(spec, display)
             try:
@@ -522,19 +531,38 @@ def start_ui_swarm(app_id: str, skill: str, count: int) -> Job:
     return _start("ui_swarm", f"A swarm on {plan.get('app') or app_id}", None, body)
 
 
-def start_ui_teach(target_text: str, goal: str, inputs: dict, name: str | None = None) -> Job:
+def start_ui_teach(target_text: str, goal: str, inputs: dict, name: str | None = None, way: str = "auto") -> Job:
+    """The one way in, for any interface and any job. Spark picks how it's learned: a plan, for the same steps every time, or a
+    program, for jobs that decide each move from the screen, like a game. Either way the result is a tool."""
     spec = _resolve_target(target_text)
     goal = goal.strip() or spec.get("suggested_goal", "")
     if not goal:
         raise ValueError("say what it should learn to do")
+    if way not in ("auto", "plan", "program"):
+        raise ValueError("way must be auto, plan or program")
+    if spec.get("kind") == "vnc":
+        from .vnc import parse_address
+        host, port, _ = parse_address(spec["url"])
+        try:
+            socket.create_connection((host, port), timeout=5).close()
+        except OSError as e:
+            raise ValueError(f"no screen answers at {spec['url']} ({e.strerror or e}). Turn on screen sharing (VNC) there, and check the address and port") from None
     app_id = re.sub(r"[^a-z0-9]+", "-", str(spec.get("name", target_text)).lower()).strip("-")[:40] or "app"
 
     def body(job: Job):
-        display = Display(*spec.get("size", (1280, 800))).start()
+        display = targets.open_screen(spec)  # first, so a screen that can't be reached costs nothing
         job.displays["main"] = display
         tgt = targets.Target(spec, display)
         try:
-            out = uiteam.teach(app_id, spec, goal, inputs, display, tgt, job.emit, job.stop, name=name)
+            chosen = {"way": way, "why": "", "job": "", "app": ""}
+            if way != "plan":
+                meter = Meter()
+                chosen = {**uiteam.choose_way(tgt.describe(), goal, meter), **({"way": "program"} if way == "program" else {})}
+                job.emit({"type": "way", **chosen, "picked": way == "auto", "usd": round(meter.usd, 4)})
+            if chosen["way"] == "program":
+                out = uiteam.teach_program(spec, goal, inputs, display, tgt, job.emit, job.stop, chosen, name=name, approve=job.approve)
+            else:
+                out = uiteam.teach(app_id, spec, goal, inputs, display, tgt, job.emit, job.stop, name=name)
             _keep_last_frame(job, display)
             job.finish("done" if out["ok"] else "failed")
         finally:
@@ -778,7 +806,7 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/ui/swarm":
                 return self._json(start_ui_swarm(str(body["id"]), str(body["skill"]), int(body.get("count", 8))).brief())
             if path == "/api/ui/teach":
-                return self._json(start_ui_teach(str(body.get("target", "")), str(body.get("goal", "")), body.get("inputs") or {}, str(body.get("name") or "") or None).brief())
+                return self._json(start_ui_teach(str(body.get("target", "")), str(body.get("goal", "")), body.get("inputs") or {}, str(body.get("name") or "") or None, str(body.get("way") or "auto")).brief())
             if path == "/api/team/read":
                 return self._json(start_team_read(body).brief())
             if path == "/api/team/design":

@@ -86,7 +86,7 @@ function zoom(src){const b=h("div",{class:"big",onclick:()=>b.remove()},h("img",
 function interfaces(){
   const R=T.ui_results||{};
   const err=h("div",{class:"error"});
-  const tIn=h("input",{type:"text",placeholder:"A web address or a command, like http://127.0.0.1:8310/login or gnome-calculator","aria-label":"The interface"});
+  const tIn=h("input",{type:"text",placeholder:"A web address, a command, or vnc://another-computer, like http://127.0.0.1:8310/login, gnome-calculator or vnc://gamepc","aria-label":"The interface"});
   const gIn=h("input",{type:"text",placeholder:"What should it learn to do? For example: log in and save a request","aria-label":"The job"});
   const pIn=h("input",{type:"text",placeholder:'Optional sample inputs as JSON, like {"username":"demo"}',"aria-label":"Sample inputs"});
   const go2=h("button",{class:"btn primary",onclick:async()=>{err.textContent="";let inputs={};try{inputs=pIn.value.trim()?JSON.parse(pIn.value):{}}catch(e){err.textContent="The sample inputs aren't valid JSON.";return}go2.disabled=true;try{const j=await api("/api/ui/teach",{target:tIn.value,goal:gIn.value,inputs});go("job/"+j.id)}catch(e){err.textContent=e.message;go2.disabled=false}}},"Teach it");
@@ -137,6 +137,7 @@ function swarmView(id){
     if(e.type==="end"){clearInterval(timer);es.close()}};
 }
 
+const PHASES={explore:["Spark explores","Muse Spark is using the interface for the first time."],compile:["Wonder writes the program","Muse Wonder writes code for this app and tries it."],verify:["The program proves it","It does the job on its own, start to finish, with no cloud. Spark judges only the screen, never the code."]};
 const STAGES=[["explore","Spark explores"],["compile","Wonder writes the plan"],["prove","Glimmer proves it"],["repair","Wonder repairs"],["run","Glimmer runs it"]];
 function jobView(id){
   const v=$("#view");const stage=h("h1",{},"Starting");const sub=h("p",{class:"hint",style:"margin:0"},"");
@@ -153,15 +154,21 @@ function jobView(id){
   es.onmessage=ev=>{const e=JSON.parse(ev.data);if(typeof e.usd==="number")usd=e.usd;
     if(e.type==="stage"){if(!(e.stage==="run"&&/ is using /.test(stage.textContent)))stage.textContent=(STAGES.find(s=>s[0]===e.stage)||[,e.stage])[1];sub.textContent=e.text||""}
     if(e.type==="explore"&&e.said)add(null,"Spark: "+e.said);
+    if(e.type==="way")add(null,e.way==="program"?"Learning it as a program: code that decides each move":"Learning it as a plan: the same steps every time",e.why);
+    if(e.type==="phase"&&PHASES[e.phase]){stage.textContent=PHASES[e.phase][0];sub.textContent=PHASES[e.phase][1]}
+    if(e.type==="say"&&e.phase==="explore"&&e.text)add(null,"Spark: "+e.text.slice(0,160));
+    if(e.type==="code")add(null,`Wonder wrote the program: version ${e.version}, ${e.lines} lines`);
+    if(e.type==="trial_end")add(e.status==="done"?true:null,`Wonder's trial: ${e.status}, ${Math.round(e.seconds)} s`,e.reason);
+    if(e.type==="verify_end")add(e.ok,`On its own, run ${e.n} of ${e.of}: ${e.ok?"passed":"failed"} (${Math.round(e.seconds)} s)`,e.why);
     if(e.type==="called"){add(null,`${e.by} called ${e.tool}`,"It gets back only what the plan verifies, never this screen.");stage.textContent=`${e.by} is using ${e.app}`}
-    if(e.type==="plan")add(null,`Plan written: ${plural(e.plan.skills.length,"skill")}`,e.plan.skills.map(s=>s.name).join(", "));
+    if(e.type==="plan")add(null,e.plan.kind==="program"?`Offered as a tool: ${e.plan.id}__${e.plan.skills[0].name}`:`Plan written: ${plural(e.plan.skills.length,"skill")}`,e.plan.skills.map(s=>s.name).join(", "));
     if(e.type==="step"&&e.do!=="wait"){if(e.ok)steps++;add(e.ok,`${LABEL[e.do]||e.do}: ${e.what.length>84?e.what.slice(0,82)+"…":e.what}`,e.detail)}
     if(e.type==="proof")add(e.achieved,e.achieved?"A separate model checked the final screen and agrees":`Attempt ${e.attempt} didn't pass`,e.why);
     if(e.type==="learned"){clearInterval(tick);paint();verdict.replaceChildren(h("div",{class:"verdict ok"},h("div",{},h("h1",{},"Learned"),h("p",{},`That cost $${e.usd.toFixed(2)} once. From now on it runs on this computer.`)),h("button",{class:"btn",style:"color:var(--ink)",onclick:()=>go("ui/"+e.id)},"Use it")))}
     if(e.type==="not_learned"){clearInterval(tick);paint();verdict.replaceChildren(h("div",{class:"verdict warn"},h("div",{},h("h1",{},"It didn't learn this"),h("p",{},e.why))))}
     if(e.type==="result"){clearInterval(tick);usd=0;paint();const ok=e.status==="done"||e.status==="stopped_for_person";
       const vals=e.outputs?Object.entries(e.outputs).filter(([k])=>!k.startsWith("_")):[];
-      verdict.replaceChildren(h("div",{class:"verdict "+(ok?"ok":"warn")},h("div",{},h("h1",{},e.status==="stopped_for_person"?"Done, and stopped for a person":ok?"Done, and every step checked out":"It stopped and asked for help"),h("p",{},ok?`${e.steps} steps, ${e.questions} questions to the small model, ${Math.round(e.seconds)} s, $0.00 in cloud.${e.status==="stopped_for_person"?" "+(e.outputs?._stopped_for_person||""):""}`:e.reason))));
+      verdict.replaceChildren(h("div",{class:"verdict "+(ok?"ok":"warn")},h("div",{},h("h1",{},e.status==="stopped_for_person"?"Done, and stopped for a person":ok?"Done, and every step checked out":"It stopped and asked for help"),h("p",{},ok?`${e.steps!=null?e.steps+" steps, ":""}${e.questions} questions to the small model, ${Math.round(e.seconds)} s, $0.00 in cloud.${e.status==="stopped_for_person"?" "+(e.outputs?._stopped_for_person||""):""}`:e.reason))));
       if(vals.length)feed.prepend(h("div",{class:"line"},h("span",{class:"ic ok"},"✓"),h("div",{},h("b",{},"What it read"),h("small",{style:"white-space:pre-wrap"},flatten(Object.fromEntries(vals)).join("\n")))))}
     if(e.type==="error")verdict.replaceChildren(h("div",{class:"verdict warn"},h("div",{},h("h1",{},"Something went wrong"),h("p",{},e.text))));
     if(e.type==="end"){clearInterval(tick);es.close();const live=v.querySelector(".screen img");if(live)live.src=`/api/jobs/${id}/last`}};

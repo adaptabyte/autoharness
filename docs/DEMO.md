@@ -26,7 +26,7 @@ Speak at a normal pace. The times match `clips/draft.mp4`, which runs 2:58. The 
 | 0:44 | **Teach:** Spark exploring, then the plan | "Muse Spark uses it once, and everything gets recorded. Muse Wonder turns that into a plan, with every decision made in advance. Then Glimmer has to pass on its own before the plan is kept." |
 | 1:03 | **Teach:** Learned | "That cost thirteen cents, once." |
 | 1:09 | **Agent:** terminal on the left, the app on the right | "And now it's a tool any agent can call. Here Muse Spark is the agent, asking about a customer the plan was never taught on. It picks the job, and the small model does the work on my machine. Spark gets back the verified answer, never my screen and never my password." |
-| 1:31 | **Card:** plug and play | "It's plug and play. One command starts it, one teaches a job, and any agent connects with one line." |
+| 1:31 | **Card:** plug and play | "Plug and play: one command teaches any app, even one on another computer, and any agent connects with one line." |
 | 1:38 | **Run:** live screen and the feed of checks | "The small model only answers one narrow question per screen. Code holds the memory and checks everything. What it types gets read back, and what it reads gets read twice. A run ends verified, or it stops and asks." |
 | 1:54 | **Cable pull, in one shot,** in place of the 4-second "$0.00 in the cloud" shot. The pill turns to `Internet off`, and it keeps running | "And it doesn't need the internet." |
 | 1:58 | **Results table** | "I measured it, with pass bars set before the runs: thirty-five of thirty-five on inputs it hadn't seen, nothing wrong saved, and no cloud. Spark still does better on jobs it wasn't taught." |

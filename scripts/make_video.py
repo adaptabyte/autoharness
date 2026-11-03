@@ -68,6 +68,7 @@ def card_html(kind: str) -> str:
         return f"""<div class=card style="padding:60px 96px"><p class=kicker>Plug and play</p><h1 style="font-size:54px;margin:0 0 26px">Three commands.<br>One line for any agent.</h1>
 <div class=term><div><s>$</s> autoharness up<em>starts it, and checks what's ready</em></div>
 <div><s>$</s> autoharness teach &lt;address&gt; "&lt;the job, in plain words&gt;"<em>learns it, once</em></div>
+<div style="padding-left:38px;font:500 17px Inter,sans-serif;color:#8b948f;margin:-4px 0 6px">a web address, an app's command, or vnc:// for any other computer: Windows, Mac, a game PC</div>
 <div><s>$</s> autoharness call orders__read_order order_number=ORD-26616</div>
 <div class=ok>✓ Verified in 22 s, 26 checks, $0 in the cloud</div></div>
 <h2 style="font-size:24px;margin-top:26px">Any MCP client: <span class=mono style="font-size:22px">127.0.0.1:4140/mcp/ui</span>, or the command <span class=mono style="font-size:22px">autoharness mcp</span></h2>{foot}</div>"""

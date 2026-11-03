@@ -153,19 +153,35 @@ COMPILE_TOOLS = [
 REPAIR_TOOLS = [t for t in COMPILE_TOOLS if t["name"] not in ("trial", "try_interface", "act")]
 
 
-def judge_final_screen(cloud: Cloud, goal: str, frame: np.ndarray, summary: str = "", app_notes: str = "") -> dict:
+KEPT_SCREEN_NOTE = ("\n\nThis app is on another computer's screen, which can't be restarted between runs. So every run begins from whatever "
+                    "is showing, which may be a result left by an earlier run. Each run must do the whole job itself from there, for "
+                    "example by starting a new game first, and must never count something that was already on screen when it began.")
+
+
+def kept_screen(spec: dict) -> bool:
+    """A screen nothing here can reset, so a run can't be trusted just because the end looks right."""
+    return (spec or {}).get("kind") == "vnc"
+
+
+def judge_final_screen(cloud: Cloud, goal: str, frame: np.ndarray, summary: str = "", app_notes: str = "", start: np.ndarray | None = None) -> dict:
     """An independent check. This call has never seen the harness or the teaching session.
 
     app_notes is what the teacher wrote about how the app shows state, before any code existed. Without it a judge
     misreads apps it has never seen: a solved game with no victory banner, say, looks unfinished.
     """
     notes = f"How this app shows its state, from someone who explored it:\n{app_notes[:5000]}\n\n" if app_notes else ""
-    out = cloud.respond(
-        model=config.SPARK_MODEL, reasoning={"effort": "high"}, input=[{"role": "user", "content": [
-            {"type": "input_text", "text": f"A program claims it achieved this goal in an app:\n\n{goal}\n\nIts claim: {summary or 'none'}\n\n{notes}"
-             "Judge from this final screenshot alone. Look closely at the actual state on screen and do not take the claim on trust. "
-             'If the screen does not show the goal was reached, say no. Reply with only JSON: {"achieved": true or false, "why": "one short sentence"}'},
-            {"type": "input_image", "image_url": image_url(frame)}]}])
+    content = [{"type": "input_text", "text": f"A program claims it achieved this goal in an app:\n\n{goal}\n\nIts claim: {summary or 'none'}\n\n{notes}"
+                "Judge from this final screenshot alone. Look closely at the actual state on screen and do not take the claim on trust. "
+                'If the screen does not show the goal was reached, say no. Reply with only JSON: {"achieved": true or false, "why": "one short sentence"}'},
+               {"type": "input_image", "image_url": image_url(frame)}]
+    if start is not None:
+        # The screen wasn't reset before the run, so the end looking right isn't enough: it has to be new.
+        content[0]["text"] = content[0]["text"].replace("Judge from this final screenshot alone.", "Judge from two screenshots: the screen when the run began, then the final screen.")
+        content[1:] = [{"type": "input_text", "text": "When the run began:"}, {"type": "input_image", "image_url": image_url(start)},
+                       {"type": "input_text", "text": "At the end. If the goal already looked reached when the run began, and this run didn't reach it again "
+                                                      "itself, say no: a result left over from before doesn't count."},
+                       {"type": "input_image", "image_url": image_url(frame)}]
+    out = cloud.respond(model=config.SPARK_MODEL, reasoning={"effort": "high"}, input=[{"role": "user", "content": content}])
     try:
         verdict = extract_json(response_text(out))
         return {"achieved": bool(verdict.get("achieved")), "why": str(verdict.get("why", ""))[:300]}
@@ -292,7 +308,7 @@ class Teacher:
         m = self.pkg.manifest
         results = [str(i.get("output"))[:4000] for i in items if i.get("type") == "function_call_output"]
         content = [{"type": "input_text", "text":
-                    f"Your conversation history was lost, but all your work is saved.\nApp: {self.target.name}\nGoal: {m.get('goal')}\n"
+                    f"Your conversation history was lost, but all your work is saved.\nApp: {self.target.name}\nGoal: {self._goal()}\n"
                     + (f"What you were asked to do, which may not be finished: {self.task}\n" if self.task else "") +
                     f"What you learned:\n{self.understanding}\nNotes: {json.dumps(self.notes)}\n"
                     f"Saved templates: {[f.name for f in self.pkg.assets.glob('*.png')]}\nLatest frame number: {self.frame_n}\n"
@@ -540,6 +556,9 @@ class Teacher:
         end = runner._launch(Path(tempfile.mkdtemp(prefix="autoharness-trial-")), r)
         r.seconds = round(time.time() - t0, 2)
         status = end.get("status", "unknown")
+        if status == "done" and r.actions == 0 and kept_screen(getattr(self.target, "spec", None)):
+            status, end = "failed", {**end, "reason": "it did nothing. This screen isn't reset between runs, so what it saw was left from an "
+                                                      "earlier run. Each run has to do the whole job itself, starting a new one first"}
         self.passes_in_a_row = self.passes_in_a_row + 1 if status == "done" else 0
         frame = self.display.shot()
         n = self._record(frame)
@@ -620,11 +639,14 @@ class Teacher:
             items = next_items
         raise TimeoutError(f"{phase} used all {max_turns} turns")
 
+    def _goal(self) -> str:
+        return self.pkg.manifest["goal"] + (KEPT_SCREEN_NOTE if kept_screen(getattr(self.target, "spec", None)) else "")
+
     def _explore(self) -> None:
         frame = self.target.reset()
         n = self._record(frame)
         self.emit({"type": "phase", "phase": "explore"})
-        goal = self.pkg.manifest["goal"]
+        goal = self._goal()
         extra = ""
         if self.sample_params:
             extra = f"\n\nSample inputs the user will supply each run: {json.dumps({k: v for k, v in self.sample_params.items() if k != '_files'})}"
@@ -653,7 +675,7 @@ class Teacher:
         m = self.pkg.manifest
         params = {k: v for k, v in self.sample_params.items() if k != "_files"}
         content: list = [{"type": "input_text", "text":
-                          f"App: {self.target.name}\nGoal: {m['goal']}\nSample inputs each run: {json.dumps(params)}\n"
+                          f"App: {self.target.name}\nGoal: {self._goal()}\nSample inputs each run: {json.dumps(params)}\n"
                           f"Screen size: {self.display.width}x{self.display.height}. Recorded frames 1 to {self.frame_n}; view any with view_frame.\n\n"
                           f"What you learned by exploring the app:\n{self.understanding}\n\nNotes: {json.dumps(self.notes)}\n\nKey frames:"}]
         for kf in (getattr(self, "key_frames", []) or [])[:8]:
@@ -668,21 +690,25 @@ class Teacher:
     def _verify(self) -> tuple[int, list[dict]]:
         """Fresh instance, no cloud, no recovery from the teacher. Then an independent judge."""
         self.emit({"type": "phase", "phase": "verify"})
-        goal = goal_with_inputs(self.pkg.manifest["goal"], self.sample_params)
+        goal = goal_with_inputs(self._goal(), self.sample_params)
         passed = 0
         rows = []
         for i in range(self.verify_runs):
             if self.stop.is_set():
                 raise InterruptedError("stopped")
-            self.target.reset()
+            start = self.target.reset()
+            kept = kept_screen(getattr(self.target, "spec", None))
             self.emit({"type": "verify_start", "n": i + 1, "of": self.verify_runs})
             runner = Runner(self.pkg, self.display, self.emit, self.sample_params, self.glimmer, stop=self.stop, max_seconds=300)
             r = runner.execute(local_only=True)
             frame = self.display.shot()
             n = self._record(frame)
             verdict = {"achieved": False, "why": r.reason}
-            if r.status == "done":
-                verdict = judge_final_screen(self.cloud, goal, frame, r.summary, app_notes(self.pkg))
+            if r.status == "done" and kept and r.actions == 0:
+                r.status, r.reason = "failed", "it did nothing on a screen that wasn't reset, so the result on screen was left from before"
+                verdict = {"achieved": False, "why": r.reason}
+            elif r.status == "done":
+                verdict = judge_final_screen(self.cloud, goal, frame, r.summary, app_notes(self.pkg), start=start if kept else None)
                 self._cost()
             ok = r.status == "done" and verdict["achieved"]
             passed += ok
@@ -704,13 +730,13 @@ class Teacher:
             self.pkg.update(interface_verified=None)
             return runs, []
         self.emit({"type": "phase", "phase": "prove_interface"})
-        goal = goal_with_inputs(self.pkg.manifest["goal"], self.sample_params)
+        goal = goal_with_inputs(self._goal(), self.sample_params)
         request = goal
         passed, rows = 0, []
         for i in range(runs):
             if self.stop.is_set():
                 raise InterruptedError("stopped")
-            self.target.reset()
+            start = self.target.reset()
             self.emit({"type": "interface_start", "n": i + 1, "of": runs})
             trail: list[dict] = []
 
@@ -724,7 +750,7 @@ class Teacher:
             out = operate(session, request, sink, self.stop, max_steps=40)
             frame = self.display.shot()
             n = self._record(frame)
-            verdict = judge_final_screen(self.cloud, goal, frame, out["answer"], app_notes(self.pkg))
+            verdict = judge_final_screen(self.cloud, goal, frame, out["answer"], app_notes(self.pkg), start=start if kept_screen(getattr(self.target, "spec", None)) else None)
             self._cost()
             ok = out["finished"] and verdict["achieved"]
             passed += ok

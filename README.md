@@ -2,7 +2,7 @@
 
 **Any interface, compiled for a small model.**
 
-Point it at an app made for people, and describe a job in plain words. One of Meta's frontier models learns the job once, by using the app. From then on, the job is a tool any AI agent can call. A small open model does the work on your own computer, and code checks every step.
+Point it at an app made for people, on this computer or any other, and describe a job in plain words. One of Meta's frontier models learns the job once, by using the app. From then on, the job is a tool any AI agent can call. A small open model does the work on your own computer, and code checks every step.
 
 ![Muse Glimmer, a small open model, filling a five-step insurer form on my own GPUs. Each line on the right is a check that passed.](docs/hero.gif)
 
@@ -52,6 +52,67 @@ Muse Glimmer is running the plan, with no cloud.
 ```
 
 It was taught on one order and read another, and the answer matches the database. The login went into `~/.autoharness/logins.json` on this computer, not into the tool. Every job can be watched live at `http://127.0.0.1:4140`. First time? See [Install](#install).
+
+## Use it on your own app
+
+Same command for any app. Only the address changes.
+
+| Your app | The address to teach |
+|---|---|
+| A website or web app | its web address: `https://...` |
+| A desktop app on Linux | its command: `gnome-calculator` |
+| Anything on another computer: a Windows or Mac app, a game, a virtual machine | `vnc://that-computer`, once its screen sharing is on ([how](#turn-on-screen-sharing)) |
+
+You don't pick how it's learned. Spark reads the job and picks:
+
+- **A plan** when the same steps work every time: look up an order, fill in a form, export a report, buy something in a game's shop. Glimmer runs it, and code checks every step.
+- **A program** when each move depends on what's on the screen: win a game, solve a puzzle. Muse Wonder writes code for that app, and the code has to do the whole job on its own, five times, before it's offered.
+
+Either way, the result is a tool that `autoharness call` and any MCP agent use the same way.
+
+### Example: a game on another computer
+
+GNOME Mines, open on another screen shared over VNC by x11vnc, a standard VNC server. It was left showing a game already won. Nothing told Autoharness it was a game. Real output, shortened ([full transcript](docs/agent/7-a-game-on-another-computer.txt)):
+
+```text
+$ autoharness teach "vnc://:playtime@127.0.0.1:5912" "Win a game of Minesweeper on the 8 x 8 board. ..." --name mines
+Spark Each move depends on the revealed numbers so it must react to the board.
+So it learns this as a program: code that decides each move, written once by Muse Wonder.
+Muse Spark is using the interface for the first time.
+  Spark That results screen is blocking the board — I'll try to clear it.
+  Spark I've seen how losing works — now I'll check the remaining controls.
+Muse Wonder is writing the program and trying it.
+  ✓ Wonder wrote the program, version 2: 800 lines.
+  ✓ On its own, run 1 of 5: passed (35 s). Final Congratulations table shows a new 26-second rank-4 entry absent at start, …
+  …
+  ✓ On its own, run 5 of 5: passed (22 s). Final screen shows a new 12-second best score not present at start, proving a fresh win.
+
+Learned, for $1.24, once. It's now a tool any agent can call:
+  autoharness call mines__win_minesweeper
+
+$ autoharness call mines__win_minesweeper
+The program is doing the job, with Muse Glimmer for any look it needs. No cloud.
+✓ Verified in 32 s, checked on screen, $0 in the cloud
+{"summary": "Won an 8x8 Minesweeper game after 1 game(s) in this run; win is visible on screen.", "games_played": 1}
+```
+
+Taught once in 19 minutes. Then it won five of five fresh games on its own, and two more as a tool, one through the official MCP SDK. No second computer? `python scripts/vnc_box.py gnome-mines` opens an app on a screen shared over VNC, standing in for one.
+
+### Turn on screen sharing
+
+- **Mac:** System Settings → General → Sharing → Screen Sharing → ⓘ → turn on "VNC viewers may control screen with password". Then use `vnc://:yourpassword@your-mac.local`.
+- **Windows:** install a VNC server such as TightVNC, and set a password. Then use `vnc://:yourpassword@your-pc`.
+- **Linux:** run `x11vnc -display :0 -rfbauth ~/.vnc/passwd` on an X11 desktop.
+
+The password goes into `~/.autoharness/logins.json` on this computer, never into a plan or a tool. Over VNC, a screen bigger than 1280 × 800 is scaled down for the models, and clicks are scaled back up.
+
+Things to know:
+
+- **It starts from whatever is showing.** On its own virtual screen, Autoharness opens a fresh copy of the app for every run. It can't on another computer. So there, Spark and Wonder are told that each run must start the job afresh, a run that does nothing can't pass, and the judge sees the screen from before the run as well as after. Teach on the screen you'll run on: a plan taught on a fresh calculator failed on one that still showed an earlier sum.
+- **It moves that computer's real pointer.** Don't use that computer while a job runs on it. One job at a time per screen; a second is refused.
+- **Turn-based, not twitch.** Each look takes the small model half a second to two seconds, so games that need fast reflexes are out.
+- **Online games** often forbid bots in their terms. Use it on single-player games and software you're allowed to automate.
+- **Tested here** against x11vnc on Linux. Mac and Windows VNC servers speak the same protocol, but I haven't tested them.
 
 ## Plug it into any agent
 
@@ -205,21 +266,23 @@ Keeping these is the point. Every run is in the logs.
 - One blank answer slot in my prompt made one-field reads come back empty 11 times in 15. It looked like random failures until I measured it.
 - Rental applications still fail their bar: a missing employment date got through, because Wonder marked that field optional.
 - More readers per page mattered less than I expected. On unseen paperwork, one reader did about as well as a team of four in half the time.
-- My first design generated a Python harness with OCR. Its medication-request programs went 0 of 2. It's still in the repo as Program mode.
+- On a screen that couldn't be reset, a game program "won" five times in a row, in one second each, without a single click. It had found a game it had already won while being written, and the judge, shown only the end, agreed. Now a run that does nothing can't pass there, and the judge sees how the screen looked when the run began.
+- My first design generated a Python program for every job. Its medication-request programs went 0 of 2, so forms and records use plans. Programs are kept for jobs that decide each move, like games, where they work.
 
 ## Limits
 
 - It isn't ready for real patients or real records. Nothing here has had clinical or legal review, and all test data is made up.
 - Every app was tested on one Linux machine, and the samples are small.
 - Teaching sends screenshots to Meta's API, so don't teach it on real records. Runs don't send anything.
-- A plan can't do a job that needs real reasoning at every step, like a game. For those, Program mode generates a program instead, and it went 5 of 5 on Minesweeper where guides went 0 of 3 ([docs/BENCHMARK.md](docs/BENCHMARK.md)).
+- Nothing that needs fast reflexes. Every look takes the small model half a second to two seconds, so action games are out. Turn-based games, puzzles, menus and shops are fine.
+- A plan can't do a job that needs real reasoning at every step, like a game. `teach` then writes a program instead, which went 5 of 5 on Minesweeper where step-by-step guides went 0 of 3 ([docs/BENCHMARK.md](docs/BENCHMARK.md)).
 - Real handwriting, real faxes and a real network-cable pull are untested.
 
 ## Install
 
 You need:
 
-- **Linux with Python 3.11 or newer.** Jobs run on a virtual screen, so they never touch yours.
+- **Linux with Python 3.11 or newer.** Jobs run on a virtual screen, so they never touch yours. Apps on Windows, a Mac or another machine are reached over VNC.
 - **Room for Muse Glimmer:** 24.7 GB of open weights, on Blackwell GPUs. I use four 16 GB RTX 5060 Ti. Or point `GLIMMER_URL` at any OpenAI-compatible server that already runs Glimmer.
 - **A Meta API key, only to teach** new interfaces. Running a compiled job needs no key and no internet.
 
@@ -244,7 +307,7 @@ autoharness check                  # run again until everything is ready
 |---|---|
 | `autoharness up` | Starts the app, the made-up demo apps and Glimmer, if they aren't running, then checks everything |
 | `autoharness check` | What's ready, what's missing, and the fix for each |
-| `autoharness teach <address> "<job>"` | Teaches a new job, in plain words. `--name` names the interface |
+| `autoharness teach <address> "<job>"` | Teaches a new job, in plain words. The address is a web address, a Linux app's command, or `vnc://` for any other computer. `--name` names the interface. `--way plan` or `--way program` overrides Spark's choice |
 | `autoharness tools` | Every job an agent can call, with its inputs |
 | `autoharness call <tool> key=value ...` | Runs one job and prints the verified result |
 | `autoharness connect` | Settings for MCP clients, with your paths filled in |
@@ -263,7 +326,7 @@ Everything also works in the web app at `http://127.0.0.1:4140`.
 | Model | Role |
 |---|---|
 | **Muse Spark 1.3** | Explores each interface through computer use, and judges the final screen when teaching. It's also the example agent in `scripts/ask.py` |
-| **Muse Wonder 1.0** | Compiles what Spark did into a plan, repairs the plan from failed runs, and designs reading plans for new paperwork |
+| **Muse Wonder 1.0** | Compiles what Spark did into a plan, or writes a program when each move depends on the screen. Repairs plans from failed runs, and designs reading plans for new paperwork |
 | **Muse Glimmer**, open weights | Runs everything at run time on my own GPUs through vLLM, with no cloud |
 
 ## How this was built
