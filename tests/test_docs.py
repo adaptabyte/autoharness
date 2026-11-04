@@ -268,3 +268,14 @@ def test_a_doc_that_cant_be_read_stops_the_lesson_before_any_spending(tmp_path, 
         time.sleep(0.02)
     assert job.status == "failed"
     assert job.events[0] == {**job.events[0], "type": "error", "text": f"The docs: can't read game.exe: it reads {docs.WHAT_IT_READS}."}
+
+
+@pytest.mark.parametrize("reply,value", [
+    ('{"skills": [1]}\n\nNote: I also considered {"other": 2}.', {"skills": [1]}),  # a model adding something after the plan
+    ('```json\n{"a": 1}\n```\nand then {"b": 2}', {"a": 1}),
+    ('Fill {name} in later. {"ok": true}', {"ok": True}),
+    ('[1, 2] is the list', [1, 2]),
+])
+def test_a_reply_is_read_up_to_its_first_complete_value(reply, value):
+    from autoharness.local import extract_json
+    assert extract_json(reply) == value

@@ -33,19 +33,19 @@ def _jpeg_url(frame: np.ndarray) -> str:
 
 
 def extract_json(text: str):
-    """The first JSON value in a reply, tolerating code fences and stray words around it."""
+    """The first complete JSON value in a reply, tolerating code fences, stray words around it, and anything after it,
+    like a note or a second object."""
     text = text.strip()
     fenced = re.search(r"```(?:json)?\s*(.+?)```", text, re.S)
-    if fenced:
-        text = fenced.group(1).strip()
-    for opener, closer in (("{", "}"), ("[", "]")):
-        start = text.find(opener)
-        end = text.rfind(closer)
-        if start != -1 and end > start:
-            try:
-                return json.loads(text[start:end + 1])
-            except ValueError:
-                pass
+    decoder = json.JSONDecoder()
+    for candidate in ([fenced.group(1).strip()] if fenced else []) + [text]:
+        for opener in ("{", "["):
+            start, tries = candidate.find(opener), 0
+            while start != -1 and tries < 200:
+                try:
+                    return decoder.raw_decode(candidate, start)[0]
+                except ValueError:
+                    start, tries = candidate.find(opener, start + 1), tries + 1
     return json.loads(text)
 
 
