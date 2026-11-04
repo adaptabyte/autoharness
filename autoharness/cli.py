@@ -199,7 +199,10 @@ def up(demo: bool = True, tailscale: bool = False) -> int:
         proc = launch(name, [python, *app["start"]], app["start"][0])
         started[name] = "started, made-up data" if _wait_until(lambda u=app["url"]: answering(u), 40, proc) else f"didn't start: see {LOGS / (name + '.log')}"
     glimmer_url = config.GLIMMER_URL.rstrip("/")
-    if not answering(glimmer_url + "/models") and _local(glimmer_url):
+    loading = _state().get("glimmer")
+    if loading and _alive(loading) and not answering(glimmer_url + "/models"):
+        started["Muse Glimmer"] = "still loading from an earlier start, which takes a few minutes"
+    elif not answering(glimmer_url + "/models") and _local(glimmer_url):
         if (config.REPO / ".venv/bin/python").exists() and (config.REPO / "models/Muse-Glimmer-30B-NVFP4").exists():
             proc = launch("glimmer", ["bash", "serve/serve_glimmer.sh"], "serve_glimmer.sh")
             time.sleep(4)
