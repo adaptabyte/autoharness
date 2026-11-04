@@ -86,7 +86,7 @@ Text for the judges' private field:
 
 ## X posts
 
-Post the main one with the video or `clips/teaser.mp4`. Only claim what the video shows. **Check first:** the participant guide said Most Viral counts engagement "after the Event", so ask in Discord whether posts before Nov 4 count.
+Post the main one with the video or `clips/teaser.mp4` (49 s, now with the Robots game). Only claim what the video shows. **Check first:** the participant guide said Most Viral counts engagement "after the Event", so ask in Discord whether posts before Nov 4 count.
 
 Main post:
 
@@ -117,6 +117,10 @@ Reply 4, if there's room:
 Reply 5, if there's room:
 
 > Not just forms. Point it at a game on another computer over VNC, and Spark sees that a fixed plan won't do: each move depends on the board. So Muse Wonder writes a program instead. It won 5 of 5 fresh games on its own, with no cloud. One command.
+
+Reply 6, the strongest for "any app":
+
+> Give it the manual. GNOME Robots' keys can't be guessed: y k u h l b j n. Muse Wonder read the help site and told Spark what to check, and the program it wrote moves with exactly those keys. Level 1 cleared in 5 of 5 runs on its own. What a lesson learns becomes a guide any agent can use: autoharness.adaptabyte.com/docsdb
 
 If you filmed the cable pull, add this to the main post: "Then I pulled the ethernet cable. It kept going."
 

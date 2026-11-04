@@ -73,12 +73,12 @@ const api=async(path,body)=>{const r=await fetch(path,body===undefined?{}:{metho
 const go=hash=>{location.hash=hash?"#/"+hash:"#/"};
 let T=null;
 async function loadState(){try{T=await api("/api/team");renderPills()}catch(e){}return T}
-function renderPills(){if(!T)return;const net=T.internet;const p=$("#pills");p.replaceChildren(
+function renderPills(){if(!T)return;const net=T.internet;const p=$("#pills");p.replaceChildren(...[
   ...(T.running||[]).map(j=>h("a",{class:"pill live-pill",href:(j.kind==="ui_swarm"?"#/swarm/":"#/job/")+j.id},h("i",{class:"dot on pulse"}),j.title)),
   h("span",{class:"pill"},h("i",{class:"dot "+(net===false?"warn":"on")}),net===false?"Internet off":"Internet on"),
   h("span",{class:"pill"},h("i",{class:"dot "+(T.glimmer?"on":"off")}),T.glimmer?"Readers ready, on this computer":"Readers not running"),
   T.demo?h("span",{class:"pill"},`$${T.demo.left_usd.toFixed(2)} left for new lessons`):null,
-  T.demo?h("button",{class:"pill",style:"cursor:pointer",onclick:async()=>{await api("/api/logout",{});location.reload()}},"Sign out"):h("a",{class:"pill",href:"/apps"},"Program mode"))}
+  T.demo?h("button",{class:"pill",style:"cursor:pointer",onclick:async()=>{await api("/api/logout",{});location.reload()}},"Sign out"):h("a",{class:"pill",href:"/apps"},"Program mode")].filter(Boolean))}
 setInterval(loadState,5000);
 
 const plural=(n,w)=>`${n} ${w}${n===1?"":"s"}`;

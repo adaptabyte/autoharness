@@ -130,6 +130,7 @@ For machines: <a href="index.json">index.json</a> lists every guide.</p>""", 1))
     (out / "index.html").write_text(page("Autoharness", f"""
 <h1>Autoharness</h1><p class="lede">Point it at any app, on this computer or another. A big model learns the app once, and a small model then does the job on your
 own computer, checking every step.</p>
+<div class="card use"><h3><a href="https://demo.adaptabyte.com">Try it live</a></h3><p>For the hackathon judges: a locked-down copy running on my GPUs. The sign-in is in the submission.</p></div>
 <div class="card"><h3><a href="docsdb/">docsdb</a></h3><p>Shared guides to apps, written from real use, for any agent.</p></div>
 <div class="card"><h3><a href="{REPO_URL}">The code, and how to start</a></h3><p>One command teaches an app; any agent then calls it as a tool.</p></div>""", 0))
     (out / ".nojekyll").write_text("")

@@ -84,6 +84,27 @@ def run(pg):
     wait_verdict(pg, 400)
 
 
+def robots(pg):
+    """The program Wonder wrote from GNOME Robots' manual, run as a tool, on this computer."""
+    pg.goto(BASE + "/#/ui/robots")
+    pg.wait_for_selector("button:has-text('Run it on this computer')")
+    pg.wait_for_timeout(2000)
+    pg.click("button:has-text('Run it on this computer')")
+    mark("started")
+    wait_verdict(pg, 420)
+    mark("verdict")
+
+
+def docsdb(pg):
+    """The guide that lesson left, live in docsdb."""
+    pg.goto("https://autoharness.adaptabyte.com/docsdb/")
+    pg.wait_for_timeout(2500)
+    pg.goto("https://autoharness.adaptabyte.com/docsdb/gnome-robots/")
+    pg.wait_for_timeout(2000)
+    slow_scroll(pg, 9)
+    pg.wait_for_timeout(1000)
+
+
 def swarm(pg):
     pg.goto(BASE + "/#/ui/portal")
     pg.wait_for_selector("select")
@@ -203,7 +224,7 @@ def failed(pg):
     pg.wait_for_timeout(8000)
 
 
-CLIPSET = {"agent": agent, "table": table, "failed": failed, "home": home, "run": run, "swarm": swarm, "digit": paperwork("One wrong digit"), "stray": paperwork("Someone else"), "clean": paperwork("A clean stack"), "invoice": paperwork("An invoice"), "teach": teach}
+CLIPSET = {"robots": robots, "docsdb": docsdb, "agent": agent, "table": table, "failed": failed, "home": home, "run": run, "swarm": swarm, "digit": paperwork("One wrong digit"), "stray": paperwork("Someone else"), "clean": paperwork("A clean stack"), "invoice": paperwork("An invoice"), "teach": teach}
 
 if __name__ == "__main__":
     for name in sys.argv[1:] or list(CLIPSET):

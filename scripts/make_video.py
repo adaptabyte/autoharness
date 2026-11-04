@@ -72,6 +72,10 @@ def card_html(kind: str) -> str:
 <div><s>$</s> autoharness call orders__read_order order_number=ORD-26616</div>
 <div class=ok>✓ Verified in 22 s, 26 checks, $0 in the cloud</div></div>
 <h2 style="font-size:24px;margin-top:26px">Any MCP client: <span class=mono style="font-size:22px">127.0.0.1:4140/mcp/ui</span>, or the command <span class=mono style="font-size:22px">autoharness mcp</span></h2>{foot}</div>"""
+    if kind == "manual":
+        return f"""<div class=card><p class=kicker>Not just forms: any app, with its manual</p><h1 style="font-size:54px">Give it the manual.<br>It checks what the manual says.</h1>
+<ul><li>GNOME Robots: its keys can't be guessed. You move with y k u h l b j n.</li><li>Muse Wonder read the 8-page help site, and told Spark what to check first.</li>
+<li>The program it wrote moves with exactly those keys. Level 1 cleared in 5 of 5 runs on its own, for $1.64 once.</li></ul>{foot}</div>"""
     if kind == "table":
         rows = "".join(f"<tr><td>{escape(r[0])}</td><td class=us>{r[1]}</td><td>{r[2]}</td><td>{r[3]}</td><td class=dim>{escape(r[4])}</td></tr>" for r in proof_rows())
         return f"""<div class=card style="padding:52px 80px"><p class=kicker style="margin:0 0 4px">Measured on inputs it hadn't seen, checked against each app's own data</p>
@@ -89,6 +93,7 @@ def card_html(kind: str) -> str:
         return f"""<div class=card style="align-items:center;text-align:center">{LOGO.replace('font-size:22px', '')}
 <h1 style="margin:26px 0 12px;font-size:60px">Any interface,<br>compiled for a small model.</h1>
 <p class=mono>github.com/adaptabyte/autoharness</p>
+<p class=mono style="margin-top:6px">Try it live: demo.adaptabyte.com · Shared guides: autoharness.adaptabyte.com/docsdb</p>
 <h2 style="font-size:22px;margin-top:26px">Built with Muse Spark, Muse Wonder and Muse Glimmer (open weights).<br>Claude Code wrote most of the code.</h2></div>"""
     raise KeyError(kind)
 
@@ -103,28 +108,30 @@ def overlay_html(caption: str, speed: float) -> str:
 DRAFT = [
     ("swarm", 60, 6, 40, "Eight apps built for people. One small open model running them, on my desk. No cloud."),
     ("card:hook", 0, 8, 1, ""),
-    ("card:problem", 0, 10, 1, ""),
-    ("card:idea", 0, 8, 1, ""),
+    ("card:problem", 0, 8, 1, ""),
+    ("card:idea", 0, 7, 1, ""),
     ("home", 1.5, 5, 1, "Autoharness. Point it at any interface."),
     ("teach", 0, 7, 1, "Here's an app it has never seen. Give it the address and the job, in plain words."),
-    ("teach", 16, 9, 6, "Muse Spark uses it once, and everything is recorded."),
-    ("teach", "plan", 10, 5, "Muse Wonder compiles a plan. Then Glimmer has to pass on its own before it's kept."),
-    ("teach", "verdict", 6, 1, "Learned, for $0.13, once. Now it's a tool."),
-    ("agent", 1, 8, 1, "Any agent can call it. Here Muse Spark is the agent, asking about a customer it wasn't taught on."),
-    ("agent", 10, 8, 5, "Spark picks the job. The small model does the work in the app, on this computer."),
-    ("agent", -7, 6, 1, "Spark gets back only the verified answer. Never the screen, never the login."),
+    ("teach", 16, 8, 6, "Muse Spark uses it once, and everything is recorded."),
+    ("teach", "plan", 9, 5, "Muse Wonder compiles a plan. Then Glimmer has to pass on its own before it's kept."),
+    ("teach", "verdict", 5, 1, "Learned, for $0.13, once. Now it's a tool."),
+    ("agent", 1, 7, 1, "Any agent can call it. Here Muse Spark is the agent, asking about a customer it wasn't taught on."),
+    ("agent", 10, 6, 5, "Spark picks the job. The small model does the work in the app, on this computer."),
+    ("agent", -7, 5, 1, "Spark gets back only the verified answer. Never the screen, never the login."),
     ("card:plug", 0, 7, 1, ""),
-    ("run", 20, 8, 4, "Muse Glimmer answers one narrow question per screen. Code holds the memory."),
-    ("run", 95, 8, 2, "What it types is read back. What it reads is read twice.\nA run ends verified, or it stops and asks."),
-    ("run", -6, 4, 1, "$0.00 in the cloud."),
-    ("card:table", 0, 12, 1, ""),
-    ("digit", 25, 7, 3, "I'm a psychiatrist. Paper is an interface too: each page is read on this computer."),
-    ("digit", -9, 8, 1, "One digit differs between pages. It doesn't pick one. It comes to me, side by side."),
-    ("clean", 45, 8, 8, "Approve a clean stack, and a compiled plan fills the insurer's portal."),
+    ("card:manual", 0, 7, 1, ""),
+    ("robots", "started", 7, 8, "The program Wonder wrote from the manual, clearing level 1. On this computer, no cloud."),
+    ("docsdb", 2.5, 5, 1.5, "What a lesson learns becomes a guide in docsdb: an Agent Skill any agent can use."),
+    ("run", 20, 7, 4, "Muse Glimmer answers one narrow question per screen. Code holds the memory."),
+    ("run", 95, 6, 2, "What it types is read back. What it reads is read twice.\nA run ends verified, or it stops and asks."),
+    ("card:table", 0, 11, 1, ""),
+    ("digit", 25, 6, 3, "I'm a psychiatrist. Paper is an interface too: each page is read on this computer."),
+    ("digit", -9, 7, 1, "One digit differs between pages. It doesn't pick one. It comes to me, side by side."),
+    ("clean", 45, 7, 8, "Approve a clean stack, and a compiled plan fills the insurer's portal."),
     ("clean", -7, 5, 1, "It stops at the signature. Only a person signs."),
-    ("card:honest", 0, 7, 1, ""),
-    ("card:vision", 0, 7, 1, ""),
-    ("card:end", 0, 6, 1, ""),
+    ("card:honest", 0, 6, 1, ""),
+    ("card:vision", 0, 6, 1, ""),
+    ("card:end", 0, 7, 1, ""),
 ]
 
 TEASER = [
@@ -132,10 +139,11 @@ TEASER = [
     ("swarm", 60, 5, 40, "One small open model, on my desk, running apps built for people. No cloud."),
     ("teach", 16, 5, 12, "Meta's frontier models learn an app once..."),
     ("run", 20, 6, 4, "...and compile it, so a small model runs it on my computer, every step checked."),
-    ("agent", 10, 7, 5, "Every job becomes a tool any agent can call. The agent never sees the screen."),
-    ("card:plug", 0, 5, 1, ""),
-    ("card:table", 0, 8, 1, ""),
-    ("card:end", 0, 4, 1, ""),
+    ("agent", 10, 6, 5, "Every job becomes a tool any agent can call. The agent never sees the screen."),
+    ("robots", "started", 6, 10, "Games too. Given the manual, it learned GNOME Robots' keys and cleared level 1, five of five."),
+    ("card:plug", 0, 4, 1, ""),
+    ("card:table", 0, 6, 1, ""),
+    ("card:end", 0, 5, 1, ""),
 ]
 
 
