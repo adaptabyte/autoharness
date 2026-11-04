@@ -131,3 +131,9 @@ Called as a tool afterwards, on the restarted app:
     "level": 2,
     "attempts": 1
   }
+
+Later, as a tool: 3 of the first 4 calls cleared the level (108 to 190 s). The fourth ran out of its 600 s after 168
+moves and stopped, as it should, without claiming a win. Every move still waited its full 3 s for the animation, so the
+program went back to Wonder once, with one instruction: use app.wait_stable(ignore_small=True) during play. Wonder changed
+the waits and nothing else, passed two trials, and the program passed 5 of 5 fresh runs on its own again, now in 14 to
+54 s each, and the interface check 2 of 2. That pass cost $0.32, so learning Robots cost $1.96 in all.

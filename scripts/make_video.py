@@ -75,7 +75,7 @@ def card_html(kind: str) -> str:
     if kind == "manual":
         return f"""<div class=card><p class=kicker>Not just forms: any app, with its manual</p><h1 style="font-size:54px">Give it the manual.<br>It checks what the manual says.</h1>
 <ul><li>GNOME Robots: its keys can't be guessed. You move with y k u h l b j n.</li><li>Muse Wonder read the 8-page help site, and told Spark what to check first.</li>
-<li>The program it wrote moves with exactly those keys. Level 1 cleared in 5 of 5 runs on its own, for $1.64 once.</li></ul>{foot}</div>"""
+<li>The program it wrote moves with exactly those keys. Level 1 cleared in 5 of 5 runs on its own. Learning it cost $1.96, once.</li></ul>{foot}</div>"""
     if kind == "table":
         rows = "".join(f"<tr><td>{escape(r[0])}</td><td class=us>{r[1]}</td><td>{r[2]}</td><td>{r[3]}</td><td class=dim>{escape(r[4])}</td></tr>" for r in proof_rows())
         return f"""<div class=card style="padding:52px 80px"><p class=kicker style="margin:0 0 4px">Measured on inputs it hadn't seen, checked against each app's own data</p>
@@ -120,7 +120,7 @@ DRAFT = [
     ("agent", -7, 5, 1, "Spark gets back only the verified answer. Never the screen, never the login."),
     ("card:plug", 0, 7, 1, ""),
     ("card:manual", 0, 7, 1, ""),
-    ("robots", "started", 7, 8, "The program Wonder wrote from the manual, clearing level 1. On this computer, no cloud."),
+    ("robots", "started", 7, 6, "The program Wonder wrote from the manual, clearing level 1. On this computer, no cloud."),
     ("docsdb", 2.5, 5, 1.5, "What a lesson learns becomes a guide in docsdb: an Agent Skill any agent can use."),
     ("run", 20, 7, 4, "Muse Glimmer answers one narrow question per screen. Code holds the memory."),
     ("run", 95, 6, 2, "What it types is read back. What it reads is read twice.\nA run ends verified, or it stops and asks."),
@@ -140,7 +140,7 @@ TEASER = [
     ("teach", 16, 5, 12, "Meta's frontier models learn an app once..."),
     ("run", 20, 6, 4, "...and compile it, so a small model runs it on my computer, every step checked."),
     ("agent", 10, 6, 5, "Every job becomes a tool any agent can call. The agent never sees the screen."),
-    ("robots", "started", 6, 10, "Games too. Given the manual, it learned GNOME Robots' keys and cleared level 1, five of five."),
+    ("robots", "started", 6, 7, "Games too. Given the manual, it learned GNOME Robots' keys and cleared level 1, five of five."),
     ("card:plug", 0, 4, 1, ""),
     ("card:table", 0, 6, 1, ""),
     ("card:end", 0, 5, 1, ""),

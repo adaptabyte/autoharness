@@ -85,7 +85,7 @@ autoharness teach vnc://gamepc "Buy a health potion in the shop" --docs manual.p
 
 The docs are never taken on trust. They may describe another version of the app, so the screen wins wherever the two disagree. The plan or program still has to pass its runs on its own.
 
-Tried on GNOME Robots, whose keys can't be guessed: y, k, u, h, l, b, j and n move you, the old Unix layout. Wonder read the 8-page help site for $0.05, and its first check for Spark was whether those keys move the character. Spark checked them in the game's settings and on the board. The program Wonder wrote moves with exactly those keys, and it cleared level 1 in five of five runs on its own. The whole lesson cost $1.64 ([transcript](docs/agent/8-reading-the-manual.txt)). There's no run without the docs to compare, so this shows the docs were used, not that they saved money.
+Tried on GNOME Robots, whose keys can't be guessed: y, k, u, h, l, b, j and n move you, the old Unix layout. Wonder read the 8-page help site for $0.05, and its first check for Spark was whether those keys move the character. Spark checked them in the game's settings and on the board. The program Wonder wrote moves with exactly those keys, and it cleared level 1 in five of five runs on its own. The lesson cost $1.64. One later pass, to stop waiting out the game's animation, made each run about four times faster and cost $0.32 more ([transcript](docs/agent/8-reading-the-manual.txt)). There's no run without the docs to compare, so this shows the docs were used, not that they saved money.
 
 ### Example: a game on another computer
 
@@ -359,6 +359,8 @@ Keeping these is the point. Every run is in the logs.
 - More readers per page mattered less than I expected. On unseen paperwork, one reader did about as well as a team of four in half the time.
 - On a screen that couldn't be reset, a game program "won" five times in a row, in one second each, without a single click. It had found a game it had already won while being written, and the judge, shown only the end, agreed. Now a run that does nothing can't pass there, and the judge sees how the screen looked when the run began.
 - GNOME Robots never stops moving: its sprites animate, so "wait until the screen settles" ran its full 3 s after every move, and five trials ran out of time. Now `wait_stable(ignore_small=True)` settles that game in 0.26 s, and a trial tells Wonder when its waits time out this way.
+- As a tool, the first Robots program cleared the level in 3 of 4 calls. The fourth ran out of time after 168 slow moves and stopped without claiming a win. One pass with the animation-tolerant wait made runs 14 to 54 s, and it passed 5 of 5 again.
+- A judge-style test of the live demo, run before any judge used it, failed while compiling: Muse Wonder had added a note after the plan, and my JSON reader refused the whole reply. It now reads up to the first complete value, and the retest learned a public shop site for $0.11.
 - I tried a faster wait for screens over VNC. One Minesweeper run in three then stopped on what looked like a screen that hadn't caught up, so I took it out.
 - My first design generated a Python program for every job. Its medication-request programs went 0 of 2, so forms and records use plans. Programs are kept for jobs that decide each move, like games, where they work.
 
